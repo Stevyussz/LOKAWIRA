@@ -7,6 +7,7 @@ import { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/lokaw
 import Icon from "@/components/ui/Icon";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import { useAuth } from "@/components/layout/AuthProvider";
+import ApprovalQueue from "@/components/admin/ApprovalQueue";
 import RequireRole from "@/components/layout/RequireRole";
 import LocationPicker from "@/components/map/LocationPicker";
 import { LatLng, formatCoord } from "@/lib/geo";
@@ -19,9 +20,10 @@ function AdminContent() {
   const { user, logout } = useAuth();
   const { activeVibe, spots, setSpots, vouchers, reservations, setReservations, refreshServerData } = useLokawira();
 
-  const [activePillar, setActivePillar] = useState<"P0_P1" | "P4" | "P2" | "P3">(
+  const [activePillar, setActivePillar] = useState<"P0_P1" | "P4" | "P2" | "P3" | "APPROVAL">(
     "P4"
   );
+  const [approvalCount, setApprovalCount] = useState(0);
   const [adminToast, setAdminToast] = useState<string | null>(null);
   const [toastIsError, setToastIsError] = useState(false);
   const toast = (text: string, isError = false) => {
@@ -268,7 +270,7 @@ function AdminContent() {
         <div
           role="tablist"
           aria-label="Pilar Manajemen Admin"
-          className="gamiz-card p-2 grid grid-cols-2 lg:grid-cols-4 gap-2"
+          className="gamiz-card p-2 grid grid-cols-2 lg:grid-cols-5 gap-2"
         >
           <button
             type="button"
@@ -329,6 +331,24 @@ function AdminContent() {
             <Icon name="guide" size={16} />
             <span>4. Database OPK &amp; AI (P3)</span>
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activePillar === "APPROVAL"}
+            onClick={() => setActivePillar("APPROVAL")}
+            className={`col-span-2 lg:col-span-1 min-h-[52px] px-3 py-2 rounded-2xl text-xs font-extrabold text-center leading-tight flex items-center justify-center gap-2 transition-all ${
+              activePillar === "APPROVAL"
+                ? "bg-vibePrimary text-[var(--vibe-on-primary)]"
+                : "text-pebble hover:text-alabaster"
+            }`}
+          >
+            <Icon name="seal" size={16} />
+            <span>5. Persetujuan{approvalCount > 0 ? <> (<span className="font-num">{approvalCount}</span>)</> : null}</span>
+          </button>
+        </div>
+
+        <div hidden={activePillar !== "APPROVAL"}>
+          <ApprovalQueue spots={spots} onSpots={setSpots} onToast={toast} onCount={setApprovalCount} />
         </div>
 
         {/* P4: QUOTA & TICKETS */}

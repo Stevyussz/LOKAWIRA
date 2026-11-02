@@ -34,7 +34,7 @@ export default function LokawiraExplorerPage() {
     setActiveVibe,
     lokaPoints,
     addLokaPoints,
-    spots,
+    publicSpots: spots,
     setSpots,
     dataStatus,
     refreshServerData,

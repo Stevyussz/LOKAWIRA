@@ -7,6 +7,7 @@ import { useLokawira } from "@/components/layout/LokawiraProvider";
 import { useAuth } from "@/components/layout/AuthProvider";
 import RequireRole from "@/components/layout/RequireRole";
 import LocationPicker from "@/components/map/LocationPicker";
+import EditSpotSheet from "@/components/merchant/EditSpotSheet";
 import { CulturalSpot, CulturalVibe, IssuedVoucher, OpkCategory, SpotType } from "@/types/lokawira";
 import Icon, { IconName } from "@/components/ui/Icon";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
@@ -51,10 +52,13 @@ function FieldError({ id, msg }: { id: string; msg?: string }) {
 
 function MerchantPosContent() {
   const searchParams = useSearchParams();
-  const { user, logout } = useAuth();
+  const { user, logout, recheck } = useAuth();
   const { activeVibe, spots, setSpots, vouchers, setVouchers, refreshServerData } = useLokawira();
 
   const isAdmin = user?.role === "ADMIN";
+  // mitra baru/ditolak belum boleh mengelola lapak (server juga menolak)
+  const accountBlocked = user?.role === "MERCHANT" && !!user.status && user.status !== "ACTIVE";
+  const [rechecking, setRechecking] = useState(false);
   // mitra cuma mengurus lapak miliknya - Pengelola melihat semuanya
   const mySpots = useMemo(
     () => (isAdmin ? spots : spots.filter((s) => s.ownerId === user?.id)),
@@ -133,6 +137,7 @@ function MerchantPosContent() {
   const [lapakPin, setLapakPin] = useState<LatLng | null>(null);
   const [lapakErrors, setLapakErrors] = useState<Record<string, string>>({});
   const [lapakBusy, setLapakBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [lapakMsg, setLapakMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const regionSpots = useMemo(() => spots.filter((s) => s.vibe === lapakRegion), [spots, lapakRegion]);
@@ -192,7 +197,7 @@ function MerchantPosContent() {
     try {
       const res = await api.addSpot(draft);
       setSpots(res.spots);
-      setLapakMsg({ ok: true, text: `Lapak "${res.spot.name}" tersimpan dan tampil di peta wisatawan.` });
+      setLapakMsg({ ok: true, text: res.spot.status === "PENDING_REVIEW" ? `Lapak "${res.spot.name}" terkirim. Tampil di peta setelah pengelola menyetujui.` : `Lapak "${res.spot.name}" tersimpan dan tampil di peta wisatawan.` });
       resetLapakForm();
     } catch (err) {
       if (err instanceof ApiError && err.isOffline && DEMO_MODE) {
@@ -324,6 +329,37 @@ function MerchantPosContent() {
           </div>
         </header>
 
+        {accountBlocked && (
+          <div role="status" className="gamiz-card p-4 flex flex-col sm:flex-row sm:items-center gap-3 border-2 border-quotaWarning">
+            <span className="w-11 h-11 rounded-2xl bg-slateElev text-vibePrimary flex items-center justify-center shrink-0">
+              <Icon name={user?.status === "REJECTED" ? "alert" : "shield"} size={22} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-extrabold text-alabaster">
+                {user?.status === "REJECTED" ? "Pendaftaran mitramu ditolak" : "Akun mitramu menunggu persetujuan"}
+              </p>
+              <p className="text-xs text-pebble">
+                {user?.status === "REJECTED"
+                  ? "Hubungi pengelola kawasan untuk mengajukan ulang. Kamu belum bisa menambah atau mengubah lapak."
+                  : "Pengelola sedang memeriksa pendaftaranmu. Setelah disetujui, kamu bisa mendaftarkan lapak dan menerima voucer."}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={rechecking}
+              onClick={async () => {
+                setRechecking(true);
+                await recheck();
+                setRechecking(false);
+              }}
+              className="btn-tactile-secondary min-h-[44px] px-4 text-xs inline-flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-70"
+            >
+              {rechecking ? <Icon name="loader" size={16} weight="bold" motion="spin" /> : <Icon name="check" size={16} />}
+              <span>Periksa status</span>
+            </button>
+          </div>
+        )}
+
         {/* Ringkasan */}
         <div tabIndex={0} role="group" aria-label="Ringkasan lapak (geser dengan panah keyboard)" className="flex sm:grid sm:grid-cols-3 gap-3 overflow-x-auto scroll-hide snap-x scroll-px-4 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="gamiz-card p-4 min-w-[200px] sm:min-w-0 snap-start shrink-0 sm:shrink">
@@ -448,15 +484,29 @@ function MerchantPosContent() {
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm font-extrabold text-alabaster leading-snug">{s.name}</p>
+                        {s.status === "PENDING_REVIEW" && <p className="mt-0.5 inline-flex text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slateElev text-alabaster">Menunggu review pengelola</p>}
+                        {s.status === "REJECTED" && <p className="mt-0.5 inline-flex text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slateElev text-quotaFull">Ditolak pengelola</p>}
                         <p className="text-[11px] text-pebble">{TYPE_LABEL[s.spotType]} · {s.regionName}</p>
                         <p className="font-num text-[11px] text-pebble mt-0.5">{formatCoord(s.coordinates)}</p>
                         <p className="font-num text-[11px] font-bold text-quotaSafe mt-0.5">Promo {rupiah(s.quest.voucherReward.discountAmount)} · min. {rupiah(s.quest.voucherReward.minimumSpend)}</p>
+                        <button type="button" disabled={accountBlocked} onClick={() => setEditingId(s.id)} aria-label={`Ubah ${s.name}`} className="mt-2 btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-60">
+                          <Icon name="craft" size={16} />
+                          <span>Ubah</span>
+                        </button>
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
             </section>
+
+            <EditSpotSheet
+              spot={mySpots.find((s) => s.id === editingId) ?? null}
+              allSpots={spots}
+              isAdmin={isAdmin}
+              onClose={() => setEditingId(null)}
+              onSpots={setSpots}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               <form onSubmit={handleRegisterLapak} className="gamiz-card p-5 space-y-4" noValidate>
@@ -545,9 +595,9 @@ function MerchantPosContent() {
                   </div>
                 </div>
 
-                <button type="submit" disabled={lapakBusy} className="btn-tactile-primary w-full min-h-[52px] px-5 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-70">
+                <button type="submit" disabled={lapakBusy || accountBlocked} className="btn-tactile-primary w-full min-h-[52px] px-5 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-70">
                   {lapakBusy ? <Icon name="loader" size={18} weight="bold" motion="spin" /> : <Icon name="plusCircle" size={18} />}
-                  <span>{lapakBusy ? "Menyimpan" : "Simpan lapak ke peta"}</span>
+                  <span>{lapakBusy ? "Menyimpan" : accountBlocked ? "Menunggu persetujuan pengelola" : isAdmin ? "Simpan lapak ke peta" : "Kirim lapak untuk ditinjau"}</span>
                 </button>
 
                 {lapakMsg && (

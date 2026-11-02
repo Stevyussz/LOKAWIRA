@@ -2,13 +2,14 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
-import { AuthUser, UserRole } from "@/types/lokawira";
+import { AuthUser, MerchantStatus, UserRole } from "@/types/lokawira";
 
 import { DEMO_MODE as DEMO } from "@/lib/api";
 
 interface UserRecord extends AuthUser {
   salt: string;
   hash: string;
+  createdAt: string;
 }
 export interface CheckInRecord {
   id: string;
@@ -31,9 +32,26 @@ const g = globalThis as unknown as { lokawiraMock?: MockState };
 const hashPassword = (password: string, salt: string) =>
   crypto.scryptSync(password, salt, 32).toString("hex");
 
-function makeUser(id: string, name: string, email: string, role: UserRole, password: string): UserRecord {
+function makeUser(
+  id: string,
+  name: string,
+  email: string,
+  role: UserRole,
+  password: string,
+  status?: MerchantStatus
+): UserRecord {
   const salt = crypto.randomBytes(8).toString("hex");
-  return { id, name, email: email.toLowerCase(), role, salt, hash: hashPassword(password, salt) };
+  return {
+    id,
+    name,
+    email: email.toLowerCase(),
+    role,
+    // mitra baru nunggu persetujuan pengelola - peran lain gak punya status
+    status: role === "MERCHANT" ? (status ?? "PENDING") : undefined,
+    createdAt: new Date().toISOString(),
+    salt,
+    hash: hashPassword(password, salt),
+  };
 }
 
 export function getMock(): MockState {
@@ -43,12 +61,29 @@ export function getMock(): MockState {
       // akun demo cuma dibuat di mode demo - Kata sandi demo ditampilkan di halaman masuk (berlabel demo)
       users.push(
         makeUser("u-wisatawan-1", "Wisatawan Demo", "wisatawan@lokawira.demo", "VISITOR", "demo1234"),
-        makeUser("u-mitra-1", "Mitra Demo Trowulan", "mitra@lokawira.demo", "MERCHANT", "demo1234"),
+        makeUser("u-mitra-1", "Mitra Demo Trowulan", "mitra@lokawira.demo", "MERCHANT", "demo1234", "ACTIVE"),
+        // calon mitra + 1 titiknya biar antrean persetujuan pengelola ada isinya pas demo
+        makeUser("u-mitra-2", "Kedai Kopi Calon Mitra", "calon@lokawira.demo", "MERCHANT", "demo1234", "PENDING"),
         makeUser("u-admin-1", "Pengelola Demo", "admin@lokawira.demo", "ADMIN", "demo1234")
       );
       // Lapak cth milik mitra demo
       for (const s of getLokawiraStore().spots) {
         if (s.id === "spot-mjp-02" || s.id === "spot-mjp-03") s.ownerId = "u-mitra-1";
+      }
+      const base = getLokawiraStore().spots.find((s) => s.id === "spot-mjp-02");
+      if (base && !getLokawiraStore().spots.some((s) => s.id === "spot-demo-pending")) {
+        getLokawiraStore().spots.push({
+          ...structuredClone(base),
+          id: "spot-demo-pending",
+          ownerId: "u-mitra-2",
+          status: "PENDING_REVIEW",
+          createdAt: new Date().toISOString(),
+          name: "Kedai Kopi Pawon Trowulan",
+          spotType: "UMKM_KULINER",
+          opkCategory: "Pengetahuan Tradisional",
+          address: "Jl. Raya Trowulan, sebelah balai desa",
+          coordinates: { lat: base.coordinates.lat + 0.0012, lng: base.coordinates.lng + 0.0009 },
+        });
       }
     }
     g.lokawiraMock = { users, sessions: new Map(), failedLogins: new Map(), checkIns: [] };
@@ -56,7 +91,7 @@ export function getMock(): MockState {
   return g.lokawiraMock;
 }
 
-export const publicUser = (u: UserRecord): AuthUser => ({ id: u.id, name: u.name, email: u.email, role: u.role });
+export const publicUser = (u: UserRecord): AuthUser => ({ id: u.id, name: u.name, email: u.email, role: u.role, status: u.status });
 
 export function findUserByEmail(email: string) {
   return getMock().users.find((u) => u.email === email.toLowerCase().trim());
@@ -107,6 +142,37 @@ export function requireRole(req: NextRequest, roles: UserRole[]): { user: AuthUs
 export function ownsSpot(user: AuthUser, spotId: string): boolean {
   if (user.role === "ADMIN") return true;
   return getLokawiraStore().spots.some((s) => s.id === spotId && s.ownerId === user.id);
+}
+
+// mitra yg belum disetujui (atau ditolak) gak boleh mengelola lapak
+export function merchantBlocked(user: AuthUser): NextResponse | null {
+  if (user.role === "MERCHANT" && user.status && user.status !== "ACTIVE") {
+    return err(
+      403,
+      user.status === "PENDING" ? "Akun mitramu masih menunggu persetujuan pengelola." : "Pendaftaran mitramu ditolak pengelola.",
+      "MERCHANT_NOT_ACTIVE"
+    );
+  }
+  return null;
+}
+
+export function listMerchantRecords() {
+  return getMock().users.filter((u) => u.role === "MERCHANT");
+}
+export function setMerchantStatus(id: string, status: MerchantStatus): UserRecord | null {
+  const u = getMock().users.find((x) => x.id === id && x.role === "MERCHANT");
+  if (!u) return null;
+  u.status = status;
+  return u;
+}
+
+// titik yg boleh dilihat user ini: publik cuma yg terbit, pemilik & pengelola lihat yg menunggu/ditolak, arsip gak pernah
+export function visibleSpots(user: AuthUser | null) {
+  return getLokawiraStore().spots.filter((s) => {
+    if (s.status === "ARCHIVED") return false;
+    if (!s.status || s.status === "PUBLISHED") return true;
+    return user?.role === "ADMIN" || (!!user && s.ownerId === user.id);
+  });
 }
 
 export function rateLimitLogin(email: string): NextResponse | null {

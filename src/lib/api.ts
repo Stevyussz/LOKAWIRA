@@ -17,6 +17,14 @@ import type {
   VerifyCheckInRequest,
   VerifyCheckInResponse,
   CreateReservationRequest,
+  DeleteSpotResponse,
+  ListMerchantsResponse,
+  MerchantDecisionResponse,
+  RejectRequest,
+  SpotReviewRequest,
+  SpotReviewResponse,
+  UpdateSpotRequest,
+  UpdateSpotResponse,
   CreateReservationResponse,
   LensVerifyRequest,
   LensVerifyResponse,
@@ -130,6 +138,24 @@ export const api = {
 
   addSpot: (spot: CulturalSpot) =>
     request<AddSpotResponse>("/api/spots", { method: "POST", body: { action: "ADD_SPOT", spot } }),
+
+  updateSpot: (id: string, r: UpdateSpotRequest) =>
+    request<UpdateSpotResponse>(`/api/spots/${encodeURIComponent(id)}`, { method: "PATCH", body: r }),
+
+  deleteSpot: (id: string) =>
+    request<DeleteSpotResponse>(`/api/spots/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  listMerchants: (status?: string) =>
+    request<ListMerchantsResponse>(`/api/admin/merchants${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+
+  approveMerchant: (id: string) =>
+    request<MerchantDecisionResponse>(`/api/admin/merchants/${encodeURIComponent(id)}/approve`, { method: "POST", body: {} }),
+
+  rejectMerchant: (id: string, r: RejectRequest) =>
+    request<MerchantDecisionResponse>(`/api/admin/merchants/${encodeURIComponent(id)}/reject`, { method: "POST", body: r }),
+
+  reviewSpot: (id: string, r: SpotReviewRequest) =>
+    request<SpotReviewResponse>(`/api/admin/spots/${encodeURIComponent(id)}/review`, { method: "POST", body: r }),
 
   addAiNote: (r: AddAiNoteRequest) =>
     request<AddAiNoteResponse>("/api/spots", { method: "POST", body: { action: "ADD_AI_NOTE", ...r } }),

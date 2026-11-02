@@ -30,6 +30,8 @@ interface LokawiraContextValue {
   lokaPoints: number;
   addLokaPoints: (pts: number) => void;
   spots: CulturalSpot[];
+  // cuma titik terbit - dipake peta & pencarian wisatawan (titik menunggu review gak tampil)
+  publicSpots: CulturalSpot[];
   setSpots: React.Dispatch<React.SetStateAction<CulturalSpot[]>>;
   vouchers: IssuedVoucher[];
   setVouchers: React.Dispatch<React.SetStateAction<IssuedVoucher[]>>;
@@ -157,6 +159,7 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
         lokaPoints,
         addLokaPoints,
         spots,
+        publicSpots: spots.filter((s) => !s.status || s.status === "PUBLISHED"),
         setSpots,
         vouchers,
         setVouchers,
