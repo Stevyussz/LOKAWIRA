@@ -9,7 +9,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const auth = requireRole(request, ["ADMIN"]);
   if ("res" in auth) return auth.res;
   const { id } = await ctx.params;
-  const u = setMerchantStatus(id, "REJECTED");
+  const body = await request.json().catch(() => ({}));
+  const u = setMerchantStatus(id, "REJECTED", String(body.reason ?? "").trim());
   if (!u) return jsonError(404, "Mitra tidak ditemukan.");
   const spotCount = getLokawiraStore().spots.filter((s) => s.ownerId === u.id && s.status !== "ARCHIVED").length;
   return NextResponse.json({

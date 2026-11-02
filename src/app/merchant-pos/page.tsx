@@ -340,7 +340,7 @@ function MerchantPosContent() {
               </p>
               <p className="text-xs text-pebble">
                 {user?.status === "REJECTED"
-                  ? "Hubungi pengelola kawasan untuk mengajukan ulang. Kamu belum bisa menambah atau mengubah lapak."
+                  ? `${user?.statusReason ? `Alasan: ${user.statusReason}. ` : ""}Hubungi pengelola kawasan untuk mengajukan ulang. Kamu belum bisa menambah atau mengubah lapak.`
                   : "Pengelola sedang memeriksa pendaftaranmu. Setelah disetujui, kamu bisa mendaftarkan lapak dan menerima voucer."}
               </p>
             </div>
@@ -485,7 +485,12 @@ function MerchantPosContent() {
                       <div className="min-w-0">
                         <p className="text-sm font-extrabold text-alabaster leading-snug">{s.name}</p>
                         {s.status === "PENDING_REVIEW" && <p className="mt-0.5 inline-flex text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slateElev text-alabaster">Menunggu review pengelola</p>}
-                        {s.status === "REJECTED" && <p className="mt-0.5 inline-flex text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slateElev text-quotaFull">Ditolak pengelola</p>}
+                        {s.status === "REJECTED" && (
+                          <>
+                            <p className="mt-0.5 inline-flex text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slateElev text-quotaFull">Ditolak pengelola</p>
+                            {s.statusReason && <p className="text-[11px] text-pebble">Alasan: {s.statusReason}</p>}
+                          </>
+                        )}
                         <p className="text-[11px] text-pebble">{TYPE_LABEL[s.spotType]} · {s.regionName}</p>
                         <p className="font-num text-[11px] text-pebble mt-0.5">{formatCoord(s.coordinates)}</p>
                         <p className="font-num text-[11px] font-bold text-quotaSafe mt-0.5">Promo {rupiah(s.quest.voucherReward.discountAmount)} · min. {rupiah(s.quest.voucherReward.minimumSpend)}</p>

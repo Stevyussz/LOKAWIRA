@@ -20,6 +20,9 @@ export default function ApprovalQueue({ spots, onSpots, onToast, onCount }: Prop
   const [merchants, setMerchants] = useState<MerchantSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // id yg lagi nunggu alasan penolakan diisi
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
   const pendingSpots = spots.filter((s) => s.status === "PENDING_REVIEW");
   const pendingMerchants = (merchants ?? []).filter((m) => m.status === "PENDING");
@@ -43,10 +46,16 @@ export default function ApprovalQueue({ spots, onSpots, onToast, onCount }: Prop
     if (merchants) onCount?.(pendingMerchants.length + pendingSpots.length);
   }, [merchants, pendingMerchants.length, pendingSpots.length, onCount]);
 
+  const openReject = (id: string) => {
+    setRejectingId(id);
+    setReason("");
+  };
+
   const decideMerchant = async (m: MerchantSummary, approve: boolean) => {
     setBusyId(m.id);
     try {
-      const res = approve ? await api.approveMerchant(m.id) : await api.rejectMerchant(m.id, {});
+      const res = approve ? await api.approveMerchant(m.id) : await api.rejectMerchant(m.id, { reason: reason.trim() || undefined });
+      setRejectingId(null);
       setMerchants((prev) => (prev ?? []).map((x) => (x.id === m.id ? res.merchant : x)));
       onToast(approve ? `${m.name} disetujui sebagai mitra.` : `${m.name} ditolak.`);
     } catch (err) {
@@ -59,7 +68,8 @@ export default function ApprovalQueue({ spots, onSpots, onToast, onCount }: Prop
   const decideSpot = async (s: CulturalSpot, publish: boolean) => {
     setBusyId(s.id);
     try {
-      const res = await api.reviewSpot(s.id, { decision: publish ? "PUBLISH" : "REJECT" });
+      const res = await api.reviewSpot(s.id, { decision: publish ? "PUBLISH" : "REJECT", reason: publish ? undefined : reason.trim() || undefined });
+      setRejectingId(null);
       onSpots(res.spots);
       onToast(publish ? `"${s.name}" diterbitkan di peta.` : `"${s.name}" ditolak.`);
     } catch (err) {
@@ -100,8 +110,18 @@ export default function ApprovalQueue({ spots, onSpots, onToast, onCount }: Prop
                     Daftar {new Date(m.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} · <span className="font-num">{m.spotCount}</span> lapak
                   </p>
                 </div>
+                                {rejectingId === m.id && (
+                  <div className="space-y-2">
+                    <label htmlFor="rj-m.id" className="block text-xs font-bold text-pebble">Alasan penolakan (opsional, dilihat mitra)</label>
+                    <textarea id="rj-m.id" rows={2} maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl bg-basalt border border-stoneStrong text-sm text-alabaster" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setRejectingId(null)} className={btnNo}>Batal</button>
+                      <button type="button" disabled={busyId === m.id} onClick={() => decideMerchant(m, false)} className={btnNo}>Kirim penolakan</button>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" disabled={busyId === m.id} onClick={() => decideMerchant(m, false)} aria-label={`Tolak ${m.name}`} className={btnNo}>Tolak</button>
+                  <button type="button" disabled={busyId === m.id} onClick={() => openReject(m.id)} aria-label={`Tolak ${m.name}`} aria-expanded={rejectingId === m.id} className={btnNo}>Tolak</button>
                   <button type="button" disabled={busyId === m.id} onClick={() => decideMerchant(m, true)} aria-label={`Setujui ${m.name}`} className={btnYes}>
                     {busyId === m.id ? <Icon name="loader" size={16} weight="bold" motion="spin" /> : <Icon name="check" size={16} />}
                     <span>Setujui</span>
@@ -130,8 +150,18 @@ export default function ApprovalQueue({ spots, onSpots, onToast, onCount }: Prop
                   <p className="text-[11px] text-pebble">{s.address}</p>
                   <p className="text-[11px] text-pebble mt-1">Petunjuk misi: {s.quest.riddleClue}</p>
                 </div>
+                                {rejectingId === s.id && (
+                  <div className="space-y-2">
+                    <label htmlFor="rj-s.id" className="block text-xs font-bold text-pebble">Alasan penolakan (opsional, dilihat mitra)</label>
+                    <textarea id="rj-s.id" rows={2} maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl bg-basalt border border-stoneStrong text-sm text-alabaster" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setRejectingId(null)} className={btnNo}>Batal</button>
+                      <button type="button" disabled={busyId === s.id} onClick={() => decideSpot(s, false)} className={btnNo}>Kirim penolakan</button>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" disabled={busyId === s.id} onClick={() => decideSpot(s, false)} aria-label={`Tolak titik ${s.name}`} className={btnNo}>Tolak</button>
+                  <button type="button" disabled={busyId === s.id} onClick={() => openReject(s.id)} aria-label={`Tolak titik ${s.name}`} aria-expanded={rejectingId === s.id} className={btnNo}>Tolak</button>
                   <button type="button" disabled={busyId === s.id} onClick={() => decideSpot(s, true)} aria-label={`Terbitkan titik ${s.name}`} className={btnYes}>
                     {busyId === s.id ? <Icon name="loader" size={16} weight="bold" motion="spin" /> : <Icon name="check" size={16} />}
                     <span>Terbitkan</span>

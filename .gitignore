@@ -6,3 +6,5 @@ tsconfig.tsbuildinfo
 .env.local
 .env*.local
 next-env.d.ts
+test-results/
+playwright-report/

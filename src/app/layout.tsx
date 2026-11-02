@@ -1,23 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Figtree, Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { LokawiraProvider } from "@/components/layout/LokawiraProvider";
 import PerfMode from "@/components/ui/PerfMode";
 import { AuthProvider } from "@/components/layout/AuthProvider";
 import { LocationProvider } from "@/components/layout/LocationProvider";
 
+// font ditanam di repo (src/app/fonts, lisensi OFL) biar build gak bergantung ke jaringan/Google Fonts
 // Figtree: sans bulat & ramah utk UI game yg dibbaca cepat di HP
-const figtree = Figtree({
-  subsets: ["latin"],
+const figtree = localFont({
+  src: "./fonts/figtree-latin-wght-normal.woff2",
   variable: "--font-body",
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "300 900",
+  display: "swap",
 });
 
 // Fraunces: serif hangat dgn ujung membulat, terasa kyk cetakan lontar & buku cerita rakyat
-const fraunces = Fraunces({
-  subsets: ["latin"],
+const fraunces = localFont({
+  src: "./fonts/fraunces-latin-wght-normal.woff2",
   variable: "--font-display",
-  weight: ["500", "600", "700", "800"],
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {

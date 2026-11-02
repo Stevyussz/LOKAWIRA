@@ -31,6 +31,8 @@ export interface AuthUser {
   role: UserRole;
   // cuma ada buat MERCHANT. kosong = dianggap ACTIVE (data lama)
   status?: MerchantStatus;
+  // alasan dari pengelola kalo ditolak (usulan, opsional)
+  statusReason?: string;
 }
 
 export interface CulturalSpot {
@@ -41,6 +43,8 @@ export interface CulturalSpot {
   createdAt?: string;
   // kosong = dianggap PUBLISHED (data lama)
   status?: SpotStatus;
+  // alasan dari pengelola kalo ditolak (usulan, opsional)
+  statusReason?: string;
   name: string;
   regionName: string;
   vibe: CulturalVibe;

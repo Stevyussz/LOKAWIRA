@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const { id } = await ctx.params;
   const target = getLokawiraStore().spots.find((s) => s.id === id);
   if (!target || target.status === "ARCHIVED") return jsonError(404, "Titik lokasi tidak ditemukan.");
-  let body: { decision?: string };
+  let body: { decision?: string; reason?: string };
   try {
     body = await request.json();
   } catch {
@@ -19,5 +19,6 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   }
   if (body.decision !== "PUBLISH" && body.decision !== "REJECT") return jsonError(400, "Keputusan tidak valid.");
   target.status = body.decision === "PUBLISH" ? "PUBLISHED" : "REJECTED";
+  target.statusReason = body.decision === "REJECT" && body.reason ? String(body.reason).trim().slice(0, 200) || undefined : undefined;
   return NextResponse.json({ spot: target, spots: visibleSpots(auth.user) });
 }

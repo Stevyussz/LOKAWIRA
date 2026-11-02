@@ -92,7 +92,7 @@ export function getMock(): MockState {
   return g.lokawiraMock;
 }
 
-export const publicUser = (u: UserRecord): AuthUser => ({ id: u.id, name: u.name, email: u.email, role: u.role, status: u.status });
+export const publicUser = (u: UserRecord): AuthUser => ({ id: u.id, name: u.name, email: u.email, role: u.role, status: u.status, statusReason: u.statusReason });
 
 export function findUserByEmail(email: string) {
   return getMock().users.find((u) => u.email === email.toLowerCase().trim());
@@ -160,10 +160,11 @@ export function merchantBlocked(user: AuthUser): NextResponse | null {
 export function listMerchantRecords() {
   return getMock().users.filter((u) => u.role === "MERCHANT");
 }
-export function setMerchantStatus(id: string, status: MerchantStatus): UserRecord | null {
+export function setMerchantStatus(id: string, status: MerchantStatus, reason?: string): UserRecord | null {
   const u = getMock().users.find((x) => x.id === id && x.role === "MERCHANT");
   if (!u) return null;
   u.status = status;
+  u.statusReason = status === "REJECTED" && reason ? reason.slice(0, 200) : undefined;
   return u;
 }
 

@@ -277,7 +277,7 @@ C. Persetujuan mitra dan review titik
   - request: decision (PUBLISH atau REJECT), reason?
   - response: spot dan spots
   - error: 404, 409 kalo udh diputusin
-  - frontend: UDH BERES. Dasbor mitra nampilin banner nunggu persetujuan (tombol Periksa status manggil /api/auth/me) dan nonaktifin tambah/ubah lapak. Dasbor admin punya tab Persetujuan buat mitra dan titik yg nunggu. Server contoh ngirim kode ACCOUNT_NOT_APPROVED. Catatan: reason di reject belum ada kolom isiannya di UI.
+  - frontend: UDH BERES. Dasbor mitra nampilin banner nunggu persetujuan (tombol Periksa status manggil /api/auth/me) dan nonaktifin tambah/ubah lapak. Dasbor admin punya tab Persetujuan buat mitra dan titik yg nunggu. Server contoh ngirim kode ACCOUNT_NOT_APPROVED. Alasan penolakan (opsional, maks 200 karakter) udh ada kolom isiannya di dasbor admin, disimpan di field statusReason (AuthUser dan CulturalSpot, tipe udh ditambahin) dan ditampilin ke mitra di banner dan kartu lapak. Pas disetujui atau diterbitkan, statusReason dikosongin.
 
 D. Akun
 
@@ -320,7 +320,10 @@ F. Geofence check-in
   - anti-spam: satu check-in per pengunjung per titik per hari
   - geofence harus bisa dimatiin lewat env biar demo juri aman
   - jgn nyimpen koordinat mentah lebih lama dari perlu (UU PDP)
-  - frontend: minta izin lokasi, ngirim koordinat, dan nampilin pesan jarak. Belum ada, dan butuh kebijakan privasi plus persetujuan lokasi yg beneran dulu
+  - kode galat tambahan yg udh dipake UI: 409 ALREADY_CHECKED_IN_TODAY, dan 403 IMPOSSIBLE_TRAVEL (check-in ke titik lain dalam 10 menit terakhir dgn kecepatan antar-titik mustahil, server contoh batasnya 40 m/detik). Di OUT_OF_RANGE, details sebaiknya ngirim distanceMeters DAN radiusMeters, UI nampilin dua2nya.
+  - env server contoh: GEOFENCE_ENABLED=true buat nyalain (default mati), GEOFENCE_RADIUS_METERS buat radius (default 100)
+  - penting soal "gak bisa dibohongin": GPS dari browser BISA dipalsuin (aplikasi lokasi palsu, devtools). Frontend gak bisa nyegah itu. Pertahanan yg beneran ada di server: radius plus batas akurasi, satu check-in per titik per hari, cek kecepatan mustahil antar titik, rate limit per akun dan per IP, dan yg paling kuat kode kehadiran yg dicek langsung sama mitra di lapak (udh ada). Scan objek foto juga jadi bukti kedua. Jangan pernah percaya hasil jarak yg dihitung di klien, server selalu ngitung ulang.
+  - frontend: UDH BERES. Check-in nyoba dulu tanpa lokasi, kalo server bales 400 LOCATION_REQUIRED baru UI minta persetujuan lokasi (sheet persetujuan LOKAWIRA sendiri sebelum izin peramban), baca lokasi SEKALI, lalu ngulang dgn lat, lng, accuracyMeters. Jadi pas geofence mati (demo juri) gak ada pop-up sama sekali. Ada juga pemandu arah di kartu titik (jarak, panah, link rute Google Maps) dan titik Kamu dari GPS asli di peta. Posisi pas dipandu cuma dipake di perangkat, gak dikirim ke server. Izin bisa dicabut di sheet Akun. Teks persetujuan masih DRAF (ada penanda di mode demo), perlu diganti kebijakan privasi resmi, dan janji di teks itu (koordinat mentah gak disimpen lebih lama dari perlu) HARUS ditepati backend.
 
 G. Isi snapshot per peran dan pagination
 
@@ -399,3 +402,11 @@ BAGIAN 10 - Catatan tmbahan klo jdi make ts/nodejs
 - Kode unik voucer (LKW-) dan kode kehadiran (KDR-): bikin pake crypto.randomInt, trus kasih unique index di database dan ulangi kalo tabrakan.
 - Uang pake bilangan bulat rupiah, waktu pake ISO 8601 UTC, id pake string.
 - Opsi lain: karena sama2 TS, endpoint bisa ditaruh di Next.js (route handler) di project yg sama dan gak butuh CORS. Tapi alur teknis nentuin backend di VPS, dan di Vercel serverless gak bisa nyimpen state di memori, jadi tetep butuh database dan batasan jalannya beda. Pilih salah satu jgn dua2nya.
+
+K. Tes otomatis (QA)
+
+- folder tests/e2e plus playwright.config.ts: 17 tes (aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, geofence, scanner)
+- jalanin: npm run test:e2e. Itu otomatis build (dgn NEXT_PUBLIC_DEMO_MODE=true) lalu start di port 3210 dgn geofence nyala. Hentikan npm run dev dulu karena build nulis ke folder .next yg sama
+- browser: pake chromium dari Playwright 1.58.0. Kalo belum ada: npx playwright install chromium
+- tes ke server lain (mis staging): QA_URL=https://alamat npm run test:e2e. Server itu harus mode demo dan geofence nyala, kalo gak tes geofence bakal gagal
+- font Figtree dan Fraunces sekarang ditanam di src/app/fonts (lisensi OFL), jadi build gak lagi butuh akses ke Google Fonts
