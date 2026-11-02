@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { MotionConfig, motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
-import { api, describeError } from "@/lib/api";
+import { api, DEMO_MODE, describeError } from "@/lib/api";
+import { fileToJpeg, shrinkToJpeg, ACCEPTED_IMAGE_TYPES } from "@/lib/image";
 import {
   CulturalSpot,
   IssuedVoucher,
@@ -37,7 +37,7 @@ export default function ObjectLensScanner({
   const [cameraNotice, setCameraNotice] = useState<string>(
     "Sampel artefak siap dipindai (Cocok untuk pengujian di laptop maupun ponsel)"
   );
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<LensVerificationResult | null>(null);
@@ -125,10 +125,16 @@ export default function ObjectLensScanner({
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setUploadedFileName(file.name);
-      setCameraNotice(`Foto terpilih: ${file.name}`);
+    e.target.value = "";
+    if (!file) return;
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setScanError("Format foto harus JPEG, PNG, atau WebP.");
+      return;
     }
+    setScanError(null);
+    setScanResult(null);
+    setUploadedFile(file);
+    setCameraNotice(`Foto terpilih: ${file.name}`);
   };
 
   const handleExecuteScan = async () => {
@@ -137,16 +143,30 @@ export default function ObjectLensScanner({
     setScanResult(null);
 
     try {
-      const data: LensVerificationResult = await api.verifyLens({
-        sampleId: currentSample.id,
-        spotId: activeSpot?.id || currentSample.spotId,
-        customImageName: uploadedFileName || undefined,
-      });
+      const spotId = activeSpot?.id || currentSample.spotId;
+      let data: LensVerificationResult;
+      // foto beneran (kamera atau unggahan) dikirim sbg gambar. Sampel kurasi cuma buat mode demo
+      const video = videoRef.current;
+      if (cameraActive && video && video.videoWidth > 0) {
+        data = await api.verifyLensImage(spotId, await shrinkToJpeg(video));
+      } else if (uploadedFile) {
+        data = await api.verifyLensImage(spotId, await fileToJpeg(uploadedFile));
+      } else if (DEMO_MODE) {
+        data = await api.verifyLens({ sampleId: currentSample.id, spotId });
+      } else {
+        setScanError("Ambil foto dengan kamera atau pilih dari galeri dulu.");
+        return;
+      }
+      // objek gak dikenali: tanpa kartu, voucer, atau XP
+      if (!data.isVerified) {
+        setScanError(data.message || "Objek belum dikenali. Coba foto lebih dekat, terang, dan fokus ke satu objek.");
+        return;
+      }
       setScanResult(data);
 
       const newLore: UnlockedLoreCard = {
         id: `lore-${Date.now().toString(36)}`,
-        spotId: activeSpot?.id || currentSample.spotId,
+        spotId,
         objectName: data.detectedObjectName,
         opkCategory: data.opkReference,
         verifiedSource: data.verifiedSource,
@@ -157,11 +177,7 @@ export default function ObjectLensScanner({
 
       onScanVerified(data, newLore, data.issuedVoucher);
     } catch (err) {
-      setScanError(
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan saat memindai objek budaya."
-      );
+      setScanError(describeError(err, err instanceof Error ? err.message : "Terjadi kesalahan saat memindai objek budaya."));
     } finally {
       setIsScanning(false);
     }
@@ -302,7 +318,7 @@ export default function ObjectLensScanner({
         <div className="bg-obsidian rounded-2xl p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-pebble">
-              Pilih Sampel Objek (Uji Tanpa Kamera):
+              {DEMO_MODE ? "Pilih Sampel Objek (Uji Tanpa Kamera):" : "Ambil foto objek budaya:"}
             </span>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -327,6 +343,16 @@ export default function ObjectLensScanner({
             </div>
           </div>
 
+          {uploadedFile && (
+            <p className="text-[11px] text-pebble flex items-center gap-2">
+              <span className="truncate">Foto: {uploadedFile.name}</span>
+              <button type="button" onClick={() => { setUploadedFile(null); setCameraNotice("Foto dilepas."); }} className="min-h-[44px] px-2 font-extrabold text-vibePrimary underline underline-offset-2 shrink-0">
+                Lepas
+              </button>
+            </p>
+          )}
+
+          {DEMO_MODE && (
           <div className="flex flex-wrap gap-1.5">
             {CULTURAL_OBJECT_SAMPLES.map((sample) => {
               const isSelected = sample.id === selectedSampleId;
@@ -350,6 +376,7 @@ export default function ObjectLensScanner({
               );
             })}
           </div>
+          )}
         </div>
 
         {/* Primary Tactile Scan CTA */}
@@ -373,7 +400,7 @@ export default function ObjectLensScanner({
         </button>
 
         {scanError && (
-          <div className="p-4 rounded-2xl bg-obsidian border border-quotaFull text-xs text-alabaster">
+          <div role="alert" className="p-4 rounded-2xl bg-obsidian border border-quotaFull text-xs text-alabaster">
             {scanError}
           </div>
         )}
@@ -472,12 +499,11 @@ export default function ObjectLensScanner({
             )}
 
             <div className="flex flex-wrap items-center justify-end gap-2 px-5 pb-5">
-              <Link
-                href="/merchant-pos"
-                className="btn-tactile-secondary min-h-[44px] px-4 py-2 text-xs flex items-center gap-1.5"
-              >
-                <span>Tukar di Kasir UMKM</span>
-              </Link>
+              {scanResult.issuedVoucher && (
+                <p className="text-[11px] text-pebble mr-auto max-w-[16rem]">
+                  Tunjukkan kode voucer ini ke kasir lapak untuk ditukar.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleSaveToBag}

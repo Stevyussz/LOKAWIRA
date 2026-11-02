@@ -310,7 +310,7 @@ E. Upload gambar buat scanner
   - response: LensVerificationResult. Kalo objek GAK dikenali: tetep status 200, isVerified false, confidenceScore kecil, ada message (alasan buat user), dan TANPA issuedVoucher
   - error: 400 kalo gak ada file, 413 IMAGE_TOO_LARGE, 415 IMAGE_TYPE_UNSUPPORTED
   - anti-spam: sekarang tiap scan nerbitin voucer baru tanpa batas. Di produksi batasin satu voucer per pengunjung per titik per hari (tamu: per perangkat)
-  - frontend: gw kudu ubah scanner supaya ngirim foto beneran (dikecilin dulu ke sisi terpanjang 1280 px) dan nampilin kasus isVerified false. Sekarang UI selalu nampilin sukses.
+  - frontend: UDH BERES. Scanner ngirim foto beneran (kamera atau unggahan) sbg multipart, dikecilin dulu ke sisi terpanjang 1280 px jadi JPEG (file field namanya image). Kalo isVerified false, UI nampilin message dan GAK ngasih kartu, voucer, atau XP. Mode sampel (JSON sampleId) cuma muncul pas mode demo. Server contoh nganggep foto di bawah 8 KB sbg objek gak dikenali, itu cuma akal2an demo, bukan logika AI.
 
 F. Geofence check-in
 

@@ -10,8 +10,36 @@ export async function POST(request: NextRequest) {
   const off = mockDisabled();
   if (off) return off;
   try {
-    const body = await request.json();
-    const { sampleId, spotId, customImageName } = body;
+    const isUpload = (request.headers.get("content-type") ?? "").includes("multipart/form-data");
+    let sampleId: string | undefined;
+    let spotId: string | undefined;
+    let customImageName: string | undefined;
+    if (isUpload) {
+      const form = await request.formData();
+      const file = form.get("image");
+      spotId = String(form.get("spotId") ?? "");
+      if (!(file instanceof File)) return NextResponse.json({ error: "Foto belum dilampirkan." }, { status: 400 });
+      if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "Foto lebih dari 5 MB.", code: "IMAGE_TOO_LARGE" }, { status: 413 });
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        return NextResponse.json({ error: "Format foto harus JPEG, PNG, atau WebP.", code: "IMAGE_TYPE_UNSUPPORTED" }, { status: 415 });
+      }
+      // server cth gak punya model AI: foto yg terlalu kecil dianggap gak dikenali (biar kasus gagalnya bisa dicoba)
+      if (file.size < 8 * 1024) {
+        const miss: LensVerificationResult = {
+          isVerified: false,
+          confidenceScore: 0.12,
+          detectedObjectName: "",
+          culturalStory: "",
+          opkReference: "Cagar Budaya",
+          verifiedSource: "",
+          awardedPoints: 0,
+          message: "Objek belum dikenali. Coba foto lebih dekat, terang, dan fokus ke satu objek.",
+        };
+        return NextResponse.json(miss);
+      }
+    } else {
+      ({ sampleId, spotId, customImageName } = await request.json());
+    }
     const store = getLokawiraStore();
 
     const sample =

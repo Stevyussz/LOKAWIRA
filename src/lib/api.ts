@@ -95,7 +95,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   signal?.addEventListener("abort", () => controller.abort());
 
   const headers: Record<string, string> = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  // FormData: biarkan peramban ngisi Content-Type + boundary sendiri
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   const token = tokenProvider?.();
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -105,7 +107,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
       method,
       headers,
       credentials: CREDENTIALS,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
       signal: controller.signal,
     });
   } catch (err) {
@@ -205,6 +207,14 @@ export const api = {
 
   verifyLens: (r: LensVerifyRequest) =>
     request<LensVerifyResponse>("/api/ai/lens-verify", { method: "POST", body: r, timeoutMs: 30000 }),
+
+  // versi upload: foto dikecilin dulu (src/lib/image.ts), server balas LensVerificationResult
+  verifyLensImage: (spotId: string, image: Blob) => {
+    const form = new FormData();
+    form.append("spotId", spotId);
+    form.append("image", image, "scan.jpg");
+    return request<LensVerifyResponse>("/api/ai/lens-verify", { method: "POST", body: form, timeoutMs: 45000 });
+  },
 
   askStoryteller: (r: StorytellerRequest) =>
     request<StorytellerResponse>("/api/ai/storyteller", { method: "POST", body: r, timeoutMs: 30000 }),
