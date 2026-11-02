@@ -492,7 +492,7 @@ function AdminContent() {
                 {nsErrors.source && <p role="alert" className="mt-1 text-xs font-bold text-quotaFull">{nsErrors.source}</p>}
               </div>
               <div>
-                <label htmlFor="ns-story" className="block text-xs font-bold text-pebble mb-1.5">Narasi Ki Narada</label>
+                <label htmlFor="ns-story" className="block text-xs font-bold text-pebble mb-1.5">Narasi Loka</label>
                 <textarea id="ns-story" rows={3} value={nsStory} onChange={(e) => setNsStory(e.target.value)} className={`${FIELD} py-3`} />
                 {nsErrors.story && <p role="alert" className="mt-1 text-xs font-bold text-quotaFull">{nsErrors.story}</p>}
               </div>

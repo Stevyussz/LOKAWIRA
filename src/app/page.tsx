@@ -333,7 +333,7 @@ export default function LokawiraExplorerPage() {
         onChangeFilter={setFilterType}
       />
 
-      {/* 3 - FLOATING COLLAPSIBLE KI NARADA AI STORYTELLER */}
+      {/* 3 - FLOATING COLLAPSIBLE LOKA AI STORYTELLER */}
       <StoryTellerDock
         selectedSpot={selectedSpot}
         isExpanded={isStoryExpanded}

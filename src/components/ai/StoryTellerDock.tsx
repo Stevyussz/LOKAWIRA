@@ -1,5 +1,6 @@
 "use client";
 
+import Loka from "@/components/brand/Loka";
 import React, { useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { useVibeHex } from "@/lib/vibeColors";
@@ -105,7 +106,7 @@ export default function StoryTellerDock({
       setCustomQuery("");
       setShowAskInput(false);
     } catch (err) {
-      setAskError(describeError(err, "Ki Narada belum bisa dihubungi. Periksa koneksi lalu coba lagi."));
+      setAskError(describeError(err, "Loka belum bisa dihubungi. Periksa koneksi lalu coba lagi."));
     } finally {
       setIsLoadingAi(false);
     }
@@ -117,7 +118,7 @@ export default function StoryTellerDock({
     {isExpanded && (
     <motion.aside
       key="story-dock"
-      aria-label="Ki Narada AI StoryTeller"
+      aria-label="Loka, pemandu AI"
       initial={{ opacity: 0, y: -14, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -10, scale: 0.98 }}
@@ -131,34 +132,15 @@ export default function StoryTellerDock({
         {/* Compact Companion Header (Always Visible) */}
         <div className="flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Illustrated Nusantara Guardian Shield */}
+            {/* avatar Loka */}
             <div className="w-11 h-11 rounded-2xl bg-slateElev flex items-center justify-center shrink-0">
-              <svg
-                viewBox="0 0 36 36"
-                className="w-7 h-7"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M18 3L31 9V18C31 25.5 25.4 31.8 18 34C10.6 31.8 5 25.5 5 18V9L18 3Z"
-                  fill="var(--vibe-surface-tint)"
-                  stroke="var(--vibe-primary)"
-                  strokeWidth="2.2"
-                />
-                <circle cx="18" cy="15" r="4.5" fill="var(--vibe-secondary)" />
-                <path
-                  d="M11 26C12.5 22.5 15 21 18 21C21 21 23.5 22.5 25 26"
-                  stroke="var(--text-alabaster)"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <Loka variant="mark" size={34} mood={isLoadingAi ? "think" : "happy"} />
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-extrabold text-vibePrimary">
-                  Ki Narada
+                  Loka
                 </span>
                 <span className="text-[11px] text-pebble truncate">
                   • {selectedSpot.opkCategory}
@@ -295,7 +277,7 @@ export default function StoryTellerDock({
                       autoFocus
                       value={customQuery}
                       onChange={(e) => setCustomQuery(e.target.value)}
-                      aria-label="Pertanyaan untuk Ki Narada"
+                      aria-label="Pertanyaan untuk Loka"
                       placeholder="Tanya makna simbol atau sejarah..."
                       className="flex-1 min-h-[44px] px-3 py-1.5 rounded-xl bg-obsidian border border-stoneStrong text-xs text-alabaster placeholder:text-ashMuted"
                     />

@@ -14,7 +14,7 @@ interface BottomNavConsoleProps {
   isPrimaryCrowded: boolean;
 }
 
-// Peta: kmebali ke jelajah - Kisah: cerita Ki Narada
+// Peta: kmebali ke jelajah - Kisah: cerita Loka
 const ITEMS: { id: Section; label: string; icon: IconName }[] = [
   { id: "MAP", label: "Peta", icon: "compass" },
   { id: "STORY", label: "Kisah", icon: "story" },

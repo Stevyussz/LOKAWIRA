@@ -60,7 +60,7 @@ Ada tiga peran: VISITOR (wisatawan), MERCHANT (mitra UMKM atau sanggar), ADMIN (
 
 Aturan per aksi yg udah dijalnin server contoh (tiru persis):
 - Lihat peta, titik, kuota: semua boleh (tamu, wisatawan, mitra, admin)
-- Reservasi, scan objek, tanya Ki Narada, check-in: semua boleh
+- Reservasi, scan objek, tanya Loka, check-in: semua boleh
 - Tebus voucer (redeem): mitra cuma buat voucer lapaknya sendiri, admin semua. Tamu dan wisatawan gak boleh.
 - Tambah titik (ADD_SPOT): mitra boleh, ownerId diisi id dia sendiri, dan gak boleh bikin jenis PRIMARY_DEST. Admin boleh semua jenis. Tamu dan wisatawan gak boleh.
 - Atur promo (UPDATE_PROMO): mitra cuma lapaknya sendiri, admin semua dan cuma admin yg boleh ngubah rewardPoints.
