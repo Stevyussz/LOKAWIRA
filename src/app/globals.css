@@ -271,6 +271,10 @@ body {
   -webkit-backdrop-filter: none;
   background: var(--bg-basalt-card);
 }
+/* animasi tanpa henti dijeda saat peta digeser, biar frame cuma buat gerakan */
+.map-moving .animate-pin-bob,
+.map-moving .animate-ground-pulse,
+.map-moving .animate-ping { animation-play-state: paused; }
 [data-perf="low"] .animate-pin-bob,
 [data-perf="low"] .animate-ground-pulse,
 [data-perf="low"] .animate-ping { animation: none !important; }
@@ -390,7 +394,7 @@ body {
   background-color: var(--vibe-primary);
 }
 
-/* batang suara pas Ki Narada berbicara (transform aja, ringan) */
+/* batang suara pas Loka berbicara (transform aja, ringan) */
 @keyframes audioBar { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
 .audio-bar { transform-origin: bottom; animation: audioBar 0.9s ease-in-out infinite; }
 [data-perf="low"] .audio-bar { animation: none; transform: scaleY(0.7); }

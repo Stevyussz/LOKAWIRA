@@ -7,8 +7,9 @@ import { CulturalSpot, CulturalVibe, SurfaceTheme } from "@/types/lokawira";
 import { VIBE_METADATA } from "@/lib/seedCulturalData";
 import { VIBE_HEX } from "@/lib/vibeColors";
 import MapBackdrop from "@/components/map/MapBackdrop";
+import Loka from "@/components/brand/Loka";
 import { DEMO_MODE } from "@/lib/api";
-import { CANVAS_H, CANVAS_W, ORIGIN_ON_CANVAS, ZONE_RADIUS_UNITS, Point, anchorSpot, project, regionOrigin } from "@/lib/geo";
+import { CANVAS_H, CANVAS_W, ORIGIN_ON_CANVAS, ZONE_RADIUS_UNITS, Point, anchorSpot, distanceMeters, formatDistance, project, regionOrigin } from "@/lib/geo";
 import { matchesSpotFilter, SpotFilter, SPOT_FILTER_OPTIONS } from "@/lib/spotFilter";
 
 interface CulturalQuestMapProps {
@@ -30,8 +31,10 @@ interface CulturalQuestMapProps {
   isSurgeDemo?: boolean;
   onToggleSurgeDemo?: () => void;
   // posisi GPS asli pengguna (kalo lagi dipandu). Kosong = penanda 'Kamu' simulasi cuma tampil di mode demo
-  userPosition?: { lat: number; lng: number } | null;
+  userPosition?: { lat: number; lng: number; heading?: number | null } | null;
 }
+
+const INITIAL_ZOOM = 1.05;
 
 // Posisi peemain pd kanvas (simulasi; GPS nyata blm tersedia)
 const PLAYER_POSITION = { x: 1120, y: 830 };
@@ -52,9 +55,67 @@ export default function CulturalQuestMap({
   userPosition = null,
 }: CulturalQuestMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [zoom, setZoom] = useState<number>(1.05);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // pan & zoom disimpan di ref, bkn state: tiap gerak jari cuma nulis transform, gak render ulang React
+  const worldRef = useRef<HTMLDivElement | null>(null);
+  const viewRef = useRef<{ x: number; y: number; zoom: number }>({ x: 0, y: 0, zoom: INITIAL_ZOOM });
+  const rafRef = useRef<number | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  // animate=true buat gerak dr kode (terbang, pusatkan, tombol), false buat jari
+  const applyView = (next: Partial<{ x: number; y: number; zoom: number }>, animate = false) => {
+    const v = { ...viewRef.current, ...next };
+    viewRef.current = v;
+    const el = worldRef.current;
+    if (!el) return;
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      el.style.transition = animate ? "transform 500ms ease-out" : "none";
+      el.style.transform = `translate3d(calc(-50% + ${v.x}px), calc(-50% + ${v.y}px), 0) scale(${v.zoom})`;
+      el.style.setProperty("--iz", String(1 / v.zoom));
+      updateEdge();
+    });
+  };
+  // chip di tepi layar: muncul kalo titik tujuan di luar tampilan, nunjuk arahnya + jarak
+  const edgeRef = useRef<HTMLButtonElement | null>(null);
+  const edgeInfoRef = useRef<{ x: number; y: number; label: string } | null>(null);
+  const updateEdge = () => {
+    const el = edgeRef.current;
+    const info = edgeInfoRef.current;
+    const box = containerRef.current;
+    if (!el) return;
+    if (!info || !box) {
+      el.style.display = "none";
+      return;
+    }
+    const { x, y, zoom } = viewRef.current;
+    const w = box.clientWidth;
+    const h = box.clientHeight;
+    const sx = w / 2 + x + (info.x - 1200) * zoom;
+    const sy = h / 2 + y + (info.y - 800) * zoom;
+    // area aman: di luar HUD atas, kartu bawah, & kolom tombol kanan
+    const left = 28, right = w - 96, top = 150, bottom = h - (w < 640 ? 300 : 120);
+    if (sx > left && sx < right && sy > top && sy < bottom) {
+      el.style.display = "none";
+      return;
+    }
+    const cx = (left + right) / 2;
+    const cy = (top + bottom) / 2;
+    const k = Math.min(
+      sx === cx ? Infinity : ((sx > cx ? right : left) - cx) / (sx - cx),
+      sy === cy ? Infinity : ((sy > cy ? bottom : top) - cy) / (sy - cy)
+    );
+    const px = cx + (sx - cx) * k;
+    const py = cy + (sy - cy) * k;
+    el.style.display = "flex";
+    el.style.left = `${px}px`;
+    el.style.top = `${py}px`;
+    const arrow = el.firstElementChild as HTMLElement | null;
+    if (arrow) arrow.style.transform = `rotate(${(Math.atan2(sy - cy, sx - cx) * 180) / Math.PI + 90}deg)`;
+    const text = el.lastElementChild as HTMLElement | null;
+    if (text && text.textContent !== info.label) text.textContent = info.label;
+  };
+  const clampZoom = (z: number) => Math.max(0.4, Math.min(1.8, Number(z.toFixed(2))));
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number }>({
     x: 0,
     y: 0,
@@ -104,18 +165,17 @@ export default function CulturalQuestMap({
       const fitH = (availH - 120) / Math.max(1, maxY - minY);
       const fit = Math.min(1.05, Math.max(0.42, Math.min(fitW, fitH)));
       autoFitRef.current = true;
-      setZoom(Number(fit.toFixed(2)));
       // geser sedikit ke kiri biar isi gak tertutup kolom tombol kamera di kanan
-      setPan({ x: (1200 - cx) * fit - (isMobile ? 48 : 0), y: (800 - cy) * fit - (isMobile ? 70 : 0) });
+      applyView({ zoom: Number(fit.toFixed(2)), x: (1200 - cx) * fit - (isMobile ? 48 : 0), y: (800 - cy) * fit - (isMobile ? 70 : 0) }, true);
       return;
     }
 
     if (autoFitRef.current) {
       autoFitRef.current = false;
-      setZoom(1.05);
+      viewRef.current.zoom = INITIAL_ZOOM;
     }
     const targetPos = posOf(sel);
-    setPan({ x: (1200 - targetPos.x) * 0.65, y: (780 - targetPos.y) * 0.65 });
+    applyView({ zoom: viewRef.current.zoom, x: (1200 - targetPos.x) * 0.65, y: (780 - targetPos.y) * 0.65 }, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSpot, spots]);
 
@@ -132,12 +192,12 @@ export default function CulturalQuestMap({
     if ((e.target as HTMLElement).closest("button")) return;
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointersRef.current.size === 2) {
-      pinchRef.current = { dist: pinchDistance(), zoom };
+      pinchRef.current = { dist: pinchDistance(), zoom: viewRef.current.zoom };
       setIsDragging(false);
       return;
     }
     setIsDragging(true);
-    dragStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    dragStartRef.current = { x: e.clientX, y: e.clientY, panX: viewRef.current.x, panY: viewRef.current.y };
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -146,13 +206,13 @@ export default function CulturalQuestMap({
 
     if (pointersRef.current.size >= 2 && pinchRef.current) {
       const ratio = pinchDistance() / (pinchRef.current.dist || 1);
-      setZoom(Math.max(0.4, Math.min(1.8, Number((pinchRef.current.zoom * ratio).toFixed(2)))));
+      applyView({ zoom: clampZoom(pinchRef.current.zoom * ratio) });
       return;
     }
     if (!isDragging) return;
     const dx = e.clientX - dragStartRef.current.x;
     const dy = e.clientY - dragStartRef.current.y;
-    setPan({
+    applyView({
       x: Math.max(-620, Math.min(620, dragStartRef.current.panX + dx)),
       y: Math.max(-460, Math.min(460, dragStartRef.current.panY + dy)),
     });
@@ -166,12 +226,11 @@ export default function CulturalQuestMap({
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     const delta = e.deltaY < 0 ? 0.1 : -0.1;
-    setZoom((z) => Math.max(0.4, Math.min(1.8, Number((z + delta).toFixed(2)))));
+    applyView({ zoom: clampZoom(viewRef.current.zoom + delta) });
   };
 
   const handleRecenter = () => {
-    setPan({ x: 0, y: 0 });
-    setZoom(1.05);
+    applyView({ x: 0, y: 0, zoom: INITIAL_ZOOM }, true);
   };
 
   const activeTargetPos = selectedSpot ? posOf(selectedSpot) : ORIGIN_ON_CANVAS;
@@ -187,6 +246,14 @@ export default function CulturalQuestMap({
     : DEMO_MODE
     ? PLAYER_POSITION
     : null;
+
+  // kerucut: arah jalan kalo GPS punya heading, kalo diam mengarah ke tujuan
+  const coneDeg =
+    typeof userPosition?.heading === "number"
+      ? userPosition.heading
+      : playerPos && selectedSpot
+      ? (Math.atan2(activeTargetPos.x - playerPos.x, -(activeTargetPos.y - playerPos.y)) * 180) / Math.PI
+      : 0;
 
   // pengalihan antrean: situs utama >= 85% memunculkan jalur ke mitra terdekat
   const primarySpotData = anchorSpot(spots);
@@ -212,6 +279,21 @@ export default function CulturalQuestMap({
       ? "Makan & Minum"
       : "Oleh-oleh";
 
+  const edgeLabel = userPosition && selectedSpot ? formatDistance(distanceMeters(userPosition, selectedSpot.coordinates)) : "";
+  useEffect(() => {
+    edgeInfoRef.current = userPosition && selectedSpot ? { x: activeTargetPos.x, y: activeTargetPos.y, label: edgeLabel } : null;
+    updateEdge();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userPosition, selectedSpot, activeTargetPos.x, activeTargetPos.y, edgeLabel]);
+
+  const focusTarget = () => {
+    const z = viewRef.current.zoom;
+    applyView(
+      { x: Math.max(-620, Math.min(620, (1200 - activeTargetPos.x) * z)), y: Math.max(-460, Math.min(460, (800 - activeTargetPos.y) * z)) },
+      true
+    );
+  };
+
   const handleSelect = (spot: CulturalSpot) => {
     if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10);
     onSelectSpot(spot);
@@ -228,16 +310,17 @@ export default function CulturalQuestMap({
       role="region"
       aria-label={`Peta eksplorasi budaya ${vibeMeta.region}`}
       className={`fixed inset-0 w-screen h-screen overflow-hidden select-none ${
-        isDragging ? "cursor-grabbing" : "cursor-grab"
+        isDragging ? "cursor-grabbing map-moving" : "cursor-grab"
       }`}
       style={{ backgroundColor: "var(--map-land)", touchAction: "none" }}
     >
       <div
-        className={`w-[2400px] h-[1600px] absolute left-1/2 top-1/2 ${
-          isDragging ? "" : "transition-transform duration-500 ease-out"
-        }`}
+        ref={worldRef}
+        className="w-[2400px] h-[1600px] absolute left-1/2 top-1/2"
         style={{
-          transform: `translate3d(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px), 0) scale(${zoom})`,
+          transform: `translate3d(calc(-50% + 0px), calc(-50% + 0px), 0) scale(${INITIAL_ZOOM})`,
+          willChange: "transform",
+          ["--iz" as string]: String(1 / INITIAL_ZOOM),
         }}
       >
         <svg viewBox="0 0 2400 1600" className="w-full h-full" aria-hidden="true">
@@ -275,6 +358,7 @@ export default function CulturalQuestMap({
             stroke="var(--vibe-primary)"
             strokeWidth="5"
             strokeLinecap="round"
+            strokeDasharray="2 14"
           />
           </>)}
 
@@ -318,25 +402,39 @@ export default function CulturalQuestMap({
             })}
         </svg>
 
-        {/* Posisi pemain */}
+        {/* Posisi pemain: Loka (ujung pin = titik tepat) + kerucut arah */}
         {playerPos && (
-        <div
-          style={{
-            left: `${playerPos.x}px`,
-            top: `${playerPos.y}px`,
-            scale: String(1 / zoom),
-            transition: "scale 500ms ease-out",
-          }}
-          className="absolute -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none flex flex-col items-center"
-        >
-          <div className="relative flex items-center justify-center">
-            <span className="w-16 h-16 rounded-full bg-[#1F6FB5]/25 animate-ping absolute" />
-            <div className="w-7 h-7 rounded-full bg-[#1F6FB5] ring-4 ring-[var(--bg-basalt-card)] shadow-lg" />
-          </div>
-          <span className="mt-1.5 px-2.5 py-0.5 rounded-full bg-basalt text-[11px] font-extrabold text-alabaster shadow-sm">
-            Kamu
-          </span>
-        </div>
+          <>
+            <div
+              style={{ left: `${playerPos.x}px`, top: `${playerPos.y}px`, scale: "var(--iz)" }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-[39] pointer-events-none"
+              aria-hidden="true"
+            >
+              <svg
+                viewBox="0 0 160 160"
+                width="230"
+                height="230"
+                style={{ transform: `rotate(${coneDeg}deg)` }}
+              >
+                <defs>
+                  <radialGradient id="coneGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#1F8A83" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#1F8A83" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                <path d="M80 80 L40 8 A84 84 0 0 1 120 8 Z" fill="url(#coneGrad)" />
+              </svg>
+            </div>
+            <div
+              style={{ left: `${playerPos.x}px`, top: `${playerPos.y}px`, scale: "var(--iz)" }}
+              className="absolute -translate-x-1/2 -translate-y-full origin-bottom z-40 pointer-events-none flex flex-col items-center"
+            >
+              <Loka variant="mark" size={52} label="Posisimu" />
+              <span className="absolute top-full mt-1 px-2.5 py-0.5 rounded-full bg-basalt text-[11px] font-extrabold text-alabaster shadow-sm">
+                Kamu
+              </span>
+            </div>
+          </>
         )}
 
         {/* Marker */}
@@ -374,8 +472,7 @@ export default function CulturalQuestMap({
               style={{
                 left: `${pos.x}px`,
                 top: `${pos.y}px`,
-                scale: String(1 / zoom),
-                transition: "transform 300ms, scale 500ms ease-out",
+                scale: "var(--iz)",
               }}
               className={`absolute -translate-x-1/2 -translate-y-full origin-bottom ${
                 isSelected ? "z-30 scale-[1.3]" : "z-20 hover:scale-110"
@@ -384,7 +481,7 @@ export default function CulturalQuestMap({
               {/* bayangan & gelombang di tanah */}
               <span
                 aria-hidden="true"
-                className="absolute left-1/2 -translate-x-1/2 bottom-[-6px] w-9 h-3 rounded-[50%] bg-[#4A341C]/30 blur-[2px]"
+                className="absolute left-1/2 -translate-x-1/2 bottom-[-6px] w-9 h-3 rounded-[50%] bg-[#4A341C]/25"
               />
               {isSelected && (
                 <span
@@ -402,7 +499,7 @@ export default function CulturalQuestMap({
                 className="relative block w-[56px] h-[68px] before:absolute before:-inset-3 before:content-['']"
               >
                 <span className={isSelected ? "animate-pin-bob block" : "block"}>
-                  <svg viewBox="0 0 64 76" className="w-[56px] h-[68px] drop-shadow-[0_6px_6px_rgba(74,52,28,0.3)]" aria-hidden="true">
+                  <svg viewBox="0 0 64 76" className="w-[56px] h-[68px]" aria-hidden="true">
                     <defs>
                       <linearGradient id={`pg-${spot.id}`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={body} />
@@ -489,6 +586,18 @@ export default function CulturalQuestMap({
         </div>
       )}
 
+      <button
+        ref={edgeRef}
+        type="button"
+        onClick={focusTarget}
+        aria-label="Geser peta ke titik tujuan"
+        style={{ display: "none" }}
+        className="fixed z-20 -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full bg-basalt px-3 min-h-[44px] text-[11px] font-extrabold text-alabaster shadow-md border border-stoneStrong"
+      >
+        <span aria-hidden="true" className="inline-flex text-vibePrimary"><Icon name="up" size={18} weight="bold" /></span>
+        <span />
+      </button>
+
       {/* kontrol kaera: zoom cuma di layar lebar, di HP pakai cubit */}
       <div
         className="fixed right-3 sm:right-5 z-20 flex flex-col gap-2 top-1/2 -translate-y-1/2"
@@ -497,7 +606,7 @@ export default function CulturalQuestMap({
         <div className="andesite-glass rounded-2xl p-1 hidden sm:flex flex-col">
           <button
             type="button"
-            onClick={() => setZoom((z) => Math.min(1.8, Number((z + 0.15).toFixed(2))))}
+            onClick={() => applyView({ zoom: clampZoom(viewRef.current.zoom + 0.15) }, true)}
             aria-label="Perbesar peta"
             className="min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center text-alabaster hover:bg-slateElev transition-colors"
           >
@@ -506,7 +615,7 @@ export default function CulturalQuestMap({
           <div className="h-px bg-stoneSubtle mx-2" />
           <button
             type="button"
-            onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.15).toFixed(2))))}
+            onClick={() => applyView({ zoom: clampZoom(viewRef.current.zoom - 0.15) }, true)}
             aria-label="Perkecil peta"
             className="min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center text-alabaster hover:bg-slateElev transition-colors"
           >

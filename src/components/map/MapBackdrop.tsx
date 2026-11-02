@@ -32,9 +32,6 @@ export default function MapBackdrop() {
               />
               <circle cx="48" cy="48" r="4" fill="var(--map-pattern)" />
             </pattern>
-            <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="#4A341C" floodOpacity="0.16" />
-            </filter>
           </defs>
 
           <rect width="2400" height="1600" fill="var(--map-land)" />
@@ -42,7 +39,7 @@ export default function MapBackdrop() {
           <rect width="2400" height="1600" fill="url(#landGlow)" />
 
           {/* Blok kawasan */}
-          <g filter="url(#softShadow)">
+          <g>
             {[
               [640, 380, 440, 280],
               [1140, 360, 520, 310],
@@ -50,7 +47,11 @@ export default function MapBackdrop() {
               [1320, 740, 480, 360],
               [920, 1120, 560, 280],
             ].map(([x, y, w, h]) => (
-              <rect key={`${x}-${y}`} x={x} y={y} width={w} height={h} rx="48" fill="url(#blockGrad)" />
+              <g key={`${x}-${y}`}>
+                {/* bayangan murah: kotak geser, tanpa filter blur (berat di HP) */}
+                <rect x={x} y={y + 12} width={w} height={h} rx="48" fill="#4A341C" fillOpacity="0.12" />
+                <rect x={x} y={y} width={w} height={h} rx="48" fill="url(#blockGrad)" />
+              </g>
             ))}
           </g>
 
