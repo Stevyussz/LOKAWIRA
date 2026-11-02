@@ -2,7 +2,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
-import { AuthUser, MerchantStatus, UserRole } from "@/types/lokawira";
+import { AuthUser, MerchantStatus, UnlockedLoreCard, UserRole } from "@/types/lokawira";
 
 import { DEMO_MODE as DEMO } from "@/lib/api";
 
@@ -20,7 +20,15 @@ export interface CheckInRecord {
   verified: boolean;
   verifiedAt?: string;
 }
+// catatan per akun yg login: XP ditentukan SERVER, klien gak bisa ngarang
+export interface ProfileRecord {
+  xp: number;
+  loreCards: UnlockedLoreCard[];
+  voucherCodes: Set<string>;
+  ticketIds: Set<string>;
+}
 interface MockState {
+  profiles: Map<string, ProfileRecord>;
   users: UserRecord[];
   sessions: Map<string, string>;
   failedLogins: Map<string, { count: number; until: number }>;
@@ -87,9 +95,23 @@ export function getMock(): MockState {
         });
       }
     }
-    g.lokawiraMock = { users, sessions: new Map(), failedLogins: new Map(), checkIns: [], resetTokens: new Map() };
+    g.lokawiraMock = { users, profiles: new Map(), sessions: new Map(), failedLogins: new Map(), checkIns: [], resetTokens: new Map() };
   }
   return g.lokawiraMock;
+}
+
+export function profileOf(userId: string): ProfileRecord {
+  const m = getMock();
+  let p = m.profiles.get(userId);
+  if (!p) {
+    // wisatawan demo mulai dari 420 XP biar sama dgn tampilan tamu di mode demo
+    p = { xp: DEMO && userId === "u-wisatawan-1" ? 420 : 0, loreCards: [], voucherCodes: new Set(), ticketIds: new Set() };
+    m.profiles.set(userId, p);
+  }
+  return p;
+}
+export function awardXp(userId: string | null | undefined, points: number) {
+  if (userId && points > 0) profileOf(userId).xp += points;
 }
 
 export const publicUser = (u: UserRecord): AuthUser => ({ id: u.id, name: u.name, email: u.email, role: u.role, status: u.status, statusReason: u.statusReason });
@@ -214,6 +236,7 @@ export function deleteUser(id: string) {
   m.users = m.users.filter((u) => u.id !== id);
   for (const [tok, uid] of m.sessions) if (uid === id) m.sessions.delete(tok);
   m.checkIns = m.checkIns.filter((c) => c.userId !== id);
+  m.profiles.delete(id);
   for (const sp of getLokawiraStore().spots) if (sp.ownerId === id) sp.status = "ARCHIVED";
 }
 

@@ -49,6 +49,7 @@ export default function LokawiraExplorerPage() {
     setLoreCards,
     checkedInSpotIds,
     markSpotCheckedIn,
+    syncProfile,
   } = useLokawira();
   const { position: userPosition, getFix } = useLocation();
 
@@ -192,6 +193,8 @@ export default function LokawiraExplorerPage() {
         newVoucher?.code || ""
       } masuk ke Tas.`
     );
+    // user login: samakan dgn catatan server (XP gak boleh cuma percaya hitungan klien)
+    syncProfile();
   };
 
   const handleReservationCreated = (
@@ -206,6 +209,7 @@ export default function LokawiraExplorerPage() {
     notify(
       `E-Ticket ${reservation.ticketId} (${reservation.scheduledSlot}) aktif! +75 XP ditambahkan.`
     );
+    syncProfile();
   };
 
   const handleCheckInQuest = async (spot: CulturalSpot) => {
@@ -229,6 +233,7 @@ export default function LokawiraExplorerPage() {
       addLokaPoints(res.awardedPoints);
       setCheckInCodes((prev) => ({ ...prev, [spot.id]: res.checkIn.code }));
       notify(`Check-in di ${spot.name} berhasil. +${res.awardedPoints} XP. Tunjukkan kode kehadiranmu ke pemilik lapak.`);
+      syncProfile();
     } catch (err) {
       if (err instanceof LocationError) {
         notify(

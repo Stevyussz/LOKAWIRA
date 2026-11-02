@@ -2,7 +2,7 @@ import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
-import { currentUser, getMock, jsonError } from "@/lib/server/mockBackend";
+import { awardXp, currentUser, getMock, jsonError } from "@/lib/server/mockBackend";
 import { distanceMeters } from "@/lib/geo";
 
 // geofence nyala kalo GEOFENCE_ENABLED=true (env server, default mati biar demo juri aman). Radius & batas akurasi bisa diatur
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
     verified: false,
   };
   getMock().checkIns.unshift(checkIn);
+  awardXp(user?.id, 50);
   return NextResponse.json({
     checkIn: { id: checkIn.id, code, spotId: spot.id, createdAt: checkIn.createdAt },
     awardedPoints: 50,

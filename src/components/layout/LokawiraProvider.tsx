@@ -44,6 +44,8 @@ interface LokawiraContextValue {
   uiStateOverride: "NORMAL" | "LOADING" | "EMPTY" | "ERROR";
   setUiStateOverride: (st: "NORMAL" | "LOADING" | "EMPTY" | "ERROR") => void;
   refreshServerData: () => Promise<void>;
+  // ambil XP, kartu lore, check-in, tas, dan tiket milik akun login dari server (gak ngapa2in buat tamu)
+  syncProfile: () => Promise<void>;
   // loading: menunggu server - live: data dr server - offline: server tak terjangkau (data cth kalo mode demo)
   dataStatus: "loading" | "live" | "offline";
 }
@@ -105,6 +107,23 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const syncProfile = async () => {
+    if (!authUser) return;
+    try {
+      const p = await api.getProfile();
+      setLokaPoints(p.xp);
+      setLoreCards(p.loreCards);
+      setCheckedInSpotIds(p.checkedInSpotIds);
+      // buat mitra/admin, voucer & tiket di snapshot itu milik lapaknya, bkn tas pribadi
+      if (authUser.role === "VISITOR") {
+        setVouchers(p.vouchers);
+        setReservations(p.reservations);
+      }
+    } catch {
+      // server tak terjangkau: tampilan lokal dibiarkan, dicoba lagi pas sinkron berikutnya
+    }
+  };
+
   // muat data pas sesi pertama kali jelas, & muat ulang pas user masuk/keluar: isi snapshot bergantung peran (mis
   const prevAuthId = useRef<string | null | undefined>(undefined);
   useEffect(() => {
@@ -114,10 +133,13 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
     if (prevAuthId.current !== undefined && prevAuthId.current !== currentId) {
       setVouchers(DEMO_MODE ? INITIAL_VOUCHERS : []);
       setReservations(DEMO_MODE ? INITIAL_RESERVATIONS : []);
+      setLokaPoints(DEMO_MODE ? 420 : 0);
+      setLoreCards(DEMO_MODE ? INITIAL_LORE_CARDS : []);
+      setCheckedInSpotIds([]);
     }
     prevAuthId.current = currentId;
     spotsTouchedRef.current = false;
-    refreshServerData();
+    refreshServerData().then(syncProfile);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id, authStatus]);
 
@@ -140,8 +162,8 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
 
   const markSpotCheckedIn = (spotId: string) => {
     if (!checkedInSpotIds.includes(spotId)) {
+      // XP-nya ditambah pemanggil sesuai awardedPoints dari server (dulu ke-tambah dua kali)
       setCheckedInSpotIds((prev) => [...prev, spotId]);
-      setLokaPoints((prev) => prev + 50);
     }
   };
 
@@ -172,6 +194,7 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
         uiStateOverride,
         setUiStateOverride,
         refreshServerData,
+        syncProfile,
         dataStatus,
       }}
     >

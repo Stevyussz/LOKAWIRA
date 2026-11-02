@@ -1,5 +1,6 @@
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
+import { awardXp, currentUser, profileOf } from "@/lib/server/mockBackend";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { IssuedVoucher, ReservationPass } from "@/types/lokawira";
 
@@ -34,6 +35,11 @@ export async function POST(request: NextRequest) {
     };
 
     store.reservations.unshift(newReservation);
+    const user = currentUser(request);
+    if (user) {
+      profileOf(user.id).ticketIds.add(newReservation.ticketId);
+      awardXp(user.id, 75);
+    }
 
     let bonusVoucher: IssuedVoucher | undefined;
     if (acceptCircularQuest) {
@@ -50,13 +56,16 @@ export async function POST(request: NextRequest) {
         status: "ACTIVE",
       };
       store.vouchers.unshift(bonusVoucher);
+      if (user) profileOf(user.id).voucherCodes.add(bonusVoucher.code);
     }
 
+    // user login cuma dikasih miliknya sendiri, tamu dikasih semua (cuma buat demo)
+    const mine = user ? profileOf(user.id) : null;
     return NextResponse.json({
       reservation: newReservation,
       bonusVoucher,
-      reservations: store.reservations,
-      vouchers: store.vouchers,
+      reservations: mine ? store.reservations.filter((r) => mine.ticketIds.has(r.ticketId)) : store.reservations,
+      vouchers: mine ? store.vouchers.filter((v) => mine.voucherCodes.has(v.code)) : store.vouchers,
     });
   } catch {
     return NextResponse.json(

@@ -9,6 +9,7 @@ import type {
   CheckInResponse,
   LoginRequest,
   MeResponse,
+  ProfileResponse,
   RegisterRequest,
   TicketCheckInRequest,
   TicketCheckInResponse,
@@ -189,6 +190,8 @@ export const api = {
   register: (r: RegisterRequest) => request<AuthSessionResponse>("/api/auth/register", { method: "POST", body: r }),
 
   me: () => request<MeResponse>("/api/auth/me"),
+
+  getProfile: () => request<ProfileResponse>("/api/me/profile"),
 
   logout: () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST", body: {} }),
 

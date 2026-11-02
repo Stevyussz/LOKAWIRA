@@ -1,7 +1,7 @@
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
-import { getMock, jsonError, ownsSpot, requireRole } from "@/lib/server/mockBackend";
+import { awardXp, getMock, jsonError, ownsSpot, requireRole } from "@/lib/server/mockBackend";
 
 // mitra meverifikasi kode kehadira pengnjung di lappaknya, sekali saj
 export async function POST(request: NextRequest) {
@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
   const spot = getLokawiraStore().spots.find((s) => s.id === rec.spotId);
   rec.verified = true;
   rec.verifiedAt = new Date().toISOString();
+  // XP verifikasi masuk ke wisatawan yg check-in (kalo dia login)
+  awardXp(rec.userId, spot?.quest.rewardPoints ?? 0);
   return NextResponse.json({
     verified: true,
     spotId: rec.spotId,

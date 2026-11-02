@@ -1,4 +1,4 @@
-import { mockDisabled } from "@/lib/server/mockBackend";
+import { awardXp, currentUser, mockDisabled, profileOf } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import {
   CULTURAL_OBJECT_SAMPLES,
@@ -79,6 +79,24 @@ export async function POST(request: NextRequest) {
       awardedPoints: spot.quest.rewardPoints,
       issuedVoucher,
     };
+
+    // user login: XP, voucer, dan kartu lore dicatat di akunnya oleh server
+    const user = currentUser(request);
+    if (user) {
+      const prof = profileOf(user.id);
+      prof.voucherCodes.add(issuedVoucher.code);
+      awardXp(user.id, responsePayload.awardedPoints);
+      prof.loreCards.unshift({
+        id: `lore-${Date.now().toString(36)}`,
+        spotId: spot.id,
+        objectName: responsePayload.detectedObjectName,
+        opkCategory: responsePayload.opkReference,
+        verifiedSource: responsePayload.verifiedSource,
+        story: responsePayload.culturalStory,
+        unlockedAt: new Date().toISOString(),
+        confidenceScore: responsePayload.confidenceScore,
+      });
+    }
 
     return NextResponse.json(responsePayload);
   } catch {

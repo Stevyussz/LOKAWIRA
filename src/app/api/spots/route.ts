@@ -2,7 +2,7 @@ import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { CulturalSpot, CulturalVibe } from "@/types/lokawira";
-import { currentUser, jsonError, merchantBlocked, ownsSpot, requireRole, visibleSpots } from "@/lib/server/mockBackend";
+import { currentUser, jsonError, merchantBlocked, ownsSpot, profileOf, requireRole, visibleSpots } from "@/lib/server/mockBackend";
 
 export async function GET(request: NextRequest) {
   const off = mockDisabled();
@@ -20,10 +20,15 @@ export async function GET(request: NextRequest) {
   const mine = new Set(store.spots.filter((s) => s.ownerId === user?.id).map((s) => s.id));
   const isMerchant = user?.role === "MERCHANT";
 
+  const prof = user?.role === "VISITOR" ? profileOf(user.id) : null;
   return NextResponse.json({
     spots,
-    vouchers: isMerchant ? store.vouchers.filter((v) => mine.has(v.spotId)) : store.vouchers,
-    reservations: isMerchant ? [] : store.reservations,
+    vouchers: prof
+      ? store.vouchers.filter((v) => prof.voucherCodes.has(v.code))
+      : isMerchant
+      ? store.vouchers.filter((v) => mine.has(v.spotId))
+      : store.vouchers,
+    reservations: prof ? store.reservations.filter((r) => prof.ticketIds.has(r.ticketId)) : isMerchant ? [] : store.reservations,
     aiTrainingNotes: store.aiTrainingNotes,
   });
 }
