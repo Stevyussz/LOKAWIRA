@@ -26,6 +26,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     return jsonError(400, "Format permintaan tidak valid.");
   }
   const isAdmin = auth.user.role === "ADMIN";
+  const before = { name: target.name, lat: target.coordinates.lat, lng: target.coordinates.lng };
 
   if (body.name !== undefined) {
     const name = String(body.name).trim();
@@ -69,6 +70,9 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       target.quest.rewardPoints = Math.max(0, Math.min(1000, Number(q.rewardPoints) || 0));
     }
   }
+  // mitra ngubah nama atau lokasi: titik balik ditinjau ulang pengelola (sesuai BACKEND_INTEGRATION bagian 7B)
+  const moved = target.coordinates.lat !== before.lat || target.coordinates.lng !== before.lng;
+  if (!isAdmin && (target.name !== before.name || moved)) target.status = "PENDING_REVIEW";
   if (isAdmin) {
     if (body.spotType) target.spotType = body.spotType;
     if (body.opkCategory) target.opkCategory = body.opkCategory;

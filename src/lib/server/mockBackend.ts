@@ -151,7 +151,7 @@ export function merchantBlocked(user: AuthUser): NextResponse | null {
     return err(
       403,
       user.status === "PENDING" ? "Akun mitramu masih menunggu persetujuan pengelola." : "Pendaftaran mitramu ditolak pengelola.",
-      "MERCHANT_NOT_ACTIVE"
+      "ACCOUNT_NOT_APPROVED"
     );
   }
   return null;

@@ -222,7 +222,7 @@ BAGIAN 7 - Endpoint yg BELUM ada (jujur makany baca smpe akhir)
 
 Soal "kenapa gak sekalian dilengkpin": dulu gw cuma nulis daftar kekurangannya karena UI belum manggil endpoint2 ini, jadi di bawah udh gw tulis kontrak lengkapnya.
 
-PENTING: ini KONTRAK USULAN. UI sekarang belum manggil satupun dari endpoint di bagian 7 ini. Tipenya udh gw tambahin di src/types/api.ts (cari tulisan "KONTRAK USULAN" di bagian bawah), jadi backend TS bisa langsng import. Kalo ada yg mau diubah, ubah di tipe itu dlu trus kabarin gw. Tiap endpoint ada baris "frontend:" yg bilang apa yg masih harus gw kerjan di UI. Jgn ngubah perilaku endpoint yg udh ada (bagian 4) tanpa kabarin gw dulu.
+PENTING: ini KONTRAK USULAN. UI udh manggil sebagian (B, C, dan empat endpoint akun di D: forgot-password, reset-password, change-password, DELETE /api/me), server contoh di src/app/api juga udh ngikutin. Yg belum dipake UI: A (profil), verify-email dan resend-verification, daftar admin berpaginasi, dan sisanya yg ditandai di bawah. Tipenya udh gw tambahin di src/types/api.ts (cari tulisan "KONTRAK USULAN" di bagian bawah), jadi backend TS bisa langsng import. Kalo ada yg mau diubah, ubah di tipe itu dlu trus kabarin gw. Tiap endpoint ada baris "frontend:" yg bilang apa yg masih harus gw kerjan di UI. Jgn ngubah perilaku endpoint yg udh ada (bagian 4) tanpa kabarin gw dulu.
 
 A. Profil dan XP wisatawan
 
@@ -233,7 +233,7 @@ A. Profil dan XP wisatawan
   - XP user yg login dicatat SERVER: check-in (+50), reservasi (+75), scan objek (awardedPoints), dan verifikasi kehadiran dari mitra (awardedPoints masuk ke wisatawan yg check-in, makanya data check-in harus nyimpen userId). Voucer dan kartu lore dari scan juga disimpen ke akun dia.
   - tamu (gak login) tetep lokal di browser, gak ada endpoint buat mereka
   - error: 401 UNAUTHENTICATED
-  - frontend: abis login gw ambil profil ini dan ngganti XP, tas, dan tiket di browser pake data server. Gw juga harus ubah provider (lihat bagian G).
+  - frontend: kartu Perjalananku di sheet Akun udh ada (level, bar XP, jumlah titik, kisah, voucer) tapi masih dari data lokal. Abis login gw tinggal ganti sumbernya ke profil ini, plus ubah provider (lihat bagian G).
 
 B. Edit dan hapus titik
 
@@ -243,14 +243,14 @@ B. Edit dan hapus titik
   - response: spot dan spots
   - validasi sama kayak ADD_SPOT. Kalo mitra ngubah nama atau coordinates, status titik balik ke PENDING_REVIEW (kalo fitur review di bagian C dipake)
   - error: 400 input salah, 403 NOT_YOUR_SPOT, 404
-  - frontend: belum ada UI edit, gw tambahin di tab Lapak dan Misi
+  - frontend: UDH BERES. Tombol Ubah di tab Lapak dan Misi buka sheet edit (nama, lokasi di peta, alamat, petunjuk misi, cerita, fasilitas, kapasitas). Server contoh ngikutin aturan status di atas.
 
 - DELETE /api/spots/{id}
   - siapa: MERCHANT (lapak sendiri), ADMIN
   - response: spots
   - saranan: soft delete (status ARCHIVED). Titik ilang dari GET /api/spots, tapi voucer ACTIVE dan E-Ticket yg udh terbit tetep valid sampe kadaluarsa
   - error: 403 NOT_YOUR_SPOT, 404
-  - frontend: tombol hapus plus konfirmasi belum ada
+  - frontend: UDH BERES. Tombol Arsipkan lapak di sheet edit, pake konfirmasi 2 langkah. Server contoh nyaring titik ARCHIVED dari GET /api/spots.
 
 C. Persetujuan mitra dan review titik
 
@@ -277,7 +277,7 @@ C. Persetujuan mitra dan review titik
   - request: decision (PUBLISH atau REJECT), reason?
   - response: spot dan spots
   - error: 404, 409 kalo udh diputusin
-  - frontend: banner "nunggu persetujuan" di dasbor mitra dan antrean persetujuan di dasbor admin belum ada
+  - frontend: UDH BERES. Dasbor mitra nampilin banner nunggu persetujuan (tombol Periksa status manggil /api/auth/me) dan nonaktifin tambah/ubah lapak. Dasbor admin punya tab Persetujuan buat mitra dan titik yg nunggu. Server contoh ngirim kode ACCOUNT_NOT_APPROVED. Catatan: reason di reject belum ada kolom isiannya di UI.
 
 D. Akun
 
@@ -300,7 +300,7 @@ D. Akun
   - request: password (konfirmasi)
   - response: ok true
   - hapus akun plus data lokasi dan check-in yg nyambung ke dia (kebutuhan UU PDP). Voucer dan titik milik mitra diarsipin atau dianonimin, jgn dihapus mentah
-- frontend: halaman lupa sandi, ganti sandi, verifikasi email, dan hapus akun belum ada
+- frontend: lupa sandi (halaman /lupa-sandi, tautan email harus ngarah ke /lupa-sandi?token=...), ganti sandi, dan hapus akun UDH BERES di sheet Akun. Verifikasi email belum ada UI-nya. Ada 2 hal di server contoh yg JANGAN ditiru backend asli: (1) forgot-password di mode demo ngebalikin demoToken biar alurnya bisa dicoba tanpa email, backend asli harus SELALU cuma ok true dan kirim tautan lewat email; (2) akun demo bawaan ditolak buat ganti sandi dan hapus (DEMO_ACCOUNT_LOCKED) biar akun publik gak dikunci orang iseng. Soal change-password, server contoh juga balikin token baru (sesi lama dicabut), UI nerima token itu kalo ada, kalo backend pake cookie ya gak perlu.
 
 E. Upload gambar buat scanner
 

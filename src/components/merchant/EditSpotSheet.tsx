@@ -183,6 +183,12 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
           {errors.capacity && <p id="edit-err-cap" role="alert" className="mt-1 text-xs font-bold text-quotaFull">{errors.capacity}</p>}
         </div>
 
+        {!isAdmin && (name.trim() !== spot.name || (pin && (pin.lat !== spot.coordinates.lat || pin.lng !== spot.coordinates.lng))) && (
+          <p role="status" className="text-xs text-pebble rounded-xl bg-slateElev p-3">
+            Mengubah nama atau lokasi membuat lapak ditinjau ulang pengelola. Selama itu lapak tidak tampil di peta wisatawan.
+          </p>
+        )}
+
         <button type="submit" disabled={busy !== null} className="btn-tactile-primary w-full min-h-[52px] px-5 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-70">
           {busy === "save" ? <Icon name="loader" size={18} weight="bold" motion="spin" /> : <Icon name="check" size={18} />}
           <span>{busy === "save" ? "Menyimpan" : "Simpan perubahan"}</span>
