@@ -5,6 +5,8 @@ import Link from "next/link";
 import Icon from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
 import { ROLE_LABEL, useAuth } from "@/components/layout/AuthProvider";
+import { useLokawira } from "@/components/layout/LokawiraProvider";
+import { levelProgress } from "@/lib/progress";
 
 interface AccountSheetProps {
   isOpen: boolean;
@@ -14,6 +16,46 @@ interface AccountSheetProps {
 // Akun: pengunjung boleh tnpa akun; mitra & pengelola masuk utk membuka dasbor masing-masing
 export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
   const { user, status, logout } = useAuth();
+  const { lokaPoints, loreCards, checkedInSpotIds, vouchers } = useLokawira();
+  const lv = levelProgress(lokaPoints);
+  const stats = [
+    { icon: "pin" as const, value: checkedInSpotIds.length, label: "Titik dikunjungi" },
+    { icon: "story" as const, value: loreCards.length, label: "Kisah terbuka" },
+    { icon: "voucher" as const, value: vouchers.length, label: "Voucer" },
+  ];
+
+  const journey = (
+    <section aria-labelledby="journey-title" className="rounded-2xl bg-slateElev p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 id="journey-title" className="text-sm font-extrabold text-alabaster">Perjalananku</h3>
+        <p className="text-sm font-extrabold text-alabaster">
+          Level <span className="font-num">{lv.level}</span>
+        </p>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Progres menuju level berikutnya"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={lv.percent}
+        className="h-2.5 rounded-full bg-pumice overflow-hidden"
+      >
+        <div className="h-full rounded-full bg-vibePrimary transition-[width] duration-500" style={{ width: `${lv.percent}%` }} />
+      </div>
+      <p className="text-xs text-pebble">
+        <span className="font-num font-bold text-alabaster">{lokaPoints}</span> XP · <span className="font-num">{lv.needed}</span> XP lagi ke level {lv.level + 1}
+      </p>
+      <ul className="grid grid-cols-3 gap-2">
+        {stats.map((st) => (
+          <li key={st.label} className="rounded-xl bg-basalt px-2 py-2.5 text-center">
+            <Icon name={st.icon} size={18} className="mx-auto text-vibePrimary" />
+            <p className="mt-1 font-num text-base font-extrabold text-alabaster">{st.value}</p>
+            <p className="text-[11px] leading-tight text-pebble">{st.label}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 
   const header = (
     <div className="flex items-start justify-between gap-3">
@@ -51,6 +93,8 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
             </div>
           </div>
 
+          {journey}
+
           <div className="space-y-2.5">
             {(user.role === "MERCHANT" || user.role === "ADMIN") && (
               <Link href="/merchant-pos" onClick={onClose} className="btn-tactile-primary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2">
@@ -79,6 +123,7 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
         </div>
       ) : (
         <div className="space-y-4 pt-1">
+          {journey}
           <p className="text-sm text-pebble leading-relaxed">
             Kamu bisa menjelajah, memindai objek, dan memesan tiket tanpa akun. Masuk diperlukan untuk
             mitra (UMKM dan sanggar) dan pengelola.
