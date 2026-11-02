@@ -233,7 +233,7 @@ A. Profil dan XP wisatawan
   - XP user yg login dicatat SERVER: check-in (+50), reservasi (+75), scan objek (awardedPoints), dan verifikasi kehadiran dari mitra (awardedPoints masuk ke wisatawan yg check-in, makanya data check-in harus nyimpen userId). Voucer dan kartu lore dari scan juga disimpen ke akun dia.
   - tamu (gak login) tetep lokal di browser, gak ada endpoint buat mereka
   - error: 401 UNAUTHENTICATED
-  - frontend: kartu Perjalananku di sheet Akun udh ada (level, bar XP, jumlah titik, kisah, voucer) tapi masih dari data lokal. Abis login gw tinggal ganti sumbernya ke profil ini, plus ubah provider (lihat bagian G).
+  - frontend: UDH BERES. Abis login (dan abis tiap check-in, reservasi, atau scan) UI manggil endpoint ini dan NGGANTI XP, level, kartu lore, titik yg udh check-in, tas, dan tiket dgn data server. Buat MERCHANT dan ADMIN, voucer dan tiket dari profil gak dipake buat tas (snapshot-nya itu punya lapak), cuma XP, kartu lore, dan check-in. Tamu tetep lokal. Server contoh ngikutin aturan XP di atas, termasuk XP verifikasi mitra yg masuk ke wisatawan yg check-in (kalo dia login). Bug lama yg ikut kebenahin: XP check-in sempat ke-tambah dua kali di klien.
 
 B. Edit dan hapus titik
 
@@ -340,7 +340,7 @@ H. Daftar buat admin (dipaginasi)
   - siapa: ADMIN, response: reservations dan nextCursor?
 - GET /api/admin/vouchers?spotId=&status=&limit=&cursor=
   - siapa: ADMIN, response: vouchers dan nextCursor?
-- frontend: dasbor admin sekarang ngambil dari snapshot, nanti gw pindah ke dua endpoint ini
+- frontend: UDH BERES. Dasbor admin (tab E-Ticket dan tab Voucer) manggil dua endpoint ini, 10 item per halaman, tombol Muat lebih banyak (pake nextCursor), dan filter status. Cursor harus dianggap buram oleh klien. Catatan: halaman /merchant-pos buat ADMIN (tampilan semua lapak) masih baca vouchers dari snapshot, jadi snapshot ADMIN jangan dikosongin dulu sampe gw pindahin itu juga.
 
 I. Waktu pake ISO 8601
 
@@ -405,7 +405,7 @@ BAGIAN 10 - Catatan tmbahan klo jdi make ts/nodejs
 
 K. Tes otomatis (QA)
 
-- folder tests/e2e plus playwright.config.ts: 17 tes (aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, geofence, scanner)
+- folder tests/e2e plus playwright.config.ts: 21 tes (aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
 - jalanin: npm run test:e2e. Itu otomatis build (dgn NEXT_PUBLIC_DEMO_MODE=true) lalu start di port 3210 dgn geofence nyala. Hentikan npm run dev dulu karena build nulis ke folder .next yg sama
 - browser: pake chromium dari Playwright 1.58.0. Kalo belum ada: npx playwright install chromium
 - tes ke server lain (mis staging): QA_URL=https://alamat npm run test:e2e. Server itu harus mode demo dan geofence nyala, kalo gak tes geofence bakal gagal

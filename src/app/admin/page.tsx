@@ -8,6 +8,7 @@ import Icon from "@/components/ui/Icon";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import { useAuth } from "@/components/layout/AuthProvider";
 import ApprovalQueue from "@/components/admin/ApprovalQueue";
+import { ReservationsPanel, VouchersPanel } from "@/components/admin/PagedLists";
 import RequireRole from "@/components/layout/RequireRole";
 import LocationPicker from "@/components/map/LocationPicker";
 import { LatLng, formatCoord } from "@/lib/geo";
@@ -18,7 +19,7 @@ const FIELD =
 
 function AdminContent() {
   const { user, logout } = useAuth();
-  const { activeVibe, spots, setSpots, vouchers, reservations, setReservations, refreshServerData } = useLokawira();
+  const { activeVibe, spots, setSpots, refreshServerData } = useLokawira();
 
   const [activePillar, setActivePillar] = useState<"P0_P1" | "P4" | "P2" | "P3" | "APPROVAL">(
     "P4"
@@ -97,16 +98,6 @@ function AdminContent() {
           : describeError(err, "Kapasitas gagal disimpan ke server."),
         true
       );
-    }
-  };
-
-  const handleVerifyTicket = async (ticketId: string) => {
-    try {
-      const res = await api.checkInTicket({ ticketId });
-      setReservations(res.reservations);
-      toast(`E-Ticket ${ticketId} ditandai masuk lokasi dan tersimpan di server.`);
-    } catch (err) {
-      toast(describeError(err, "E-Ticket gagal diverifikasi."), true);
     }
   };
 
@@ -421,42 +412,7 @@ function AdminContent() {
               </div>
             </section>
 
-            <section className="lg:col-span-5 gamiz-card p-6 space-y-3">
-              <h2 className="text-base font-extrabold text-alabaster">
-                Verifikasi E-Ticket Masuk ({reservations.length})
-              </h2>
-              <div className="space-y-2.5">
-                {reservations.map((res) => (
-                  <div
-                    key={res.ticketId}
-                    className="p-4 rounded-2xl bg-obsidian flex items-center justify-between gap-2"
-                  >
-                    <div>
-                      <span className="font-num text-xs font-bold text-vibeSecondary block">
-                        {res.ticketId} • {res.scheduledSlot}
-                      </span>
-                      <p className="text-xs font-extrabold text-alabaster mt-0.5">
-                        {res.visitorName} ({res.partySize} orang)
-                      </p>
-                      <p className="text-[11px] text-pebble">{res.spotName}</p>
-                    </div>
-                    {res.status === "CONFIRMED" ? (
-                      <button
-                        type="button"
-                        onClick={() => handleVerifyTicket(res.ticketId)}
-                        className="btn-tactile-primary min-h-[44px] px-3.5 py-1.5 text-xs"
-                      >
-                        Check-In
-                      </button>
-                    ) : (
-                      <span className="font-num text-xs text-quotaSafe font-bold">
-                        SELESAI
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
+            <ReservationsPanel onToast={toast} />
           </div>
         )}
 
@@ -601,32 +557,7 @@ function AdminContent() {
             </ul>
           </section>
 
-          <section className="gamiz-card p-6 space-y-4">
-            <h2 className="text-base font-extrabold text-alabaster">
-              Distribusi Tiket Voucer UMKM ({vouchers.length})
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {vouchers.map((v) => (
-                <div
-                  key={v.code}
-                  className="perforated-ticket p-4 flex items-center justify-between gap-3"
-                >
-                  <div>
-                    <span className="font-num text-xs font-bold text-vibePrimary block">
-                      {v.code} • {v.status}
-                    </span>
-                    <p className="text-sm font-extrabold text-alabaster mt-0.5">
-                      {v.merchantName}
-                    </p>
-                    <p className="text-xs text-pebble">{v.discountTitle}</p>
-                  </div>
-                  <span className="font-num text-sm font-extrabold text-quotaSafe">
-                    Rp{v.discountAmount.toLocaleString("id-ID")}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
+          <VouchersPanel />
           </>
         )}
 

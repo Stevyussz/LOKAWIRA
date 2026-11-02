@@ -1,6 +1,9 @@
 import { CulturalSpot } from "@/types/lokawira";
 import type {
   AddAiNoteRequest,
+  AdminListQuery,
+  AdminReservationsResponse,
+  AdminVouchersResponse,
   AddAiNoteResponse,
   AddSpotResponse,
   ApiErrorBody,
@@ -140,6 +143,14 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return payload as T;
 }
 
+// ?a=1&b=2 dari objek, field kosong dilewati
+function toQuery(q: object): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(q) as [string, unknown][]) if (v !== undefined && v !== "") p.set(k, String(v));
+  const s = p.toString();
+  return s ? `?${s}` : "";
+}
+
 export const api = {
   getSnapshot: (q: SnapshotQuery = {}) =>
     request<SnapshotResponse>(`/api/spots${q.vibe ? `?vibe=${encodeURIComponent(q.vibe)}` : ""}`),
@@ -155,6 +166,10 @@ export const api = {
 
   deleteSpot: (id: string) =>
     request<DeleteSpotResponse>(`/api/spots/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  adminReservations: (q: AdminListQuery = {}) => request<AdminReservationsResponse>(`/api/admin/reservations${toQuery(q)}`),
+
+  adminVouchers: (q: AdminListQuery = {}) => request<AdminVouchersResponse>(`/api/admin/vouchers${toQuery(q)}`),
 
   listMerchants: (status?: string) =>
     request<ListMerchantsResponse>(`/api/admin/merchants${status ? `?status=${encodeURIComponent(status)}` : ""}`),

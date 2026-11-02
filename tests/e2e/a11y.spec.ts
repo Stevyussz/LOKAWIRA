@@ -28,6 +28,8 @@ for (const width of [360, 390]) {
       await page.goto("/lupa-sandi");
       await expectNoViolations(page, "lupa-sandi");
       await uiLogin(page, "admin@lokawira.demo", "/admin");
+      await expect(page.getByRole("heading", { name: /Verifikasi E-Ticket Masuk/ })).toBeVisible({ timeout: 30_000 });
+      await expectNoViolations(page, "admin-tiket");
       await page.getByRole("tab", { name: /Persetujuan/ }).click();
       await expectNoViolations(page, "admin-persetujuan");
     });
