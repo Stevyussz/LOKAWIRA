@@ -172,6 +172,11 @@ function MasukContent() {
                 </button>
               </div>
               {mode === "daftar" && <p className="text-[11px] text-pebble mt-1">Minimal 8 karakter.</p>}
+              {mode === "masuk" && (
+                <Link href="/lupa-sandi" className="mt-1 inline-flex min-h-[44px] items-center text-xs font-extrabold text-vibePrimary underline underline-offset-2">
+                  Lupa kata sandi?
+                </Link>
+              )}
             </div>
 
             {error && (

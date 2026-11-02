@@ -349,7 +349,7 @@ function MerchantPosContent() {
               disabled={rechecking}
               onClick={async () => {
                 setRechecking(true);
-                await recheck();
+                await recheck({ silent: true });
                 setRechecking(false);
               }}
               className="btn-tactile-secondary min-h-[44px] px-4 text-xs inline-flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-70"

@@ -6,6 +6,7 @@ import Icon from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
 import { ROLE_LABEL, useAuth } from "@/components/layout/AuthProvider";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
+import AccountSecurity from "@/components/layout/AccountSecurity";
 import { levelProgress } from "@/lib/progress";
 
 interface AccountSheetProps {
@@ -119,6 +120,11 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
               <Icon name="signOut" size={18} />
               <span>Keluar</span>
             </button>
+          </div>
+
+          <div className="border-t border-stoneSubtle pt-4 space-y-2">
+            <h3 className="text-xs font-extrabold text-pebble">Keamanan akun</h3>
+            <AccountSecurity onDone={onClose} />
           </div>
         </div>
       ) : (

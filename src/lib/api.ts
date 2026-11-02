@@ -17,7 +17,12 @@ import type {
   VerifyCheckInRequest,
   VerifyCheckInResponse,
   CreateReservationRequest,
+  ChangePasswordRequest,
+  DeleteAccountRequest,
   DeleteSpotResponse,
+  ForgotPasswordRequest,
+  OkResponse,
+  ResetPasswordRequest,
   ListMerchantsResponse,
   MerchantDecisionResponse,
   RejectRequest,
@@ -181,6 +186,19 @@ export const api = {
   me: () => request<MeResponse>("/api/auth/me"),
 
   logout: () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST", body: {} }),
+
+  forgotPassword: (r: ForgotPasswordRequest) =>
+    request<OkResponse & { demoToken?: string }>("/api/auth/forgot-password", { method: "POST", body: r }),
+
+  resetPassword: (r: ResetPasswordRequest) =>
+    request<OkResponse>("/api/auth/reset-password", { method: "POST", body: r }),
+
+  // balikin token baru (sesi lama dicabut), backend asli boleh gak ngirim - pake cookie
+  changePassword: (r: ChangePasswordRequest) =>
+    request<OkResponse & { token?: string }>("/api/auth/change-password", { method: "POST", body: r }),
+
+  deleteAccount: (r: DeleteAccountRequest) =>
+    request<OkResponse>("/api/me", { method: "DELETE", body: r }),
 
   redeemVoucher: (code: string) =>
     request<RedeemVoucherResponse>("/api/vouchers/redeem", { method: "POST", body: { code } }),

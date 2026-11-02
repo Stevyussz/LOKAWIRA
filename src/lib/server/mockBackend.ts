@@ -25,6 +25,7 @@ interface MockState {
   sessions: Map<string, string>;
   failedLogins: Map<string, { count: number; until: number }>;
   checkIns: CheckInRecord[];
+  resetTokens: Map<string, { userId: string; expires: number }>;
 }
 
 const g = globalThis as unknown as { lokawiraMock?: MockState };
@@ -86,7 +87,7 @@ export function getMock(): MockState {
         });
       }
     }
-    g.lokawiraMock = { users, sessions: new Map(), failedLogins: new Map(), checkIns: [] };
+    g.lokawiraMock = { users, sessions: new Map(), failedLogins: new Map(), checkIns: [], resetTokens: new Map() };
   }
   return g.lokawiraMock;
 }
@@ -173,6 +174,46 @@ export function visibleSpots(user: AuthUser | null) {
     if (!s.status || s.status === "PUBLISHED") return true;
     return user?.role === "ADMIN" || (!!user && s.ownerId === user.id);
   });
+}
+
+// akun demo bawaan itu publik - gak boleh diubah sandinya atau dihapus, biar pengunjung iseng gak mengunci akun orang lain
+const DEMO_USER_IDS = new Set(["u-wisatawan-1", "u-mitra-1", "u-mitra-2", "u-admin-1"]);
+export function demoAccountBlocked(userId: string): NextResponse | null {
+  return DEMO && DEMO_USER_IDS.has(userId)
+    ? err(403, "Akun demo bawaan tidak bisa diubah atau dihapus. Buat akun sendiri untuk mencoba.", "DEMO_ACCOUNT_LOCKED")
+    : null;
+}
+
+export function userRecord(id: string) {
+  return getMock().users.find((u) => u.id === id);
+}
+
+export function setPassword(user: UserRecord, password: string) {
+  user.salt = crypto.randomBytes(8).toString("hex");
+  user.hash = hashPassword(password, user.salt);
+  // sandi berubah: sesi lain milik user ini ikut dicabut
+  for (const [tok, uid] of getMock().sessions) if (uid === user.id) getMock().sessions.delete(tok);
+}
+
+export function createResetToken(userId: string): string {
+  const token = crypto.randomBytes(20).toString("hex");
+  getMock().resetTokens.set(token, { userId, expires: Date.now() + 30 * 60_000 });
+  return token;
+}
+export function consumeResetToken(token: string): UserRecord | null {
+  const rec = getMock().resetTokens.get(token);
+  getMock().resetTokens.delete(token);
+  if (!rec || Date.now() > rec.expires) return null;
+  return userRecord(rec.userId) ?? null;
+}
+
+// hapus akun: sesi & check-in ikut hilang, titik milik mitra diarsipin (bukan dihapus mentah)
+export function deleteUser(id: string) {
+  const m = getMock();
+  m.users = m.users.filter((u) => u.id !== id);
+  for (const [tok, uid] of m.sessions) if (uid === id) m.sessions.delete(tok);
+  m.checkIns = m.checkIns.filter((c) => c.userId !== id);
+  for (const sp of getLokawiraStore().spots) if (sp.ownerId === id) sp.status = "ARCHIVED";
 }
 
 export function rateLimitLogin(email: string): NextResponse | null {

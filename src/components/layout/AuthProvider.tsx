@@ -14,7 +14,12 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (r: RegisterRequest) => Promise<AuthUser>;
   logout: () => Promise<void>;
-  recheck: () => Promise<void>;
+  // silent: tanpa kedip "memeriksa sesi" (halaman gak ke-unmount)
+  recheck: (opts?: { silent?: boolean }) => Promise<void>;
+  // dipake stlh ganti sandi: sesi lama dicabut server, ini nyimpen token barunya
+  replaceToken: (token: string | undefined) => void;
+  // dipake stlh hapus akun: bersihin sesi lokal tanpa manggil server
+  clearSession: () => void;
 }
 
 const TOKEN_KEY = "lokawira.token";
@@ -35,8 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const recheck = useCallback(async () => {
-    setStatus("loading");
+  const recheck = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setStatus("loading");
     try {
       const { user: me } = await api.me();
       setUser(me);
@@ -78,6 +83,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res.user;
   }, []);
 
+  const replaceToken = useCallback((token: string | undefined) => {
+    if (token) persist(token);
+  }, []);
+
+  const clearSession = useCallback(() => {
+    persist(undefined);
+    setUser(null);
+    setStatus("guest");
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.logout();
@@ -90,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, status, login, register, logout, recheck }}>
+    <AuthContext.Provider value={{ user, status, login, register, logout, recheck, replaceToken, clearSession }}>
       {children}
     </AuthContext.Provider>
   );
