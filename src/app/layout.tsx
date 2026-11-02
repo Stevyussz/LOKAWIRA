@@ -4,6 +4,7 @@ import "./globals.css";
 import { LokawiraProvider } from "@/components/layout/LokawiraProvider";
 import PerfMode from "@/components/ui/PerfMode";
 import { AuthProvider } from "@/components/layout/AuthProvider";
+import { LocationProvider } from "@/components/layout/LocationProvider";
 
 // Figtree: sans bulat & ramah utk UI game yg dibbaca cepat di HP
 const figtree = Figtree({
@@ -46,7 +47,9 @@ export default function RootLayout({
       <body className="bg-andesite text-alabaster antialiased">
         <PerfMode />
         <AuthProvider>
-          <LokawiraProvider>{children}</LokawiraProvider>
+          <LokawiraProvider>
+            <LocationProvider>{children}</LocationProvider>
+          </LokawiraProvider>
         </AuthProvider>
       </body>
     </html>

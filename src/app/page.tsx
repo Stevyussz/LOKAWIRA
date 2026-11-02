@@ -6,6 +6,9 @@ import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
 import { matchesSpotFilter, SpotFilter } from "@/lib/spotFilter";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
+import { LocationError, useLocation } from "@/components/layout/LocationProvider";
+import NavigateToSpot from "@/components/map/NavigateToSpot";
+import { formatDistance } from "@/lib/geo";
 import { anchorSpot } from "@/lib/geo";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import VibeSwitcherBar from "@/components/layout/VibeSwitcherBar";
@@ -47,6 +50,7 @@ export default function LokawiraExplorerPage() {
     checkedInSpotIds,
     markSpotCheckedIn,
   } = useLokawira();
+  const { position: userPosition, getFix } = useLocation();
 
   const regionalSpots = useMemo(
     () => spots.filter((s) => s.vibe === activeVibe),
@@ -206,14 +210,50 @@ export default function LokawiraExplorerPage() {
 
   const handleCheckInQuest = async (spot: CulturalSpot) => {
     try {
+      let res;
+      try {
+        // coba dulu tanpa lokasi (geofence server bisa mati, mis pas demo). Kalo dipanggil pas lg dipandu, koordinat segar ikut dikirim
+        const fresh = userPosition && Date.now() - userPosition.at < 20000 ? userPosition : null;
+        res = await api.checkIn({
+          spotId: spot.id,
+          ...(fresh ? { lat: fresh.lat, lng: fresh.lng, accuracyMeters: fresh.accuracy } : {}),
+        });
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.code !== "LOCATION_REQUIRED") throw err;
+        // server minta bukti lokasi: baca sekali (minta persetujuan kalo belum), lalu ulangi
+        const fix = await getFix();
+        res = await api.checkIn({ spotId: spot.id, lat: fix.lat, lng: fix.lng, accuracyMeters: fix.accuracy });
+      }
       // XP & kode kehadiran ditentukan server, bkn klien
-      const res = await api.checkIn({ spotId: spot.id });
       markSpotCheckedIn(spot.id);
       addLokaPoints(res.awardedPoints);
       setCheckInCodes((prev) => ({ ...prev, [spot.id]: res.checkIn.code }));
       notify(`Check-in di ${spot.name} berhasil. +${res.awardedPoints} XP. Tunjukkan kode kehadiranmu ke pemilik lapak.`);
     } catch (err) {
-      if (err instanceof ApiError && err.isOffline && DEMO_MODE) {
+      if (err instanceof LocationError) {
+        notify(
+          err.reason === "declined"
+            ? "Check-in di titik ini butuh lokasimu untuk memastikan kamu sudah tiba. Izinkan lokasi lalu coba lagi."
+            : err.message,
+          true
+        );
+      } else if (err instanceof ApiError && err.code === "OUT_OF_RANGE") {
+        const d = Number(err.details?.distanceMeters);
+        const r = Number(err.details?.radiusMeters) || 100;
+        notify(
+          Number.isFinite(d)
+            ? `Kamu sekitar ${formatDistance(d)} dari ${spot.name}. Dekati sampai kurang dari ${r} m, lalu check-in lagi.`
+            : `Kamu belum cukup dekat dengan ${spot.name}.`,
+          true
+        );
+      } else if (err instanceof ApiError && err.code === "LOCATION_TOO_INACCURATE") {
+        notify("Sinyal GPS kurang tepat. Pindah ke area terbuka lalu coba lagi.", true);
+      } else if (err instanceof ApiError && err.code === "ALREADY_CHECKED_IN_TODAY") {
+        markSpotCheckedIn(spot.id);
+        notify(`Kamu sudah check-in di ${spot.name} hari ini.`, true);
+      } else if (err instanceof ApiError && err.code === "IMPOSSIBLE_TRAVEL") {
+        notify("Perpindahanmu dari check-in sebelumnya terlalu cepat untuk dicatat. Coba lagi sebentar lagi.", true);
+      } else if (err instanceof ApiError && err.isOffline && DEMO_MODE) {
         markSpotCheckedIn(spot.id);
         addLokaPoints(50);
         notify(`Check-in di ${spot.name} dicatat di perangkat ini saja (mode demo, server tidak terjangkau).`);
@@ -275,6 +315,7 @@ export default function LokawiraExplorerPage() {
         onRetry={() => refreshServerData()}
         isSurgeDemo={isSurgeDemo}
         onToggleSurgeDemo={handleToggleSurgeDemo}
+        userPosition={userPosition}
       />
 
       {/* 2 - TOP FLOATING GAMIFICATION HUD & FILTER CHIPS */}
@@ -441,6 +482,8 @@ export default function LokawiraExplorerPage() {
               <Icon name="next" size={16} weight="bold" className="text-quotaFull shrink-0" />
             </button>
           )}
+
+          {!isSheetCompact && <NavigateToSpot spot={selectedSpot} />}
 
           <div className="grid grid-cols-[1fr_1fr] sm:grid-cols-[auto_auto_1fr] gap-2">
             <button

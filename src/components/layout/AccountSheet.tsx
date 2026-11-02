@@ -7,6 +7,7 @@ import Sheet from "@/components/ui/Sheet";
 import { ROLE_LABEL, useAuth } from "@/components/layout/AuthProvider";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import AccountSecurity from "@/components/layout/AccountSecurity";
+import { useLocation } from "@/components/layout/LocationProvider";
 import { levelProgress } from "@/lib/progress";
 
 interface AccountSheetProps {
@@ -18,6 +19,7 @@ interface AccountSheetProps {
 export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
   const { user, status, logout } = useAuth();
   const { lokaPoints, loreCards, checkedInSpotIds, vouchers } = useLokawira();
+  const { consent: locConsent, revokeConsent } = useLocation();
   const lv = levelProgress(lokaPoints);
   const stats = [
     { icon: "pin" as const, value: checkedInSpotIds.length, label: "Titik dikunjungi" },
@@ -58,6 +60,13 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
     </section>
   );
 
+  const locationRow = locConsent ? (
+    <div className="rounded-2xl bg-slateElev p-3.5 flex items-center justify-between gap-3">
+      <p className="text-xs text-alabaster"><b>Izin lokasi aktif.</b> Dipakai untuk pemandu arah dan check-in.</p>
+      <button type="button" onClick={revokeConsent} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs shrink-0">Cabut</button>
+    </div>
+  ) : null;
+
   const header = (
     <div className="flex items-start justify-between gap-3">
       <h2 id="account-sheet-title" className="font-display text-xl min-[380px]:text-2xl font-extrabold text-alabaster leading-tight">
@@ -95,6 +104,7 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
           </div>
 
           {journey}
+          {locationRow}
 
           <div className="space-y-2.5">
             {(user.role === "MERCHANT" || user.role === "ADMIN") && (
@@ -130,6 +140,7 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
       ) : (
         <div className="space-y-4 pt-1">
           {journey}
+          {locationRow}
           <p className="text-sm text-pebble leading-relaxed">
             Kamu bisa menjelajah, memindai objek, dan memesan tiket tanpa akun. Masuk diperlukan untuk
             mitra (UMKM dan sanggar) dan pengelola.

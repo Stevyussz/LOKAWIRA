@@ -59,13 +59,16 @@ export class ApiError extends Error {
   readonly kind: ApiErrorKind;
   readonly status: number;
   readonly code?: string;
+  // data tambahan dari server, mis { distanceMeters: 340 } buat OUT_OF_RANGE
+  readonly details?: Record<string, unknown>;
 
-  constructor(kind: ApiErrorKind, message: string, status = 0, code?: string) {
+  constructor(kind: ApiErrorKind, message: string, status = 0, code?: string, details?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
     this.kind = kind;
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 
   // true kalo server gak terjangkau (bkn penolakan dr server)
@@ -131,7 +134,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   if (!res.ok) {
     const e = (payload ?? {}) as Partial<ApiErrorBody>;
-    throw new ApiError("http", e.error || `Permintaan ditolak server (${res.status}).`, res.status, e.code);
+    throw new ApiError("http", e.error || `Permintaan ditolak server (${res.status}).`, res.status, e.code, e.details);
   }
   return payload as T;
 }

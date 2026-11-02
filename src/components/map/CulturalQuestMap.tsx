@@ -7,7 +7,8 @@ import { CulturalSpot, CulturalVibe, SurfaceTheme } from "@/types/lokawira";
 import { VIBE_METADATA } from "@/lib/seedCulturalData";
 import { VIBE_HEX } from "@/lib/vibeColors";
 import MapBackdrop from "@/components/map/MapBackdrop";
-import { ORIGIN_ON_CANVAS, ZONE_RADIUS_UNITS, Point, anchorSpot, project, regionOrigin } from "@/lib/geo";
+import { DEMO_MODE } from "@/lib/api";
+import { CANVAS_H, CANVAS_W, ORIGIN_ON_CANVAS, ZONE_RADIUS_UNITS, Point, anchorSpot, project, regionOrigin } from "@/lib/geo";
 import { matchesSpotFilter, SpotFilter, SPOT_FILTER_OPTIONS } from "@/lib/spotFilter";
 
 interface CulturalQuestMapProps {
@@ -28,6 +29,8 @@ interface CulturalQuestMapProps {
   // Demo: paksa situs utama ke 95% biar jalur pengalihan terlihat tnpa data langsung
   isSurgeDemo?: boolean;
   onToggleSurgeDemo?: () => void;
+  // posisi GPS asli pengguna (kalo lagi dipandu). Kosong = penanda 'Kamu' simulasi cuma tampil di mode demo
+  userPosition?: { lat: number; lng: number } | null;
 }
 
 // Posisi peemain pd kanvas (simulasi; GPS nyata blm tersedia)
@@ -46,6 +49,7 @@ export default function CulturalQuestMap({
   onRetry,
   isSurgeDemo = false,
   onToggleSurgeDemo,
+  userPosition = null,
 }: CulturalQuestMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState<number>(1.05);
@@ -172,6 +176,18 @@ export default function CulturalQuestMap({
 
   const activeTargetPos = selectedSpot ? posOf(selectedSpot) : ORIGIN_ON_CANVAS;
 
+  // GPS asli diproyeksikan ke kanvas (ditahan di tepi kalo di luar kawasan). Tanpa GPS, penanda simulasi cuma di mode demo
+  const mapOrigin = regionOrigin(spots);
+  const realPlayer = userPosition && mapOrigin ? project(userPosition, mapOrigin.coordinates) : null;
+  const playerPos: Point | null = realPlayer
+    ? {
+        x: Math.max(60, Math.min(CANVAS_W - 60, realPlayer.x)),
+        y: Math.max(60, Math.min(CANVAS_H - 60, realPlayer.y)),
+      }
+    : DEMO_MODE
+    ? PLAYER_POSITION
+    : null;
+
   // pengalihan antrean: situs utama >= 85% memunculkan jalur ke mitra terdekat
   const primarySpotData = anchorSpot(spots);
   const primaryPos = primarySpotData ? posOf(primarySpotData) : null;
@@ -245,20 +261,22 @@ export default function CulturalQuestMap({
           />
 
           {/* rute ke titik terpilih */}
+          {playerPos && (<>
           <path
-            d={`M ${PLAYER_POSITION.x} ${PLAYER_POSITION.y} L ${activeTargetPos.x} ${activeTargetPos.y}`}
+            d={`M ${playerPos.x} ${playerPos.y} L ${activeTargetPos.x} ${activeTargetPos.y}`}
             fill="none"
             stroke="var(--bg-basalt-card)"
             strokeWidth="12"
             strokeLinecap="round"
           />
           <path
-            d={`M ${PLAYER_POSITION.x} ${PLAYER_POSITION.y} L ${activeTargetPos.x} ${activeTargetPos.y}`}
+            d={`M ${playerPos.x} ${playerPos.y} L ${activeTargetPos.x} ${activeTargetPos.y}`}
             fill="none"
             stroke="var(--vibe-primary)"
             strokeWidth="5"
             strokeLinecap="round"
           />
+          </>)}
 
           {/* jalur pengalihan antrean: satu warna (hijau = bebas antre), melengkung biar gak terbaca sbg jalan, & berujung panah arah tujuan */}
           {primaryPos && routesVisible &&
@@ -301,10 +319,11 @@ export default function CulturalQuestMap({
         </svg>
 
         {/* Posisi pemain */}
+        {playerPos && (
         <div
           style={{
-            left: `${PLAYER_POSITION.x}px`,
-            top: `${PLAYER_POSITION.y}px`,
+            left: `${playerPos.x}px`,
+            top: `${playerPos.y}px`,
             scale: String(1 / zoom),
             transition: "scale 500ms ease-out",
           }}
@@ -318,6 +337,7 @@ export default function CulturalQuestMap({
             Kamu
           </span>
         </div>
+        )}
 
         {/* Marker */}
         {filteredSpots.map((spot) => {

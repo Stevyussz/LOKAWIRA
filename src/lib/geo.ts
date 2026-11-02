@@ -66,3 +66,15 @@ export const formatDistance = (m: number) =>
   m < 1000 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`;
 
 export const formatCoord = (c: LatLng) => `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`;
+
+// arah mata angin dari a ke b, derajat 0..360 (0 = utara, searah jarum jam)
+export function bearingDegrees(a: LatLng, b: LatLng): number {
+  const rad = Math.PI / 180;
+  const dLng = (b.lng - a.lng) * rad;
+  const y = Math.sin(dLng) * Math.cos(b.lat * rad);
+  const x = Math.cos(a.lat * rad) * Math.sin(b.lat * rad) - Math.sin(a.lat * rad) * Math.cos(b.lat * rad) * Math.cos(dLng);
+  return (Math.atan2(y, x) / rad + 360) % 360;
+}
+
+const COMPASS = ["utara", "timur laut", "timur", "tenggara", "selatan", "barat daya", "barat", "barat laut"];
+export const compassWord = (deg: number) => COMPASS[Math.round(deg / 45) % 8];
