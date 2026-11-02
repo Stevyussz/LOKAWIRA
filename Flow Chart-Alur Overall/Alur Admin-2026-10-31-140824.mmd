@@ -1,0 +1,24 @@
+---
+config:
+  theme: dark
+---
+graph TD
+    A[Mulai: Login Admin] --> B[Dashboard Utama]
+    B --> C{Manajemen Sistem}
+    
+    C -->|P0 & P1: Peta & Lokasi| D[Update Data Sheet Wisata & Event]
+    D --> E[Sinkronisasi Lokasi ke Peta Interaktif]
+    
+    C -->|P4: Reservasi| F[Monitor Kuota Tempat Wisata]
+    F --> G[Verifikasi Data Penjualan Tiket]
+    
+    C -->|P2: Gamifikasi| H[Atur Sistem Ekonomi & Misi Quest]
+    H --> I[Kelola Distribusi Voucher UMKM]
+    
+    C -->|P3: AI & Scanner| J[Update Database Objek Budaya]
+    J --> K[Latih Data untuk AI Storyteller]
+    
+    E --> L[Logout]
+    G --> L
+    I --> L
+    K --> L
