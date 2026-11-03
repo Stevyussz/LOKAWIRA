@@ -405,8 +405,17 @@ BAGIAN 10 - Catatan tmbahan klo jdi make ts/nodejs
 
 K. Tes otomatis (QA)
 
-- folder tests/e2e plus playwright.config.ts: 21 tes (aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
+- folder tests/e2e plus playwright.config.ts: 22 tes (peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
 - jalanin: npm run test:e2e. Itu otomatis build (dgn NEXT_PUBLIC_DEMO_MODE=true) lalu start di port 3210 dgn geofence nyala. Hentikan npm run dev dulu karena build nulis ke folder .next yg sama
 - browser: pake chromium dari Playwright 1.58.0. Kalo belum ada: npx playwright install chromium
 - tes ke server lain (mis staging): QA_URL=https://alamat npm run test:e2e. Server itu harus mode demo dan geofence nyala, kalo gak tes geofence bakal gagal
 - font Figtree dan Fraunces sekarang ditanam di src/app/fonts (lisensi OFL), jadi build gak lagi butuh akses ke Google Fonts
+
+L. Peta (sudah nyata, bukan gambar dummy lagi)
+
+- peta pake MapLibre GL dgn data OpenStreetMap, ubinnya dr OpenFreeMap (gratis, tanpa kunci API). Gaya dasarnya diwarnai ulang jadi lontar di src/lib/mapStyle.ts. Atribusi OpenStreetMap dan OpenMapTiles wajib tetep tampil (tombol i di kanan atas peta)
+- ganti sumber ubin tanpa ubah kode: isi NEXT_PUBLIC_MAP_STYLE_URL (alamat style JSON MapLibre). Buat produksi ramean, sebaiknya host sendiri di VPS (Protomaps/PMTiles atau OpenFreeMap self-host) biar gak bergantung layanan publik
+- rute jalan kaki ke titik tujuan diambil dr layanan routing berbasis OSM (routing.openstreetmap.de, cuma buat pemakaian ringan). Ganti lewat NEXT_PUBLIC_ROUTING_URL kalo backend nyediain OSRM atau Valhalla sendiri (format OSRM /route/v1/foot). Kalo layanannya gagal, peta nampilin garis putus lurus sbg cadangan
+- penanda Kamu cuma muncul dr GPS asli. Gak ada lagi posisi simulasi
+- koordinat titik di data (coordinates.lat dan lng) sekarang kelihatan di peta nyata, jadi harus akurat. Cek tiap titik di Google Maps atau OSM sebelum penjurian
+

@@ -404,3 +404,9 @@ body {
 .text-vibePrimary {
   color: color-mix(in srgb, var(--vibe-primary) 65%, var(--text-alabaster));
 }
+
+/* peta MapLibre: atribusi OSM tetap kelihatan (di bawah HUD, di atas kolom tombol), sesuai syarat lisensi */
+.maplibregl-ctrl-top-right { margin-top: 132px; }
+.maplibregl-ctrl-attrib { background: color-mix(in srgb, var(--bg-basalt-card) 88%, transparent) !important; color: var(--text-pebble) !important; font-family: inherit; }
+.maplibregl-ctrl-attrib a { color: var(--text-pebble) !important; }
+.maplibregl-canvas:focus-visible { outline: 3px solid var(--vibe-primary); outline-offset: -3px; }

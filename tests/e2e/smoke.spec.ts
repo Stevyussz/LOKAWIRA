@@ -27,3 +27,13 @@ test("titik yang menunggu review tidak muncul di API publik", async ({ request }
   const ids = (await res.json()).spots.map((s: { id: string }) => s.id);
   expect(ids).not.toContain("spot-demo-pending");
 });
+
+test("peta nyata: kanvas OpenStreetMap termuat, atribusi ada, dan tanpa penanda Kamu palsu", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".maplibregl-canvas")).toBeVisible();
+  await expect(page.locator(".maplibregl-ctrl-attrib")).toBeAttached();
+  const attrib = await page.locator(".maplibregl-ctrl-attrib").textContent();
+  expect(attrib).toContain("OpenStreetMap");
+  // tanpa izin lokasi, gak boleh ada penanda posisi buatan
+  await expect(page.getByRole("img", { name: "Posisimu" })).toHaveCount(0);
+});

@@ -78,3 +78,30 @@ export function bearingDegrees(a: LatLng, b: LatLng): number {
 
 const COMPASS = ["utara", "timur laut", "timur", "tenggara", "selatan", "barat daya", "barat", "barat laut"];
 export const compassWord = (deg: number) => COMPASS[Math.round(deg / 45) % 8];
+
+// poligon lingkaran (lng,lat) dgn radius meter, buat zona di peta
+export function circlePolygon(center: LatLng, meters: number, steps = 64): [number, number][] {
+  const out: [number, number][] = [];
+  const dLat = meters / M_PER_DEG_LAT;
+  const dLng = meters / mPerDegLng(center.lat);
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * Math.PI * 2;
+    out.push([center.lng + Math.cos(a) * dLng, center.lat + Math.sin(a) * dLat]);
+  }
+  return out;
+}
+
+// garis melengkung a ke b (kurva kuadrat), titik kontrol digeser tegak lurus. Buat jalur pengalihan antrean
+export function curveBetween(a: LatLng, b: LatLng, bend = 0.18, steps = 28): [number, number][] {
+  const mx = (a.lng + b.lng) / 2;
+  const my = (a.lat + b.lat) / 2;
+  const cx = mx - (b.lat - a.lat) * bend;
+  const cy = my + (b.lng - a.lng) * bend;
+  const out: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const u = 1 - t;
+    out.push([u * u * a.lng + 2 * u * t * cx + t * t * b.lng, u * u * a.lat + 2 * u * t * cy + t * t * b.lat]);
+  }
+  return out;
+}

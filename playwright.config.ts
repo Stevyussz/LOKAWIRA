@@ -17,6 +17,8 @@ export default defineConfig({
     baseURL: BASE,
     viewport: { width: 390, height: 844 },
     trace: "retain-on-failure",
+    // peta MapLibre butuh WebGL: di headless pakai renderer software (SwiftShader)
+    launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] },
   },
   // QA_URL diisi = tes ke server yg sudah jalan (mis staging), selain itu jalanin build lokal
   webServer: process.env.QA_URL
