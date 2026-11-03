@@ -5,6 +5,9 @@ import type { GeoJSONSource, Map as MLMap, Marker as MLMarker } from "maplibre-g
 import "maplibre-gl/dist/maplibre-gl.css";
 import { LatLng, ZONE_RADIUS_METERS, circlePolygon, distanceMeters, formatCoord, formatDistance, regionOrigin } from "@/lib/geo";
 import { loadLontarStyle } from "@/lib/mapStyle";
+import { searchPlaces, PlaceResult } from "@/lib/geocode";
+import { LocationError, useLocation } from "@/components/layout/LocationProvider";
+import Icon from "@/components/ui/Icon";
 import { CulturalSpot } from "@/types/lokawira";
 
 interface LocationPickerProps {
@@ -32,6 +35,15 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const origin = regionOrigin(spots);
+  const { getFix } = useLocation();
+  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+  // cari tempat & pakai lokasi sekarang, biar orang awam gak perlu nyari pin sendiri
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<PlaceResult[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [helper, setHelper] = useState<{ ok: boolean; text: string } | null>(null);
+  const [locating, setLocating] = useState(false);
 
   const latest = useRef({ onChange, value, origin, spots });
   latest.current = { onChange, value, origin, spots };
@@ -69,7 +81,7 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
           },
         });
         map.touchZoomRotate.disableRotation();
-        map.addControl(new ml.AttributionControl({ compact: true }), "bottom-right");
+        map.addControl(new ml.AttributionControl({ compact: true }), "top-right");
         mlRef.current = ml;
         mapRef.current = map;
         map.on("click", (e) => latest.current.onChange({ lat: e.lngLat.lat, lng: e.lngLat.lng }));
@@ -150,6 +162,8 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
     } else {
       pinRef.current.setLngLat(ll(value));
     }
+    // pin di luar tampilan (hasil pencarian / lokasi saya): geser peta ke situ
+    if (!map.getBounds().contains(ll(value))) map.easeTo({ center: ll(value), zoom: Math.max(map.getZoom(), 17), duration: 600 });
   }, [ready, value]);
 
   if (!origin) {
@@ -162,6 +176,39 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
 
   const dist = value ? distanceMeters(origin.coordinates, value) : null;
   const outside = dist !== null && dist > ZONE_RADIUS_METERS;
+
+  const runSearch = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (query.trim().length < 3) {
+      setHelper({ ok: false, text: "Ketik minimal 3 huruf, misalnya nama jalan, desa, atau tempat terdekat." });
+      return;
+    }
+    setSearching(true);
+    setHelper(null);
+    try {
+      const found = await searchPlaces(query, origin.coordinates);
+      setResults(found);
+      if (found.length === 0) setHelper({ ok: false, text: "Tempat tidak ditemukan. Coba nama lain, atau ketuk langsung di peta." });
+    } catch {
+      setHelper({ ok: false, text: "Pencarian sedang tidak bisa. Ketuk langsung di peta untuk menaruh pin." });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const useMyLocation = async () => {
+    setLocating(true);
+    setHelper(null);
+    try {
+      const fix = await getFix();
+      onChange({ lat: fix.lat, lng: fix.lng });
+      setHelper({ ok: true, text: `Pin ditaruh di lokasimu sekarang (akurasi ±${Math.round(fix.accuracy)} m). Geser pin kalau kurang pas.` });
+    } catch (err) {
+      setHelper({ ok: false, text: err instanceof LocationError ? err.message : "Lokasi belum bisa dibaca. Coba lagi di tempat terbuka." });
+    } finally {
+      setLocating(false);
+    }
+  };
 
   // keyboard: panah menggeser pin ~10 m (Shift ~50 m), Enter/Spasi menaruh pin pertama di dekat cagar utama
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -185,6 +232,53 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
 
   return (
     <div className="space-y-2">
+      <div role="search" className="flex gap-2">
+        <label htmlFor={`${slug}-cari`} className="sr-only">Cari alamat atau nama tempat</label>
+        <input
+          id={`${slug}-cari`}
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            // picker ini dipakai di dalam <form> lain: Enter cuma buat cari, bkn kirim form
+            if (e.key === "Enter") runSearch(e);
+          }}
+          placeholder="Cari alamat atau nama tempat"
+          className="flex-1 min-w-0 min-h-[48px] px-3.5 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted"
+        />
+        <button type="button" onClick={runSearch} disabled={searching} className="btn-tactile-secondary min-h-[48px] px-4 text-xs inline-flex items-center gap-1.5 shrink-0 disabled:opacity-70">
+          {searching ? <Icon name="loader" size={16} weight="bold" motion="spin" /> : <Icon name="search" size={16} />}
+          <span>Cari</span>
+        </button>
+      </div>
+      {results && results.length > 0 && (
+        <ul aria-label="Hasil pencarian" className="rounded-2xl border border-stoneSubtle bg-basalt divide-y divide-stoneSubtle overflow-hidden">
+          {results.map((r, i) => (
+            <li key={`${r.coords.lat}-${r.coords.lng}-${i}`} className="list-none">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(r.coords);
+                  setResults(null);
+                  setHelper({ ok: true, text: `Pin ditaruh di ${r.name}. Geser pin kalau kurang pas.` });
+                }}
+                className="w-full min-h-[48px] px-3.5 py-2 text-left"
+              >
+                <span className="block text-sm font-bold text-alabaster">{r.name}</span>
+                {r.detail && <span className="block text-[11px] text-pebble">{r.detail}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" onClick={useMyLocation} disabled={locating} className="btn-tactile-secondary min-h-[48px] w-full px-4 text-xs inline-flex items-center justify-center gap-2 disabled:opacity-70">
+        {locating ? <Icon name="loader" size={16} weight="bold" motion="spin" /> : <Icon name="compass" size={18} className="text-vibePrimary" />}
+        <span>Pakai lokasiku sekarang</span>
+      </button>
+      {helper && (
+        <p role={helper.ok ? "status" : "alert"} className={`text-xs font-bold ${helper.ok ? "text-quotaSafe" : "text-quotaFull"}`}>{helper.text}</p>
+      )}
+
       <div className="relative w-full rounded-2xl overflow-hidden border-2 border-stoneStrong" style={{ aspectRatio: "3 / 2", backgroundColor: "var(--map-land)" }}>
         <div
           ref={hostRef}
@@ -227,7 +321,12 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
           <>
             <span className="font-num font-bold text-alabaster">{formatCoord(value)}</span>
             <span className="text-pebble"> · sekitar {formatDistance(dist)} dari {origin.name.split("&")[0].trim()}</span>
-            {outside && (
+            {dist > 20000 && (
+              <span className="block font-bold text-quotaFull">
+                Lokasi ini jauh dari kawasan yang kamu pilih. Periksa pilihan Kawasan, atau pilih ulang pin.
+              </span>
+            )}
+            {outside && dist <= 20000 && (
               <span className="block font-bold text-quotaWarning">
                 Di luar radius {ZONE_RADIUS_METERS} m, jadi lapak tidak masuk rekomendasi pengalihan antrean.
               </span>

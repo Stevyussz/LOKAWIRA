@@ -65,6 +65,12 @@ export async function POST(request: NextRequest) {
       }
       const blocked = merchantBlocked(auth.user);
       if (blocked) return blocked;
+      const vr = input.quest?.voucherReward;
+      const disc = Number(vr?.discountAmount);
+      const minS = Number(vr?.minimumSpend);
+      if (!Number.isFinite(disc) || disc < 1000 || disc > 100000) return jsonError(400, "Nominal diskon harus Rp1.000 sampai Rp100.000.");
+      if (!Number.isFinite(minS) || minS < 0 || minS > 10_000_000) return jsonError(400, "Minimal belanja tidak valid.");
+      if (!String(input.quest?.targetObjectPrompt ?? "").trim()) return jsonError(400, "Tulis objek yang harus dipindai wisatawan.");
       if (auth.user.role === "MERCHANT" && input.spotType === "PRIMARY_DEST") {
         return jsonError(403, "Hanya pengelola yang boleh menambah cagar budaya utama.", "FORBIDDEN");
       }
@@ -77,6 +83,7 @@ export async function POST(request: NextRequest) {
         status: auth.user.role === "MERCHANT" ? "PENDING_REVIEW" : "PUBLISHED",
         coordinates: { lat, lng },
       };
+      newSpot.quest = { ...newSpot.quest, referenceImages: [] };
       store.spots.unshift(newSpot);
       return NextResponse.json({ spot: newSpot, spots: visibleSpots(auth.user) });
     }

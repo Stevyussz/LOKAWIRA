@@ -27,6 +27,7 @@ import type {
   ForgotPasswordRequest,
   HealthResponse,
   OkResponse,
+  ReferenceImagesResponse,
   ResetPasswordRequest,
   ListMerchantsResponse,
   MerchantDecisionResponse,
@@ -166,6 +167,16 @@ export const api = {
 
   updateSpot: (id: string, r: UpdateSpotRequest) =>
     request<UpdateSpotResponse>(`/api/spots/${encodeURIComponent(id)}`, { method: "PATCH", body: r }),
+
+  // foto contoh objek yg dipindai wisatawan (maks 5 per lapak)
+  uploadReferenceImage: (spotId: string, image: Blob) => {
+    const form = new FormData();
+    form.append("image", image, "contoh.jpg");
+    return request<ReferenceImagesResponse>(`/api/spots/${encodeURIComponent(spotId)}/reference-images`, { method: "POST", body: form, timeoutMs: 45000 });
+  },
+
+  deleteReferenceImage: (spotId: string, imageId: string) =>
+    request<ReferenceImagesResponse>(`/api/spots/${encodeURIComponent(spotId)}/reference-images/${encodeURIComponent(imageId)}`, { method: "DELETE" }),
 
   deleteSpot: (id: string) =>
     request<DeleteSpotResponse>(`/api/spots/${encodeURIComponent(id)}`, { method: "DELETE" }),

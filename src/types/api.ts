@@ -9,6 +9,7 @@ import {
   IssuedVoucher,
   LensVerificationResult,
   ReservationPass,
+  ReferenceImage,
 } from "@/types/lokawira";
 
 // Kontrak antr frontend & backend - Satu-satunya tempat beentuk request/response didefinisikan
@@ -302,6 +303,11 @@ export interface AdminReservationsResponse {
 export interface AdminVouchersResponse {
   vouchers: IssuedVoucher[];
   nextCursor?: string;
+}
+
+// POST /api/spots/{id}/reference-images (multipart, field "image") dan DELETE /api/spots/{id}/reference-images/{imageId}
+export interface ReferenceImagesResponse {
+  referenceImages: ReferenceImage[];
 }
 
 // GET /api/health

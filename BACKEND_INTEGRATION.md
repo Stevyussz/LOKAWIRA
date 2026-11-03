@@ -406,7 +406,7 @@ BAGIAN 10 - Catatan tmbahan klo jdi make ts/nodejs
 
 K. Tes otomatis (QA)
 
-- folder tests/e2e plus playwright.config.ts: 23 tes (peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
+- folder tests/e2e plus playwright.config.ts: 28 tes (dasbor mitra, peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
 - jalanin: npm run test:e2e. Itu otomatis build (dgn NEXT_PUBLIC_DEMO_MODE=true) lalu start di port 3210 dgn geofence nyala. Hentikan npm run dev dulu karena build nulis ke folder .next yg sama
 - browser: pake chromium dari Playwright 1.58.0. Kalo belum ada: npx playwright install chromium
 - tes ke server lain (mis staging): QA_URL=https://alamat npm run test:e2e. Server itu harus mode demo dan geofence nyala, kalo gak tes geofence bakal gagal
@@ -434,3 +434,16 @@ N. Alur pandu (frontend)
 - Check-In di kartu pandu terkunci sampai user dalam radius (checkInRadiusMeters dr /api/health, default 60 m kalo kosong). Server TETAP wajib ngecek jarak sendiri, tombol ini cuma UX
 - kode kehadiran (KDR-) = bukti hadir. User nunjukin ke pemilik lapak, lapak ngetik di kasir (POST /api/checkins/verify), baru hadiah misi masuk ke akun user
 - voucer di Tas: tombol Tunjukkan ke kasir nampilin kode besar. Penebusan tetap dilakukan kasir lewat POST /api/vouchers/redeem, user gak diarahin ke halaman kasir
+
+O. Dasbor mitra (alur baru)
+
+- tab sekarang tiga: Kasir, Lapak Saya, Promo & Scan. Verifikasi kehadiran pindah ke Kasir. Satu kotak kode: awalan LKW- dipanggil ke POST /api/vouchers/redeem, awalan KDR- ke POST /api/checkins/verify. Frontend yg milih endpoint dari awalan kodenya
+- objek scan sekarang diisi mitra: quest.targetObjectPrompt (teks) plus foto contoh. Backend AI harus ngebandingin foto wisatawan dgn teks dan foto contoh itu. Foto wisatawan TIDAK diunggah ke lapak, dia cuma motret objek aslinya
+- endpoint foto contoh (mitra pemilik lapak atau admin, akun mitra harus ACTIVE):
+  - POST /api/spots/{id}/reference-images, multipart field image, JPEG/PNG/WebP maks 5 MB. Balikin referenceImages (array id dan url). Maks 5 foto per lapak, lewat itu 409 TOO_MANY_IMAGES
+  - DELETE /api/spots/{id}/reference-images/{imageId}, balikin referenceImages terbaru
+  - GET /api/spots/{id}/reference-images/{imageId} buat nampilin foto (publik)
+  - di data titik: quest.referenceImages (opsional), array dgn id dan url. Url relatif ke API_BASE
+- nominal voucer sekarang bebas diketik mitra. Batas yg dipake frontend dan server contoh: potongan Rp1.000 sampai Rp100.000, minimal belanja 0 sampai Rp10.000.000. Validasi ini berlaku di ADD_SPOT maupun UPDATE_PROMO (server contoh sekarang ngecek dua2nya). Server asli wajib validasi juga, jgn percaya frontend
+- ADD_SPOT sekarang wajib ngirim quest.targetObjectPrompt (gak boleh kosong). referenceImages dari klien diabaikan, foto cuma lewat endpoint di atas
+- pemilih lokasi di form lapak: cari alamat lewat Nominatim OpenStreetMap (nominatim.openstreetmap.org, cuma buat pemakaian ringan, dipicu tombol Cari). Ganti lewat NEXT_PUBLIC_GEOCODE_URL kalo backend nyediain geocoder sendiri (format Nominatim /search). Tombol Pakai lokasiku sekarang pake izin lokasi yg sama dgn fitur pandu

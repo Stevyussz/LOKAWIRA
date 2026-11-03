@@ -77,7 +77,14 @@ export interface CulturalSpot {
       discountAmount: number;
       minimumSpend: number;
     };
+    // foto contoh objek yg dipindai wisatawan (diunggah mitra). Dipakai AI sbg pembanding
+    referenceImages?: ReferenceImage[];
   };
+}
+
+export interface ReferenceImage {
+  id: string;
+  url: string;
 }
 
 export interface IssuedVoucher {

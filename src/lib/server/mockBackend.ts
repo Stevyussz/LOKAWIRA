@@ -66,6 +66,12 @@ function makeUser(
   };
 }
 
+// foto contoh objek (in-memory, cuma buat server contoh)
+const gi = globalThis as unknown as { lokawiraRefImages?: Map<string, { type: string; data: Buffer }> };
+export function refImages() {
+  return (gi.lokawiraRefImages ??= new Map());
+}
+
 export function getMock(): MockState {
   if (!g.lokawiraMock) {
     const users: UserRecord[] = [];
