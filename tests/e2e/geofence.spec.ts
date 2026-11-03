@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { apiLogin, bearer, uniq } from "./helpers";
 
 // server tes menyalakan geofence (radius 100 m), lihat playwright.config.ts
@@ -47,6 +48,9 @@ test("di UI: jauh ditolak dengan jarak, lalu pemandu menyatakan sudah tiba dan c
   await expect(page.getByText("Rute jalan kaki")).toBeVisible();
   await page.getByRole("button", { name: "Mulai" }).click();
   await expect(page.getByText(/ke arah selatan/)).toBeVisible();
+  // kartu pandu harus lolos aksesibilitas juga
+  const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).exclude("nextjs-portal").analyze();
+  expect(axe.violations.map((v) => `${v.id} (${v.nodes.length})`)).toEqual([]);
   // belum tiba: Check-In di kartu pandu masih terkunci
   await expect(page.getByRole("button", { name: /Check-In \(setelah tiba\)/ })).toBeDisabled();
 
