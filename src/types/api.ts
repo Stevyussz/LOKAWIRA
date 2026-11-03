@@ -34,7 +34,7 @@ export interface SnapshotResponse {
 
 export type SnapshotQuery = { vibe?: CulturalVibe; limit?: number; cursor?: string };
 
-// POST /api/spots {action:"UPDATE_QUOTA"}
+// PATCH /api/spots/{spotId}/quota, body cuma currentVisitors (spotId dipake klien utk path)
 export interface UpdateQuotaRequest {
   spotId: string;
   currentVisitors: number;
@@ -44,13 +44,13 @@ export interface UpdateQuotaResponse {
   spots: CulturalSpot[];
 }
 
-// POST /api/spots {action:"ADD_SPOT"}
+// POST /api/spots, body = objek CulturalSpot
 export interface AddSpotResponse {
   spot: CulturalSpot;
   spots: CulturalSpot[];
 }
 
-// POST /api/spots {action:"ADD_AI_NOTE"}
+// POST /api/ai-notes
 export interface AddAiNoteRequest {
   opkCategory: string;
   maestroSource: string;
@@ -137,7 +137,7 @@ export interface MeResponse {
   user: AuthUser;
 }
 
-// POST /api/spots {action:"UPDATE_PROMO"}: mitra mengatur promo vuocer Object Scanner utk lapaknya
+// PUT /api/spots/{spotId}/promo (spotId utk path, bukan body): mitra mengatur promo vuocer Object Scanner utk lapaknya
 export interface UpdatePromoRequest {
   spotId: string;
   discountTitle: string;

@@ -12,7 +12,7 @@ test("alur persetujuan mitra dan review titik (API)", async ({ request }) => {
   // belum disetujui: tidak boleh menambah titik
   const base = (await (await request.get("/api/spots")).json()).spots[0];
   const draft = { ...base, name: "Lapak Uji Review", spotType: "UMKM_KRIYA", coordinates: { lat: base.coordinates.lat + 0.001, lng: base.coordinates.lng + 0.001 } };
-  const blocked = await request.post("/api/spots", { headers: bearer(token), data: { action: "ADD_SPOT", spot: draft } });
+  const blocked = await request.post("/api/spots", { headers: bearer(token), data: draft });
   expect(blocked.status()).toBe(403);
   expect((await blocked.json()).code).toBe("ACCOUNT_NOT_APPROVED");
 
@@ -22,7 +22,7 @@ test("alur persetujuan mitra dan review titik (API)", async ({ request }) => {
   const approve = await request.post(`/api/admin/merchants/${user.id}/approve`, { headers: bearer(admin), data: {} });
   expect((await approve.json()).merchant.status).toBe("ACTIVE");
 
-  const added = await request.post("/api/spots", { headers: bearer(token), data: { action: "ADD_SPOT", spot: draft } });
+  const added = await request.post("/api/spots", { headers: bearer(token), data: draft });
   const spot = (await added.json()).spot;
   expect(spot.status).toBe("PENDING_REVIEW");
   const publicIds = (await (await request.get("/api/spots")).json()).spots.map((s: { id: string }) => s.id);

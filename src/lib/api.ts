@@ -160,10 +160,10 @@ export const api = {
     request<SnapshotResponse>(`/api/spots${q.vibe ? `?vibe=${encodeURIComponent(q.vibe)}` : ""}`),
 
   updateQuota: (r: UpdateQuotaRequest) =>
-    request<UpdateQuotaResponse>("/api/spots", { method: "POST", body: { action: "UPDATE_QUOTA", ...r } }),
+    request<UpdateQuotaResponse>(`/api/spots/${encodeURIComponent(r.spotId)}/quota`, { method: "PATCH", body: { currentVisitors: r.currentVisitors } }),
 
   addSpot: (spot: CulturalSpot) =>
-    request<AddSpotResponse>("/api/spots", { method: "POST", body: { action: "ADD_SPOT", spot } }),
+    request<AddSpotResponse>("/api/spots", { method: "POST", body: spot }),
 
   updateSpot: (id: string, r: UpdateSpotRequest) =>
     request<UpdateSpotResponse>(`/api/spots/${encodeURIComponent(id)}`, { method: "PATCH", body: r }),
@@ -198,13 +198,16 @@ export const api = {
     request<SpotReviewResponse>(`/api/admin/spots/${encodeURIComponent(id)}/review`, { method: "POST", body: r }),
 
   addAiNote: (r: AddAiNoteRequest) =>
-    request<AddAiNoteResponse>("/api/spots", { method: "POST", body: { action: "ADD_AI_NOTE", ...r } }),
+    request<AddAiNoteResponse>("/api/ai-notes", { method: "POST", body: r }),
 
   createReservation: (r: CreateReservationRequest) =>
     request<CreateReservationResponse>("/api/reservations", { method: "POST", body: r }),
 
   updatePromo: (r: UpdatePromoRequest) =>
-    request<UpdatePromoResponse>("/api/spots", { method: "POST", body: { action: "UPDATE_PROMO", ...r } }),
+    request<UpdatePromoResponse>(`/api/spots/${encodeURIComponent(r.spotId)}/promo`, {
+      method: "PUT",
+      body: { discountTitle: r.discountTitle, discountAmount: r.discountAmount, minimumSpend: r.minimumSpend, rewardPoints: r.rewardPoints },
+    }),
 
   checkIn: (r: CheckInRequest) => request<CheckInResponse>("/api/checkins", { method: "POST", body: r }),
 

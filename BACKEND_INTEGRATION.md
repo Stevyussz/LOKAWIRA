@@ -62,8 +62,8 @@ Aturan per aksi yg udah dijalnin server contoh (tiru persis):
 - Lihat peta, titik, kuota: semua boleh (tamu, wisatawan, mitra, admin)
 - Reservasi, scan objek, tanya Loka, check-in: semua boleh
 - Tebus voucer (redeem): mitra cuma buat voucer lapaknya sendiri, admin semua. Tamu dan wisatawan gak boleh.
-- Tambah titik (ADD_SPOT): mitra boleh, ownerId diisi id dia sendiri, dan gak boleh bikin jenis PRIMARY_DEST. Admin boleh semua jenis. Tamu dan wisatawan gak boleh.
-- Atur promo (UPDATE_PROMO): mitra cuma lapaknya sendiri, admin semua dan cuma admin yg boleh ngubah rewardPoints.
+- Tambah titik (POST /api/spots): mitra boleh, ownerId diisi id dia sendiri, dan gak boleh bikin jenis PRIMARY_DEST. Admin boleh semua jenis. Tamu dan wisatawan gak boleh.
+- Atur promo (PUT /api/spots/{id}/promo): mitra cuma lapaknya sendiri, admin semua dan cuma admin yg boleh ngubah rewardPoints.
 - Verifikasi kehadiran: mitra cuma buat lapaknya sendiri, admin semua.
 - Ubah kuota, tambah catatan RAG, check-in tiket: cuma admin.
 
@@ -106,30 +106,30 @@ Titik dan peta
   - response: spots, vouchers, reservations, aiTrainingNotes (semuanya array)
   - dipanggil pas aplikasi kebuka, dan dipanggil lagi tiap kali user login atau logout karena isinya beda per peran
 
-- POST /api/spots dgn action UPDATE_QUOTA
+- PATCH /api/spots/{id}/quota
   - siapa: ADMIN
-  - request: action, spotId, currentVisitors
+  - request: currentVisitors (id titik ada di path)
   - response: spot dan spots
   - server ngejepit currentVisitors di antara 0 sampai maxCapacity, dan ngitung estimatedWaitMinutes (rasio 85 persen atau lebih = 35 menit, 60 persen atau lebih = 15, sisanya 0)
 
-- POST /api/spots dgn action ADD_SPOT
+- POST /api/spots
   - siapa: MERCHANT, ADMIN
-  - request: action dan spot (bentuk CulturalSpot, lihat bagian entitas)
-  - response: spot dan spots
+  - request: body-nya langsung objek CulturalSpot (lihat bagian entitas), gak dibungkus apa2
+  - response: spot dan spots, status 201
   - server yg bikin id, createdAt (ISO), dan ownerId. Id yg dikirim frontend (isinya "draft") diabaikan.
   - validasi: name gak boleh kosong, coordinates.lat dan lng harus angka, quest.targetObjectPrompt gak boleh kosong (objek yg dipotret wisatawan), quest.voucherReward.discountAmount 1000 sampai 100000 dan minimumSpend 0 sampai 10000000. Mitra dilarang bikin PRIMARY_DEST (403 FORBIDDEN). quest.referenceImages dari klien diabaikan, foto cuma lewat endpoint reference-images di bawah.
 
-- POST /api/spots dgn action UPDATE_PROMO
+- PUT /api/spots/{id}/promo
   - siapa: MERCHANT (lapak sendiri), ADMIN
-  - request: action, spotId, discountTitle, discountAmount, minimumSpend, rewardPoints?
+  - request: discountTitle, discountAmount, minimumSpend, rewardPoints? (id titik ada di path)
   - response: spot dan spots
   - validasi: discountTitle wajib, discountAmount antara 1000 sampai 100000, minimumSpend 0 atau lebih, rewardPoints cuma dipake kalo yg ngirim ADMIN (0 sampai 1000), buat mitra diabaikan
   - error: 403 NOT_YOUR_SPOT kalo bukan lapaknya
 
-- POST /api/spots dgn action ADD_AI_NOTE
+- POST /api/ai-notes
   - siapa: ADMIN
-  - request: action, opkCategory, maestroSource, summary
-  - response: aiTrainingNotes (daftar lengkap terbaru)
+  - request: opkCategory, maestroSource, summary
+  - response: aiTrainingNotes (daftar lengkap terbaru), status 201
 
 Reservasi dan check-in
 
@@ -249,7 +249,7 @@ BAGIAN 5 - Bentuk data (entitas)
 
 BAGIAN 6 - Hal2 alur yg harus dijaga
 
-- Promo itu templat, BUKAN voucer. UPDATE_PROMO ngubah spot.quest.voucherReward. Voucer baru cuma lahir dari lens-verify dan dari bonus reservations, pake templat itu. Endpoint lama vouchers/claim udah dihapus karena nerbitin voucer yg langsung nongol di tas wisatawan.
+- Promo itu templat, BUKAN voucer. PUT /api/spots/{id}/promo ngubah spot.quest.voucherReward. Voucer baru cuma lahir dari lens-verify dan dari bonus reservations, pake templat itu. Endpoint lama vouchers/claim udah dihapus karena nerbitin voucer yg langsung nongol di tas wisatawan.
 - Alur mitra "pengunjung datang, verifikasi, kasih reward": wisatawan check-in, server kasih kode KDR (sekali pake) dan nentuin XP, mitra masukin kode itu, server nandain udah terverifikasi.
 - Titik baru: id, createdAt, dan ownerId dibikin SERVER. createdAt itu penting karena nentuin cagar "jangkar" kawasan (yg paling tua). Kalo gak ada, peta dan jalur pengalihan antrean bisa geser tiap ada cagar baru. Titik tanpa createdAt dianggap paling tua.
 - coordinates (lat dan lng) jadi sumber posisi pin di peta. Petanya bergaya (bukan peta dunia), posisinya dihitung relatif ke jangkar kawasan, dan zona 250 meter = radius pengalihan antrean. Sebaiknya backend validasi koordnat, dan buat titik dari mitra minta persetujuan admin dulu sebelum tampil ke publik.
@@ -279,7 +279,7 @@ B. Edit dan hapus titik
   - siapa: MERCHANT (lapak sendiri), ADMIN
   - request: cuma field yg mau diubah. Semua peran: name, address, facilities, coordinates, quota.maxCapacity, quest.riddleTitle, quest.riddleClue, quest.loreNarrative, quest.targetObjectPrompt. Cuma ADMIN: spotType, opkCategory, vibe, regionName, quest.verifiedLoreSource, quest.rewardPoints (dari mitra diabaikan)
   - response: spot dan spots
-  - validasi sama kayak ADD_SPOT. Kalo mitra ngubah nama atau coordinates, status titik balik ke PENDING_REVIEW (kalo fitur review di bagian C dipake)
+  - validasi sama kayak POST /api/spots. Kalo mitra ngubah nama atau coordinates, status titik balik ke PENDING_REVIEW (kalo fitur review di bagian C dipake)
   - error: 400 input salah, 403 NOT_YOUR_SPOT, 404
   - frontend: UDH BERES. Tombol Ubah di tab Lapak dan Misi buka sheet edit (nama, lokasi di peta, alamat, petunjuk misi, cerita, fasilitas, kapasitas). Server contoh ngikutin aturan status di atas.
 
@@ -293,7 +293,7 @@ B. Edit dan hapus titik
 C. Persetujuan mitra dan review titik
 
 - field baru (opsional di tipe): AuthUser.status (cuma buat MERCHANT: PENDING, ACTIVE, REJECTED) dan CulturalSpot.status (PENDING_REVIEW, PUBLISHED, REJECTED, ARCHIVED). Kalo kosong dianggap ACTIVE dan PUBLISHED, jadi data lama aman.
-- aturan: register MERCHANT bikin status PENDING. Mitra PENDING boleh login tapi aksi nuils (ADD_SPOT, UPDATE_PROMO, redeem, verifikasi kehadiran) ditolak 403 ACCOUNT_NOT_APPROVED. Titik dari mitra mulai PENDING_REVIEW, titik dari admin langsung PUBLISHED, tpi itu usulan. GET /api/spots buat publik cuma PUBLISHED, sedangkan pemilik dan admin juga liat titik PENDING_REVIEW atau REJECTED miliknya.
+- aturan: register MERCHANT bikin status PENDING. Mitra PENDING boleh login tapi aksi nuils (POST /api/spots, PUT promo, redeem, verifikasi kehadiran) ditolak 403 ACCOUNT_NOT_APPROVED. Titik dari mitra mulai PENDING_REVIEW, titik dari admin langsung PUBLISHED, tpi itu usulan. GET /api/spots buat publik cuma PUBLISHED, sedangkan pemilik dan admin juga liat titik PENDING_REVIEW atau REJECTED miliknya.
 
 - GET /api/admin/merchants?status=&limit=&cursor=
   - siapa: ADMIN
@@ -393,14 +393,14 @@ J. Health check
   - checkInRadiusMeters cuma diisi kalo server mewajibkan jarak buat check-in (geofence nyala). Frontend pake angka ini buat nentuin "sudah tiba" di kartu pandu
   - buat monitoring di VPS
 
-Catatan desain: POST /api/spots dipake buat 4 aksi lewat field action. Karena backend nya TS/Node itu bisa langsung ditiru apa adanya, dan endpoint baru di atas (PATCH dan DELETE /api/spots/{id}) gayanya REST. Kalo mau semuanya REST: UPDATE_QUOTA jadi PATCH /spots/{id}/quota, UPDATE_PROMO jadi PUT /spots/{id}/promo, ADD_SPOT jadi POST /spots, ADD_AI_NOTE jadi POST /ai-notes. Bilang aja, yg diubah di frontend cuma satu file yaitu src/lib/api.ts.
+Catatan desain: POST /api/spots yg dulu dipake buat 4 aksi lewat field action UDAH DIPECAH jadi REST (disetujui temen backend). Pemetaannya: UPDATE_QUOTA jadi PATCH /api/spots/{id}/quota, UPDATE_PROMO jadi PUT /api/spots/{id}/promo, ADD_SPOT jadi POST /api/spots (body langsung CulturalSpot), ADD_AI_NOTE jadi POST /api/ai-notes. Field action udah gak dipake sama sekali. Frontend dan server contoh udah ngikut, yg berubah di frontend cuma src/lib/api.ts.
 
 Yg udah diperagain server contoh tapi cuma di memori (ilang kalo restart): login pake scrypt, sesi token, batas percobaan login, peran, kepemilikan lapak, check-in dan verifikasi kehadiran, redeem yg ngehormatin kepemilikan.
 
 Yg masih harus dikerjain backend di luar daftar endpoint:
 - Database, termasuk user dan sesi yg bisa kadaluarsa. Server contoh gak bisa jalan di serverless.
 - Penerbitan voucer: kode sekarang acak tanpa jaminan unik, signatureHash cuma hiasan, dan bonus pengalihan antrean pake angka tetap 15000. Butuh kode unik, tanda tangan beneran, dan aturan nilai di server.
-- Kuota beneran. UPDATE_QUOTA itu input manual admin.
+- Kuota beneran. PATCH /api/spots/{id}/quota itu input manual admin.
 - Keamanan dasar: validasi input menyeluruh, rate limit di redeem, reservations, lens-verify, register, HTTPS (kamera scanner cuma jalan di konteks aman), dan audit log penebusan.
 
 
@@ -482,15 +482,15 @@ O. Dasbor mitra (alur baru)
   - DELETE /api/spots/{id}/reference-images/{imageId}, balikin referenceImages terbaru
   - GET /api/spots/{id}/reference-images/{imageId} buat nampilin foto (publik)
   - di data titik: quest.referenceImages (opsional), array dgn id dan url. Url relatif ke API_BASE
-- nominal voucer sekarang bebas diketik mitra. Batas yg dipake frontend dan server contoh: potongan Rp1.000 sampai Rp100.000, minimal belanja 0 sampai Rp10.000.000. Validasi ini berlaku di ADD_SPOT maupun UPDATE_PROMO (server contoh sekarang ngecek dua2nya). Server asli wajib validasi juga, jgn percaya frontend
-- ADD_SPOT sekarang wajib ngirim quest.targetObjectPrompt (gak boleh kosong). referenceImages dari klien diabaikan, foto cuma lewat endpoint di atas
+- nominal voucer sekarang bebas diketik mitra. Batas yg dipake frontend dan server contoh: potongan Rp1.000 sampai Rp100.000, minimal belanja 0 sampai Rp10.000.000. Validasi ini berlaku di POST /api/spots maupun PUT promo (server contoh sekarang ngecek dua2nya). Server asli wajib validasi juga, jgn percaya frontend
+- POST /api/spots sekarang wajib ngirim quest.targetObjectPrompt (gak boleh kosong). referenceImages dari klien diabaikan, foto cuma lewat endpoint di atas
 - pemilih lokasi di form lapak: cari alamat lewat Nominatim OpenStreetMap (nominatim.openstreetmap.org, cuma buat pemakaian ringan, dipicu tombol Cari). Ganti lewat NEXT_PUBLIC_GEOCODE_URL kalo backend nyediain geocoder sendiri (format Nominatim /search). Tombol Pakai lokasiku sekarang pake izin lokasi yg sama dgn fitur pandu
 
 P. Dasbor pengelola (alur baru)
 
 - tab: Persetujuan (terbuka duluan, ada lencana jumlah), Titik di Peta, Kuota & Tiket, Hadiah & Voucer, Pengetahuan Loka. Kartu ringkasan di atas bisa diketuk. Istilah teknis (P0 sampai P4, RAG) sudah dibuang dari tampilan
 - daftar semua mitra (aktif, menunggu, ditolak) pake GET /api/admin/merchants tanpa filter status. Nonaktifkan = POST /api/admin/merchants/{id}/reject dgn reason, aktifkan lagi = POST .../approve. Backend asli: mitra yg dinonaktifkan harus ditolak di semua endpoint tulis (ACCOUNT_NOT_APPROVED) dan sebaiknya lapaknya disembunyiin dari publik
-- tombol simulasi Lengang 45 persen dan Padat 95 persen DIHAPUS. Gantinya pengelola ngisi angka jumlah pengunjung sekarang per titik (POST /api/spots action UPDATE_QUOTA, 0 sampai maxCapacity). Backend asli sebaiknya ngitung ini otomatis dari check-in dan tiket, input manual cuma koreksi
+- tombol simulasi Lengang 45 persen dan Padat 95 persen DIHAPUS. Gantinya pengelola ngisi angka jumlah pengunjung sekarang per titik (PATCH /api/spots/{id}/quota, 0 sampai maxCapacity). Backend asli sebaiknya ngitung ini otomatis dari check-in dan tiket, input manual cuma koreksi
 - review titik dari mitra sekarang nampilin objek yg dipotret, voucer, dan foto contoh. Pengelola bisa ubah objek dan foto contoh titik mana pun (PATCH quest.targetObjectPrompt dan endpoint reference-images)
 - check-in tiket cepat lewat nomor tiket: POST /api/reservations/checkin dgn ticketId
 - nominal voucer dan XP misi diketik bebas. XP 0 sampai 1000, potongan Rp1.000 sampai Rp100.000
