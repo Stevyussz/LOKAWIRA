@@ -329,7 +329,7 @@ export default function StoryTellerDock({
                 className="min-h-[44px] px-3 py-1.5 rounded-2xl bg-obsidian/70 hover:bg-slateElev text-pebble hover:text-alabaster text-xs font-bold flex items-center gap-1.5"
               >
                 <Icon name="search" size={16} className="text-vibePrimary" motion="pop" />
-                <span>Tanya AI</span>
+                <span>Tanya Loka</span>
               </button>
             </div>
           </div>

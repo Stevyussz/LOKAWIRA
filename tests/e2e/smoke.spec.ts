@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { makePng } from "./helpers";
 
 test("beranda memuat peta tanpa galat dan sheet utama bisa dibuka", async ({ page }) => {
   const errors: string[] = [];
@@ -38,8 +39,14 @@ test("peta nyata: kanvas OpenStreetMap termuat, atribusi ada, dan tanpa penanda 
   await expect(page.getByRole("img", { name: "Posisimu" })).toHaveCount(0);
 });
 
-test("voucer di Tas: 'Tunjukkan ke kasir' menampilkan kode, bukan pindah ke halaman kasir", async ({ page }) => {
+test("voucer di Tas: hasil scan bisa ditunjukkan ke kasir (kode tampil), bukan pindah ke halaman kasir", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Scan Objek" }).click();
+  await page.locator("input[type=file]").setInputFiles({ name: "besar.png", mimeType: "image/png", buffer: makePng(1400, 800, true) });
+  await page.getByRole("button", { name: /Pindai/ }).click();
+  await expect(page.getByText("Voucer UMKM Berhasil Diklaim")).toBeVisible();
+  await page.getByRole("button", { name: "Simpan ke Tas" }).click();
+
   await page.locator('[data-nav-id="WALLET"]').click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -51,4 +58,10 @@ test("voucer di Tas: 'Tunjukkan ke kasir' menampilkan kode, bukan pindah ke hala
   await show.click();
   await expect(dialog.getByText(/LKW-[A-Z0-9-]+/).first()).toBeVisible();
   expect(page.url()).toBe(before);
+});
+
+test("snapshot publik: tamu tidak menerima voucer atau tiket milik orang lain", async ({ request }) => {
+  const snap = await (await request.get("/api/spots")).json();
+  expect(snap.vouchers).toEqual([]);
+  expect(snap.reservations).toEqual([]);
 });

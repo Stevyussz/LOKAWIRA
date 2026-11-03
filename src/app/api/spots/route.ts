@@ -23,12 +23,15 @@ export async function GET(request: NextRequest) {
   const prof = user?.role === "VISITOR" ? profileOf(user.id) : null;
   return NextResponse.json({
     spots,
+    // tamu (belum login) gak dikasih voucer/tiket siapa pun: tas tamu cuma ada di perangkatnya. Admin dapat semua
     vouchers: prof
       ? store.vouchers.filter((v) => prof.voucherCodes.has(v.code))
       : isMerchant
       ? store.vouchers.filter((v) => mine.has(v.spotId))
-      : store.vouchers,
-    reservations: prof ? store.reservations.filter((r) => prof.ticketIds.has(r.ticketId)) : isMerchant ? [] : store.reservations,
+      : user?.role === "ADMIN"
+      ? store.vouchers
+      : [],
+    reservations: prof ? store.reservations.filter((r) => prof.ticketIds.has(r.ticketId)) : user?.role === "ADMIN" ? store.reservations : [],
     aiTrainingNotes: store.aiTrainingNotes,
   });
 }

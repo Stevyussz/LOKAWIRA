@@ -444,7 +444,7 @@ BAGIAN 10 - Catatan tmbahan klo jdi make ts/nodejs
 
 K. Tes otomatis (QA)
 
-- folder tests/e2e plus playwright.config.ts: 35 tes (halaman masuk, dasbor pengelola, dasbor mitra, peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
+- folder tests/e2e plus playwright.config.ts: 38 tes (alur wisatawan, halaman masuk, dasbor pengelola, dasbor mitra, peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
 - jalanin: npm run test:e2e. Itu otomatis build (dgn NEXT_PUBLIC_DEMO_MODE=true) lalu start di port 3210 dgn geofence nyala. Hentikan npm run dev dulu karena build nulis ke folder .next yg sama
 - browser: pake chromium dari Playwright 1.58.0. Kalo belum ada: npx playwright install chromium
 - tes ke server lain (mis staging): QA_URL=https://alamat npm run test:e2e. Server itu harus mode demo dan geofence nyala, kalo gak tes geofence bakal gagal
@@ -502,3 +502,11 @@ Q. Halaman masuk dan daftar
 - daftar cuma nawarin Wisatawan (bawaan) dan Mitra. ADMIN gak bisa daftar sendiri, backend harus nolak role ADMIN di POST /api/auth/register (400 atau 403). Mitra baru statusnya PENDING sampe disetujui pengelola
 - tautan ke pendaftaran mitra: /masuk?mode=daftar&role=mitra
 - gambar latar belakang form: taruh file di folder public (mis. public/auth-bg.jpg) lalu isi NEXT_PUBLIC_AUTH_BG=/auth-bg.jpg di env. Kosong = latar lontar polos. Teks form ada di kartu solid jadi gambar apa pun tetep aman terbaca
+
+R. Alur wisatawan (yg berubah)
+
+- snapshot publik (GET /api/spots tanpa login) TIDAK boleh ngirim voucer atau tiket siapa pun: vouchers dan reservations kosong buat tamu. Tas tamu cuma ada di perangkatnya. Dulu server contoh ngebocorin semua voucer ke tamu. Admin dapat semua, mitra cuma voucer lapaknya, wisatawan login cuma miliknya
+- respons POST /api/reservations buat tamu cuma isi reservation dan bonusVoucher yg barusan dibuat (bkn semua daftar)
+- voucer pengalih antrean (bonusVoucher, kalo acceptCircularQuest true) sekarang milik UMKM MITRA TERDEKAT di kawasan yg sama, bkn milik cagar. spotId nya lapak mitra itu, nominal dan minimal belanja diambil dr promo lapak itu. Jadi mitra tsb yg bisa nebus di kasirnya. Kalo gak ada mitra di kawasan itu, bonusVoucher kosong
+- scanner: wisatawan sekarang disuruh nyari objek dari quest.targetObjectPrompt, dan foto contoh (quest.referenceImages) ditampilin sbg petunjuk. Tombol Pindai terkunci sampe ada foto (kamera atau unggahan)
+- scan sebaiknya ikut ngecek lokasi di backend asli (wisatawan harus ada di dekat titik), sama kayak check-in. Kontrak lens-verify belum nerima lat dan lng, bilang gw kalo mau ditambahin

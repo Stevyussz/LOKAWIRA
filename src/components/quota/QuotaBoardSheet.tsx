@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import { motion } from "motion/react";
+import { DEMO_MODE } from "@/lib/api";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
 import { CulturalSpot } from "@/types/lokawira";
@@ -61,7 +62,7 @@ export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShow
           Papan Antrean
         </h2>
         <p className="text-xs text-pebble mt-1">
-          Pilih tujuan yang lengang. <span className="font-bold">Angka kuota adalah data demo.</span>
+          Pilih tujuan yang lengang. {DEMO_MODE ? <span className="font-bold">Angka kuota adalah data demo.</span> : <span>Angka kuota diperbarui pengelola kawasan.</span>}
         </p>
       </div>
       <button

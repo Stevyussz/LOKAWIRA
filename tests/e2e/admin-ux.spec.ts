@@ -48,11 +48,12 @@ test("kuota: pengelola mengisi jumlah pengunjung sekarang dan tersimpan di serve
   await uiLogin(page, "admin@lokawira.demo", "/admin");
   await page.getByRole("tab", { name: /Kuota & Tiket/ }).click();
   const spot = (await (await request.get("/api/spots")).json()).spots.find((s: { id: string }) => s.id === "spot-mjp-03");
-  const box = page.getByLabel("Jumlah pengunjung sekarang").nth(2);
+  const row = page.getByRole("listitem").filter({ hasText: "Wedang Pokak" }).first();
+  const box = row.getByLabel("Jumlah pengunjung sekarang");
   await expect(box).toBeVisible();
   const target = Math.floor(spot.quota.maxCapacity * 0.5);
   await box.fill(String(target));
-  await page.getByRole("button", { name: "Simpan", exact: true }).nth(2).click();
+  await row.getByRole("button", { name: "Simpan", exact: true }).click();
   await expect(page.getByText(/Jumlah pengunjung .* disimpan/)).toBeVisible();
   const after = (await (await request.get("/api/spots")).json()).spots.find((s: { id: string }) => s.id === "spot-mjp-03");
   expect(after.quota.currentVisitors).toBe(target);

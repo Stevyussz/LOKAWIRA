@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { distanceMeters } from "@/lib/geo";
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { awardXp, currentUser, profileOf } from "@/lib/server/mockBackend";
@@ -46,31 +47,40 @@ export async function POST(request: NextRequest) {
       awardXp(user.id, 75);
     }
 
+    // voucer pengalih antrean = voucer milik UMKM mitra terdekat di kawasan yg sama (bkn milik cagar), biar mitra itu yg bisa nebus di kasirnya
     let bonusVoucher: IssuedVoucher | undefined;
     if (acceptCircularQuest) {
-      const code = `LKW-${Math.floor(100000 + Math.random() * 900000)}`;
-      bonusVoucher = {
-        code,
-        signatureHash: `sha256:redir-${Date.now().toString(16)}`,
-        spotId: spot.id,
-        merchantName: spot.quest.voucherReward.merchantName,
-        discountTitle: `Voucer Pengalih Antrean: ${spot.quest.voucherReward.discountTitle}`,
-        discountAmount: 15000,
-        minimumSpend: spot.quest.voucherReward.minimumSpend,
-        expiresAt: "Aktif Selama Menunggu Giliran Masuk",
-        status: "ACTIVE",
-      };
-      store.vouchers.unshift(bonusVoucher);
-      if (user) profileOf(user.id).voucherCodes.add(bonusVoucher.code);
+      const partner = store.spots
+        .filter((x) => x.vibe === spot.vibe && x.spotType !== "PRIMARY_DEST" && (x.status ?? "PUBLISHED") === "PUBLISHED")
+        .sort((p, q) => distanceMeters(p.coordinates, spot.coordinates) - distanceMeters(q.coordinates, spot.coordinates))[0];
+      if (partner) {
+        let code = "";
+        do {
+          code = `LKW-${crypto.randomInt(100000, 999999)}`;
+        } while (store.vouchers.some((v) => v.code === code));
+        bonusVoucher = {
+          code,
+          signatureHash: `sha256:redir-${Date.now().toString(16)}`,
+          spotId: partner.id,
+          merchantName: partner.quest.voucherReward.merchantName,
+          discountTitle: `Voucer Pengalih Antrean: ${partner.quest.voucherReward.discountTitle}`,
+          discountAmount: partner.quest.voucherReward.discountAmount,
+          minimumSpend: partner.quest.voucherReward.minimumSpend,
+          expiresAt: "Aktif Selama Menunggu Giliran Masuk",
+          status: "ACTIVE",
+        };
+        store.vouchers.unshift(bonusVoucher);
+        if (user) profileOf(user.id).voucherCodes.add(bonusVoucher.code);
+      }
     }
 
-    // user login cuma dikasih miliknya sendiri, tamu dikasih semua (cuma buat demo)
+    // user login dikasih miliknya sendiri, tamu cuma dapet yg barusan dibuat (jgn bocorin punya orang lain)
     const mine = user ? profileOf(user.id) : null;
     return NextResponse.json({
       reservation: newReservation,
       bonusVoucher,
-      reservations: mine ? store.reservations.filter((r) => mine.ticketIds.has(r.ticketId)) : store.reservations,
-      vouchers: mine ? store.vouchers.filter((v) => mine.voucherCodes.has(v.code)) : store.vouchers,
+      reservations: mine ? store.reservations.filter((r) => mine.ticketIds.has(r.ticketId)) : [newReservation],
+      vouchers: mine ? store.vouchers.filter((v) => mine.voucherCodes.has(v.code)) : bonusVoucher ? [bonusVoucher] : [],
     });
   } catch {
     return NextResponse.json(

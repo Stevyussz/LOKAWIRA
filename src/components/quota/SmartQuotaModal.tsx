@@ -56,6 +56,9 @@ export default function SmartQuotaModal({
 
   const quotaRatio = spot.quota.currentVisitors / spot.quota.maxCapacity;
   const isCrowded = quotaRatio >= 0.85;
+  // hadiah voucer dari UMKM sekitar (angka asli dari data mitra, bkn tulisan tetap)
+  const bestReward = nearbyUmkmSpots.reduce((m, x) => Math.max(m, x.quest.voucherReward.discountAmount), 0);
+  const rewardText = bestReward > 0 ? `Rp${bestReward.toLocaleString("id-ID")}` : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,13 +95,13 @@ export default function SmartQuotaModal({
     <div className="flex items-center justify-between gap-3">
       <div>
             <span className="text-xs font-bold text-vibePrimary">
-              Smart Quota &amp; Crowd Redirect
+              Tiket masuk terjadwal
             </span>
             <h2
               id="smart-quota-title"
               className="text-lg sm:text-xl font-extrabold text-alabaster"
             >
-              Jadwal Masuk &amp; Misi UMKM Sirkular
+              Pesan jadwal masuk
             </h2>
           </div>
           <button
@@ -126,7 +129,7 @@ export default function SmartQuotaModal({
               <Icon name="users" size={16} className="text-vibePrimary" motion="pop" />
               {spot.quota.currentVisitors}/{spot.quota.maxCapacity} Pengunjung (
               {Math.round(quotaRatio * 100)}%)
-              <span className="font-sans text-[11px] font-semibold text-pebble">Data demo</span>
+              {DEMO_MODE && <span className="font-sans text-[11px] font-semibold text-pebble">Data demo</span>}
             </span>
           </div>
 
@@ -136,8 +139,8 @@ export default function SmartQuotaModal({
               <p className="leading-relaxed">
                 Antrean lokasi utama sedang padat (tunggu{" "}
                 <strong>{spot.quota.estimatedWaitMinutes} menit</strong>). Ambil jam masuk
-                terjadwal dan kunjungi UMKM radius 250m untuk hadiah voucer{" "}
-                <strong className="font-num text-vibeSecondary">Rp15.000</strong>!
+                terjadwal dan kunjungi UMKM radius 250m{rewardText ? <> untuk hadiah voucer hingga{" "}
+                <strong className="font-num text-vibeSecondary">{rewardText}</strong></> : null}!
               </p>
             </div>
           )}
@@ -259,7 +262,7 @@ export default function SmartQuotaModal({
               />
               <span className="text-xs text-alabaster leading-relaxed">
                 Ikuti <strong>Misi Sirkular UMKM</strong> sambil menunggu jam masuk (otomatis
-                dapat Voucer Rp15.000 + 75 XP).
+                dapat voucer dari UMKM terdekat{rewardText ? ` hingga ${rewardText}` : ""} + 75 XP).
               </span>
             </label>
 

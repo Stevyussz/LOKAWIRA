@@ -3,7 +3,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { MotionConfig, motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
-import { api, DEMO_MODE, describeError } from "@/lib/api";
+import { API_BASE, api, DEMO_MODE, describeError } from "@/lib/api";
+import { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import { fileToJpeg, shrinkToJpeg, ACCEPTED_IMAGE_TYPES } from "@/lib/image";
 import {
   CulturalSpot,
@@ -35,7 +36,9 @@ export default function ObjectLensScanner({
   );
   const [cameraActive, setCameraActive] = useState<boolean>(false);
   const [cameraNotice, setCameraNotice] = useState<string>(
-    "Sampel artefak siap dipindai (Cocok untuk pengujian di laptop maupun ponsel)"
+    DEMO_MODE
+      ? "Sampel artefak siap dipindai (Cocok untuk pengujian di laptop maupun ponsel)"
+      : "Tekan Buka Kamera atau Unggah Foto, lalu bidik objek yang dicari."
   );
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
@@ -47,6 +50,18 @@ export default function ObjectLensScanner({
   const resultRef = useRef<HTMLDivElement | null>(null);
   // jarak terang voucer menuju tab Tas pas user menekan "Simpan ke Tas"
   const [flight, setFlight] = useState<{ x: number; y: number } | null>(null);
+
+  // pratinjau foto yg dipilih
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!uploadedFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(uploadedFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [uploadedFile]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -98,12 +113,12 @@ export default function ObjectLensScanner({
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track) => track.stop());
       setCameraActive(false);
-      setCameraNotice("Kamera dimatikan. Menggunakan Sampel Artefak Kurasi.");
+      setCameraNotice(DEMO_MODE ? "Kamera dimatikan. Menggunakan Sampel Artefak Kurasi." : "Kamera dimatikan. Buka lagi atau unggah foto dari galeri.");
       return;
     }
 
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      setCameraNotice("WebRTC tidak tersedia. Mode Sampel Kurasi tetap aktif.");
+      setCameraNotice(DEMO_MODE ? "WebRTC tidak tersedia. Mode Sampel Kurasi tetap aktif." : "Kamera tidak tersedia di perangkat ini. Pakai Unggah Foto untuk memilih foto dari galeri.");
       return;
     }
 
@@ -118,7 +133,9 @@ export default function ObjectLensScanner({
       setCameraNotice("Kamera Aktif: Arahkan bidik ke artefak atau kriya budaya.");
     } catch {
       setCameraNotice(
-        "Izin kamera tidak tersedia di perangkat ini. Mode Sampel Kurasi aktif."
+        DEMO_MODE
+          ? "Izin kamera tidak tersedia di perangkat ini. Mode Sampel Kurasi aktif."
+          : "Izin kamera ditolak atau tidak tersedia. Pakai Unggah Foto untuk memilih foto dari galeri."
       );
     }
   };
@@ -149,6 +166,9 @@ export default function ObjectLensScanner({
       const video = videoRef.current;
       if (cameraActive && video && video.videoWidth > 0) {
         data = await api.verifyLensImage(spotId, await shrinkToJpeg(video));
+      } else if (cameraActive) {
+        setScanError("Kamera masih menyiapkan gambar. Tunggu sebentar lalu tekan Pindai lagi.");
+        return;
       } else if (uploadedFile) {
         data = await api.verifyLensImage(spotId, await fileToJpeg(uploadedFile));
       } else if (DEMO_MODE) {
@@ -199,6 +219,14 @@ export default function ObjectLensScanner({
     window.setTimeout(onClose, 700);
   };
 
+  // apa yg harus dicari wisatawan: objek dari mitra/pengelola + foto contohnya
+  const targetText =
+    activeSpot && activeSpot.quest.targetObjectPrompt.trim() && activeSpot.quest.targetObjectPrompt !== DEFAULT_TARGET
+      ? activeSpot.quest.targetObjectPrompt
+      : "objek khas di lokasi ini";
+  const refs = activeSpot?.quest.referenceImages ?? [];
+  const hasSource = cameraActive || !!uploadedFile || DEMO_MODE;
+
   const reticleColor = scanResult
     ? "var(--quota-safe)"
     : isScanning
@@ -218,13 +246,13 @@ export default function ObjectLensScanner({
         <div className="flex items-center justify-between gap-3">
           <div>
             <span className="text-xs font-bold text-vibePrimary">
-              Object Lens AR Scanner
+              {activeSpot ? activeSpot.name.split("&")[0].trim() : "Pemindai objek"}
             </span>
             <h2
               id="lens-scanner-title"
               className="text-lg sm:text-xl font-extrabold text-alabaster"
             >
-              Pindai Artefak &amp; Buka Hadiah Voucer
+              Pindai objek, dapat hadiah
             </h2>
           </div>
 
@@ -241,6 +269,10 @@ export default function ObjectLensScanner({
 
         {/* bidik AR: lensa gelap biar retikel & laser terabca jelas (kontras tinggi) */}
         <div className="relative w-full h-64 rounded-3xl bg-alabaster overflow-hidden text-[var(--vibe-on-primary)]">
+          {!cameraActive && previewUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="Foto yang akan dipindai" className="absolute inset-0 w-full h-full object-cover opacity-90" />
+          )}
           {cameraActive ? (
             <video
               ref={videoRef}
@@ -262,14 +294,14 @@ export default function ObjectLensScanner({
 
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 text-[11px] font-extrabold">
             <span className="px-2.5 py-1 rounded-full bg-[rgba(255,248,236,0.14)] truncate">
-              {currentSample.opkCategory}
+              {DEMO_MODE ? currentSample.opkCategory : activeSpot?.opkCategory ?? "Objek budaya"}
             </span>
             <span className="px-2.5 py-1 rounded-full bg-[rgba(255,248,236,0.14)] shrink-0">
-              {cameraActive ? "Kamera aktif" : "Mode sampel"}
+              {cameraActive ? "Kamera aktif" : uploadedFile ? "Foto dipilih" : DEMO_MODE ? "Mode sampel" : "Belum ada foto"}
             </span>
           </div>
 
-          {!scanResult && !isScanning && (
+          {!scanResult && !isScanning && !previewUrl && (
             <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center opacity-25">
               <Icon name="scan" size={72} weight="duotone" />
             </div>
@@ -308,17 +340,50 @@ export default function ObjectLensScanner({
           )}
 
           <div className="absolute inset-x-0 bottom-0 px-4 pb-3 pt-8 bg-gradient-to-t from-alabaster to-transparent">
-            <p className="text-sm font-extrabold leading-snug">{currentSample.objectName}</p>
-            <p className="text-[11px] opacity-80 mt-0.5 line-clamp-2">{currentSample.visualClue}</p>
+            {DEMO_MODE ? (
+              <>
+                <p className="text-sm font-extrabold leading-snug">{currentSample.objectName}</p>
+                <p className="text-[11px] opacity-80 mt-0.5 line-clamp-2">{currentSample.visualClue}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] font-bold opacity-80">Cari dan foto:</p>
+                <p className="text-sm font-extrabold leading-snug">{targetText}</p>
+              </>
+            )}
           </div>
         </div>
         <p aria-live="polite" className="text-[11px] text-pebble -mt-2">{cameraNotice}</p>
+
+        {!DEMO_MODE && (
+          <div className="rounded-2xl bg-obsidian p-4 space-y-3">
+            <p className="text-xs font-extrabold text-alabaster">Cara memindai</p>
+            <ol className="space-y-1.5 text-xs text-pebble leading-snug list-decimal pl-5">
+              <li>Temukan <b className="text-alabaster">{targetText}</b> di lokasi.{activeSpot?.quest.riddleClue ? <> Petunjuk: {activeSpot.quest.riddleClue}</> : null}</li>
+              <li>Tekan Buka Kamera atau Unggah Foto, lalu bidik satu objek itu dari dekat di tempat terang.</li>
+              <li>Tekan Pindai. Kalau cocok, kamu dapat kartu kisah, XP, dan voucer.</li>
+            </ol>
+            {refs.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-bold text-pebble">Contoh objek yang dicari</p>
+                <ul className="flex gap-2 overflow-x-auto scroll-hide">
+                  {refs.map((img, i) => (
+                    <li key={img.id} className="list-none shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-stoneSubtle">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`${API_BASE}${img.url}`} alt={`Contoh objek ${i + 1}`} className="w-full h-full object-cover" />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Sample Pills & Camera Switch */}
         <div className="bg-obsidian rounded-2xl p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-pebble">
-              {DEMO_MODE ? "Pilih Sampel Objek (Uji Tanpa Kamera):" : "Ambil foto objek budaya:"}
+              {DEMO_MODE ? "Pilih Sampel Objek (Uji Tanpa Kamera):" : "Ambil foto objeknya:"}
             </span>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -382,7 +447,8 @@ export default function ObjectLensScanner({
         {/* Primary Tactile Scan CTA */}
         <button
           type="button"
-          disabled={isScanning}
+          disabled={isScanning || !hasSource}
+          aria-describedby={!hasSource ? "scan-need-photo" : undefined}
           onClick={handleExecuteScan}
           className="btn-tactile-primary w-full min-h-[52px] px-6 py-3 text-sm flex items-center justify-center gap-2 disabled:opacity-60"
         >
@@ -394,10 +460,13 @@ export default function ObjectLensScanner({
           ) : (
             <>
               <Icon name="scan" size={20} motion="pop" />
-              <span>Pindai &amp; Klaim Hadiah Sekarang</span>
+              <span>{DEMO_MODE ? "Pindai & Klaim Hadiah Sekarang" : "Pindai sekarang"}</span>
             </>
           )}
         </button>
+        {!hasSource && (
+          <p id="scan-need-photo" className="text-[11px] text-pebble text-center -mt-3">Ambil foto dulu supaya tombol Pindai aktif.</p>
+        )}
 
         {scanError && (
           <div role="alert" className="p-4 rounded-2xl bg-obsidian border border-quotaFull text-xs text-alabaster">

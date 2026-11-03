@@ -57,6 +57,9 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
           </li>
         ))}
       </ul>
+      {!(status === "authed" && user) && (
+        <p className="text-[11px] text-pebble leading-snug">Belum tersimpan. Progres tamu hilang kalau halaman ditutup. Masuk supaya XP, kisah, dan voucermu aman.</p>
+      )}
     </section>
   );
 
@@ -142,8 +145,8 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
           {journey}
           {locationRow}
           <p className="text-sm text-pebble leading-relaxed">
-            Kamu bisa menjelajah, memindai objek, dan memesan tiket tanpa akun. Masuk diperlukan untuk
-            mitra (UMKM dan sanggar) dan pengelola.
+            Kamu bisa menjelajah, memindai objek, dan memesan tiket tanpa akun. Daftar atau masuk supaya XP, kartu kisah,
+            voucer, dan tiketmu tersimpan dan ikut ke HP lain. Mitra (UMKM, sanggar) dan pengelola juga masuk dari sini.
           </p>
           {status === "offline" && (
             <p role="status" className="text-xs font-bold text-quotaFull">
@@ -156,7 +159,10 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
               <span>Masuk</span>
             </Link>
             <Link href="/masuk?mode=daftar" onClick={onClose} className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2">
-              <span>Daftar sebagai mitra atau wisatawan</span>
+              <span>Daftar sebagai wisatawan</span>
+            </Link>
+            <Link href="/masuk?mode=daftar&role=mitra" onClick={onClose} className="min-h-[44px] px-4 text-xs font-extrabold text-vibePrimary underline underline-offset-2 flex items-center justify-center">
+              Punya UMKM atau sanggar? Daftar sebagai mitra
             </Link>
           </div>
         </div>
