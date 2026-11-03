@@ -117,7 +117,7 @@ Titik dan peta
   - request: action dan spot (bentuk CulturalSpot, lihat bagian entitas)
   - response: spot dan spots
   - server yg bikin id, createdAt (ISO), dan ownerId. Id yg dikirim frontend (isinya "draft") diabaikan.
-  - validasi: name gak boleh kosong, coordinates.lat dan lng harus angka. Mitra dilarang bikin PRIMARY_DEST (403 FORBIDDEN).
+  - validasi: name gak boleh kosong, coordinates.lat dan lng harus angka, quest.targetObjectPrompt gak boleh kosong (objek yg dipotret wisatawan), quest.voucherReward.discountAmount 1000 sampai 100000 dan minimumSpend 0 sampai 10000000. Mitra dilarang bikin PRIMARY_DEST (403 FORBIDDEN). quest.referenceImages dari klien diabaikan, foto cuma lewat endpoint reference-images di bawah.
 
 - POST /api/spots dgn action UPDATE_PROMO
   - siapa: MERCHANT (lapak sendiri), ADMIN
@@ -148,7 +148,7 @@ Reservasi dan check-in
 
 - POST /api/checkins
   - siapa: semua
-  - request: spotId
+  - request: spotId, dan lat, lng, accuracyMeters? (wajib kalo server nyalain geofence, detail di bagian 7 huruf F)
   - response: checkIn (id, code, spotId, createdAt) dan awardedPoints
   - server yg nentukan XP (sekarang 50) dan bikin kode kehadiran format KDR- ditambah 6 digit, sekali pake
   - error: 404 kalo spot gak ada
@@ -175,7 +175,7 @@ AI
   - siapa: semua
   - request: sampleId, spotId, customImageName?
   - response: LensVerificationResult (lihat entitas), isi issuedVoucher kalo dapet voucer
-  - catatan: sekarang BELUM ngirim gambar, cuma sampleId dari sampel kurasi
+  - catatan: UI sekarang ngirim FOTO ASLI sbg multipart (field spotId dan image), bukan lagi sampleId. Bentuk JSON di atas tetep diterima buat mode demo. Detail dan kode galatnya di bagian 7 huruf E. Logika AI nya ngebandingin foto dgn quest.targetObjectPrompt dan quest.referenceImages (foto contoh dr mitra)
 
 - POST /api/ai/storyteller
   - siapa: semua
@@ -183,6 +183,44 @@ AI
   - response: spotId, spotName, opkCategory, verifiedSource, riddleTitle, isVerified, sourceMode, story, riddle
   - PENTING: logika AI nya (prompt, fallback pas gak ada API key, timeout 3,5 detik ke 9router) cuma ada di src/app/api/ai/storyteller/route.ts dan src/lib/nineRouterClient.ts. Backend harus bikin ulang, jadi jgn hapus dua file itu sebelum logikanya dipindahin.
 
+
+Tambahan: endpoint yg UI SUDAH manggil (versi lengkap tiap endpoint ada di bagian 7, ini daftar ringkasnya biar semua endpoint ada di satu tempat)
+
+Akun dan profil (bagian 7 huruf A dan D)
+
+- GET /api/me/profile
+  - siapa: yg login (wisatawan)
+  - response: xp, level, checkedInSpotIds, loreCards, vouchers, reservations. XP dan level milik server, klien cuma nampilin
+- POST /api/auth/forgot-password: request email, response ok true. Jangan bocorin apakah email terdaftar. Jangan balikin token di response (server contoh cuma ngelakuin itu di mode demo)
+- POST /api/auth/reset-password: request token dan password (min 8)
+- POST /api/auth/change-password: request currentPassword dan newPassword. Sesi lain dicabut
+- DELETE /api/me: request password. Hapus akun
+
+Titik dan foto contoh (bagian 7 huruf B)
+
+- PATCH /api/spots/{id}
+  - siapa: MERCHANT (lapak sendiri), ADMIN
+  - request: field yg mau diubah aja (name, address, facilities, coordinates, quota.maxCapacity, quest.*). Field sensitif (spotType, opkCategory, vibe, regionName, quest.verifiedLoreSource, quest.rewardPoints) cuma diterima dari ADMIN
+  - response: spot dan spots. Mitra ngubah nama atau lokasi = status balik PENDING_REVIEW
+- DELETE /api/spots/{id}: soft delete (ARCHIVED), response spots
+- POST /api/spots/{id}/reference-images
+  - siapa: MERCHANT (lapak sendiri, akun harus ACTIVE), ADMIN
+  - request: multipart, field image (JPEG, PNG, atau WebP, maks 5 MB)
+  - response: referenceImages (array id dan url). Maks 5 foto per lapak
+  - error: 413 IMAGE_TOO_LARGE, 415 IMAGE_TYPE_UNSUPPORTED, 409 TOO_MANY_IMAGES, 403 NOT_YOUR_SPOT
+- DELETE /api/spots/{id}/reference-images/{imageId}: response referenceImages terbaru
+- GET /api/spots/{id}/reference-images/{imageId}: balikin file gambarnya (publik, dipake tag img)
+
+Pengelola (bagian 7 huruf C dan H)
+
+- GET /api/admin/merchants?status=: daftar mitra (id, name, email, status, createdAt, spotCount)
+- POST /api/admin/merchants/{id}/approve dan /reject (reject boleh kirim reason). Dipake juga buat nonaktifin dan aktifin lagi mitra
+- POST /api/admin/spots/{id}/review: request decision (PUBLISH atau REJECT) dan reason?
+- GET /api/admin/reservations dan GET /api/admin/vouchers: dipaginasi (limit, cursor, status). Response nextCursor kosong kalo habis
+
+Health
+
+- GET /api/health: ok, version, time, dan checkInRadiusMeters? (cuma diisi kalo geofence nyala, dipake UI buat nentuin "sudah tiba")
 
 BAGIAN 5 - Bentuk data (entitas)
 
@@ -406,7 +444,7 @@ BAGIAN 10 - Catatan tmbahan klo jdi make ts/nodejs
 
 K. Tes otomatis (QA)
 
-- folder tests/e2e plus playwright.config.ts: 33 tes (dasbor pengelola, dasbor mitra, peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
+- folder tests/e2e plus playwright.config.ts: 35 tes (halaman masuk, dasbor pengelola, dasbor mitra, peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
 - jalanin: npm run test:e2e. Itu otomatis build (dgn NEXT_PUBLIC_DEMO_MODE=true) lalu start di port 3210 dgn geofence nyala. Hentikan npm run dev dulu karena build nulis ke folder .next yg sama
 - browser: pake chromium dari Playwright 1.58.0. Kalo belum ada: npx playwright install chromium
 - tes ke server lain (mis staging): QA_URL=https://alamat npm run test:e2e. Server itu harus mode demo dan geofence nyala, kalo gak tes geofence bakal gagal
@@ -457,3 +495,10 @@ P. Dasbor pengelola (alur baru)
 - check-in tiket cepat lewat nomor tiket: POST /api/reservations/checkin dgn ticketId
 - nominal voucer dan XP misi diketik bebas. XP 0 sampai 1000, potongan Rp1.000 sampai Rp100.000
 - kode tiket (ticketId) HARUS unik. Server contoh dulu cuma 3 digit acak dan bisa tabrakan, sekarang 6 digit dan dicek. Backend asli pake unique index
+
+Q. Halaman masuk dan daftar
+
+- satu halaman (/masuk) buat semua peran. Login gak nanya peran, backend yg nentuin dari akunnya (user.role), frontend ngarahin: ADMIN ke /admin, MERCHANT ke /merchant-pos, VISITOR ke peta
+- daftar cuma nawarin Wisatawan (bawaan) dan Mitra. ADMIN gak bisa daftar sendiri, backend harus nolak role ADMIN di POST /api/auth/register (400 atau 403). Mitra baru statusnya PENDING sampe disetujui pengelola
+- tautan ke pendaftaran mitra: /masuk?mode=daftar&role=mitra
+- gambar latar belakang form: taruh file di folder public (mis. public/auth-bg.jpg) lalu isi NEXT_PUBLIC_AUTH_BG=/auth-bg.jpg di env. Kosong = latar lontar polos. Teks form ada di kartu solid jadi gambar apa pun tetep aman terbaca

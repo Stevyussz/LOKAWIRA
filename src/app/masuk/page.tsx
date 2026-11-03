@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { homeFor, safeNext, useAuth } from "@/components/layout/AuthProvider";
 import { DEMO_MODE, describeError } from "@/lib/api";
 import Icon from "@/components/ui/Icon";
+import AuthShell from "@/components/layout/AuthShell";
 
 type Mode = "masuk" | "daftar";
 
@@ -24,7 +25,8 @@ function MasukContent() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"VISITOR" | "MERCHANT">("MERCHANT");
+  // bawaan Wisatawan (paling umum). Mitra butuh persetujuan pengelola, jadi jgn kepilih tanpa sengaja. Tautan ?role=mitra buat pendaftar UMKM
+  const [role, setRole] = useState<"VISITOR" | "MERCHANT">(params.get("role") === "mitra" ? "MERCHANT" : "VISITOR");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,18 +62,16 @@ function MasukContent() {
     "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted";
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 py-8">
-      <div className="w-full max-w-md space-y-4">
-        <div className="text-center space-y-1">
-          <h1 className="font-display text-2xl font-extrabold text-alabaster">
-            {mode === "masuk" ? "Masuk ke LOKAWIRA" : "Buat akun LOKAWIRA"}
-          </h1>
-          <p className="text-sm text-pebble">
-            Untuk mitra (UMKM, sanggar) dan pengelola. Wisatawan boleh memakai aplikasi tanpa akun.
-          </p>
-        </div>
-
-        <div className="gamiz-card p-5 space-y-4">
+    <AuthShell
+      title={mode === "masuk" ? "Masuk ke LOKAWIRA" : "Buat akun LOKAWIRA"}
+      subtitle={
+        mode === "masuk"
+          ? "Satu halaman untuk semua: wisatawan, mitra, dan pengelola. Sistem mengenali jenis akunmu otomatis."
+          : "Wisatawan boleh memakai aplikasi tanpa akun. Daftar kalau mau menyimpan XP dan voucermu."
+      }
+      mood={mode === "masuk" ? "happy" : "cheer"}
+    >
+        <div className="space-y-4">
           <div role="tablist" aria-label="Masuk atau daftar" className="relative flex gap-1 bg-obsidian p-1 rounded-2xl">
             {(["masuk", "daftar"] as const).map((m) => (
               <button
@@ -100,8 +100,8 @@ function MasukContent() {
                   <div className="grid grid-cols-2 gap-2">
                     {(
                       [
+                        { id: "VISITOR", label: "Wisatawan", hint: "Simpan XP dan voucer" },
                         { id: "MERCHANT", label: "Mitra", hint: "UMKM atau sanggar seni" },
-                        { id: "VISITOR", label: "Wisatawan", hint: "Simpan progres petualangan" },
                       ] as const
                     ).map((o) => (
                       <label
@@ -124,6 +124,12 @@ function MasukContent() {
                     ))}
                   </div>
                 </fieldset>
+                <p className="text-[11px] text-pebble leading-snug rounded-xl bg-obsidian p-3">
+                  {role === "MERCHANT"
+                    ? "Akun mitra diperiksa pengelola dulu sebelum lapakmu bisa tampil dan menerima voucer. Setelah daftar, kamu langsung diarahkan ke dasbor mitra dan bisa memantau statusnya."
+                    : "Dengan akun, XP, kartu kisah, voucer, dan tiketmu tersimpan dan ikut ke HP lain."}
+                  {" "}Akun pengelola dibuat oleh tim LOKAWIRA, bukan lewat pendaftaran.
+                </p>
 
                 <div>
                   <label htmlFor="auth-name" className="block text-xs font-bold text-pebble mb-1.5">
@@ -228,8 +234,7 @@ function MasukContent() {
             Lanjut tanpa akun, buka peta
           </Link>
         </p>
-      </div>
-    </main>
+    </AuthShell>
   );
 }
 

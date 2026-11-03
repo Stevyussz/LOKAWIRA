@@ -4,6 +4,7 @@ import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Icon from "@/components/ui/Icon";
+import AuthShell from "@/components/layout/AuthShell";
 import { api, DEMO_MODE, describeError } from "@/lib/api";
 
 const field =
@@ -55,18 +56,12 @@ function LupaContent() {
   const hasToken = token.length > 0;
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 py-8">
-      <div className="w-full max-w-md space-y-4">
-        <div className="text-center space-y-1">
-          <h1 className="font-display text-2xl font-extrabold text-alabaster">
-            {hasToken ? "Atur kata sandi baru" : "Lupa kata sandi"}
-          </h1>
-          <p className="text-sm text-pebble">
-            {hasToken ? "Pilih kata sandi baru untuk akunmu." : "Masukkan email akunmu. Kami kirim tautan untuk mengaturnya ulang."}
-          </p>
-        </div>
-
-        <div className="gamiz-card p-5 space-y-4">
+    <AuthShell
+      title={hasToken ? "Atur kata sandi baru" : "Lupa kata sandi"}
+      subtitle={hasToken ? "Pilih kata sandi baru untuk akunmu." : "Masukkan email akunmu. Kami kirim tautan untuk mengaturnya ulang."}
+      mood={hasToken ? "cheer" : "curious"}
+    >
+        <div className="space-y-4">
           {done ? (
             <div role="status" className="space-y-3 text-center">
               <p className="text-sm font-bold text-quotaSafe">Kata sandi berhasil diganti.</p>
@@ -126,8 +121,7 @@ function LupaContent() {
             Kembali ke halaman masuk
           </Link>
         </p>
-      </div>
-    </main>
+    </AuthShell>
   );
 }
 
