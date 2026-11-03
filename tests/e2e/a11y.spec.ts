@@ -28,10 +28,13 @@ for (const width of [360, 390]) {
       await page.goto("/lupa-sandi");
       await expectNoViolations(page, "lupa-sandi");
       await uiLogin(page, "admin@lokawira.demo", "/admin");
-      await expect(page.getByRole("heading", { name: /Verifikasi E-Ticket Masuk/ })).toBeVisible({ timeout: 30_000 });
-      await expectNoViolations(page, "admin-tiket");
-      await page.getByRole("tab", { name: /Persetujuan/ }).click();
+      await expect(page.getByRole("heading", { name: "Dasbor Pengelola" })).toBeVisible({ timeout: 30_000 });
       await expectNoViolations(page, "admin-persetujuan");
+      for (const [tab, label] of [[/Titik di Peta/, "admin-titik"], [/Kuota & Tiket/, "admin-kuota"], [/Hadiah & Voucer/, "admin-hadiah"], [/Pengetahuan Loka/, "admin-pengetahuan"]] as const) {
+        await page.getByRole("tab", { name: tab }).click();
+        await page.waitForTimeout(800);
+        await expectNoViolations(page, label);
+      }
     });
   });
 }

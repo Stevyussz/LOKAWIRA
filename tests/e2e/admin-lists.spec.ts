@@ -35,6 +35,7 @@ test("daftar admin berpaginasi: kursor tanpa duplikat, filter, dan hanya ADMIN",
 
 test("UI admin: tiket dimuat bertahap dan bisa ditandai masuk", async ({ page }) => {
   await uiLogin(page, "admin@lokawira.demo", "/admin");
+  await page.getByRole("tab", { name: /Kuota & Tiket/ }).click();
   const more = page.getByRole("button", { name: "Muat lebih banyak" }).first();
   await expect(more).toBeVisible({ timeout: 30_000 });
   const rows = page.getByRole("button", { name: /^Check-in tiket / });

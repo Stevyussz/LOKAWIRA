@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import MoneyField from "@/components/merchant/MoneyField";
-import ReferencePhotos from "@/components/merchant/ReferencePhotos";
+import ScanObjectEditor, { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import { api, describeError } from "@/lib/api";
 import type { CulturalSpot } from "@/types/lokawira";
 
@@ -12,8 +12,7 @@ const input = "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border bor
 const labelCls = "block text-xs font-bold text-pebble mb-1.5";
 export const DISCOUNT_MIN = 1000;
 export const DISCOUNT_MAX = 100000;
-// teks bawaan saat lapak didaftarkan tanpa nama objek. Dianggap "belum diatur"
-export const DEFAULT_TARGET = "Produk atau karya di lapak ini";
+export { DEFAULT_TARGET };
 
 interface Props {
   mySpots: CulturalSpot[];
@@ -29,11 +28,6 @@ export default function ScanPromoPanel({ mySpots, setSpots, accountBlocked, onGo
   const [spotId, setSpotId] = useState("");
   const spot = mySpots.find((s) => s.id === spotId) ?? mySpots[0] ?? null;
 
-  const [target, setTarget] = useState("");
-  const [targetBusy, setTargetBusy] = useState(false);
-  const [targetMsg, setTargetMsg] = useState<Msg>(null);
-  const [targetErr, setTargetErr] = useState<string>("");
-
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState(15000);
   const [minSpend, setMinSpend] = useState(30000);
@@ -43,13 +37,10 @@ export default function ScanPromoPanel({ mySpots, setSpots, accountBlocked, onGo
 
   useEffect(() => {
     if (!spot) return;
-    setTarget(spot.quest.targetObjectPrompt === DEFAULT_TARGET ? "" : spot.quest.targetObjectPrompt);
     const r = spot.quest.voucherReward;
     setTitle(r.discountTitle);
     setAmount(r.discountAmount);
     setMinSpend(r.minimumSpend);
-    setTargetMsg(null);
-    setTargetErr("");
     setPromoMsg(null);
     setPromoErrs({});
   }, [spot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -63,26 +54,6 @@ export default function ScanPromoPanel({ mySpots, setSpots, accountBlocked, onGo
       </div>
     );
   }
-
-  const saveTarget = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (target.trim().length < 5) {
-      setTargetErr("Tulis nama objeknya, minimal 5 huruf. Contoh: Tungku tanah liat di halaman depan.");
-      return;
-    }
-    setTargetErr("");
-    setTargetBusy(true);
-    setTargetMsg(null);
-    try {
-      const res = await api.updateSpot(spot.id, { quest: { targetObjectPrompt: target.trim() } });
-      setSpots(res.spots);
-      setTargetMsg({ ok: true, text: "Objek tersimpan. Wisatawan akan diminta memotret objek ini." });
-    } catch (err) {
-      setTargetMsg({ ok: false, text: describeError(err, "Objek gagal disimpan.") });
-    } finally {
-      setTargetBusy(false);
-    }
-  };
 
   const savePromo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,9 +76,6 @@ export default function ScanPromoPanel({ mySpots, setSpots, accountBlocked, onGo
       setPromoBusy(false);
     }
   };
-
-  const images = spot.quest.referenceImages ?? [];
-  const targetReady = spot.quest.targetObjectPrompt !== DEFAULT_TARGET && spot.quest.targetObjectPrompt.trim().length >= 5;
 
   return (
     <div className="space-y-5">
@@ -148,27 +116,7 @@ export default function ScanPromoPanel({ mySpots, setSpots, accountBlocked, onGo
             <p className="text-xs text-pebble mt-1 leading-relaxed">Tulis nama objeknya, lalu unggah foto contohnya di sini. Wisatawan tidak mengunggah apa-apa, mereka cukup memotret objek aslinya di lapakmu.</p>
           </div>
 
-          <form onSubmit={saveTarget} className="space-y-3" noValidate>
-            <div>
-              <label htmlFor="ps-target" className={labelCls}>Nama atau ciri objek</label>
-              <input id="ps-target" type="text" value={target} onChange={(e) => setTarget(e.target.value)} aria-invalid={!!targetErr} aria-describedby={targetErr ? "ps-target-err" : "ps-target-help"} placeholder="Contoh: Tungku tanah liat di halaman depan" className={input} />
-              <p id="ps-target-help" className="mt-1.5 text-[11px] text-pebble leading-snug">Tulis yang jelas dan khas, jangan terlalu umum. &quot;Batik tulis motif kawung&quot; lebih baik daripada &quot;kain&quot;.</p>
-              {targetErr && <p id="ps-target-err" role="alert" className="mt-1 text-xs font-bold text-quotaFull">{targetErr}</p>}
-            </div>
-            <button type="submit" disabled={targetBusy || accountBlocked} className="btn-tactile-secondary min-h-[48px] px-5 text-sm inline-flex items-center gap-2 disabled:opacity-70">
-              {targetBusy ? <Icon name="loader" size={18} weight="bold" motion="spin" /> : <Icon name="check" size={18} />}
-              <span>{targetBusy ? "Menyimpan" : "Simpan objek"}</span>
-            </button>
-            {targetMsg && <p role={targetMsg.ok ? "status" : "alert"} className={`text-xs font-bold ${targetMsg.ok ? "text-quotaSafe" : "text-quotaFull"}`}>{targetMsg.text}</p>}
-          </form>
-
-          <div className="pt-2 border-t border-stoneSubtle space-y-2">
-            <p className="text-xs font-extrabold text-alabaster">Foto contoh objek ({images.length}/5)</p>
-            <ReferencePhotos spotId={spot.id} images={images} disabled={accountBlocked} onImages={(imgs) => setSpots((prev) => prev.map((s) => (s.id === spot.id ? { ...s, quest: { ...s.quest, referenceImages: imgs } } : s)))} />
-          </div>
-          <p className={`text-[11px] font-bold ${targetReady && images.length > 0 ? "text-quotaSafe" : "text-quotaWarning"}`}>
-            {targetReady && images.length > 0 ? "Siap. Objek dan foto contoh sudah ada." : "Belum lengkap: isi nama objek dan tambahkan minimal 1 foto contoh."}
-          </p>
+          <ScanObjectEditor spot={spot} setSpots={setSpots} disabled={accountBlocked} idPrefix="ps" />
         </section>
 
         <form onSubmit={savePromo} className="gamiz-card p-5 space-y-4" noValidate>

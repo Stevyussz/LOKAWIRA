@@ -406,7 +406,7 @@ BAGIAN 10 - Catatan tmbahan klo jdi make ts/nodejs
 
 K. Tes otomatis (QA)
 
-- folder tests/e2e plus playwright.config.ts: 28 tes (dasbor mitra, peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
+- folder tests/e2e plus playwright.config.ts: 33 tes (dasbor pengelola, dasbor mitra, peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
 - jalanin: npm run test:e2e. Itu otomatis build (dgn NEXT_PUBLIC_DEMO_MODE=true) lalu start di port 3210 dgn geofence nyala. Hentikan npm run dev dulu karena build nulis ke folder .next yg sama
 - browser: pake chromium dari Playwright 1.58.0. Kalo belum ada: npx playwright install chromium
 - tes ke server lain (mis staging): QA_URL=https://alamat npm run test:e2e. Server itu harus mode demo dan geofence nyala, kalo gak tes geofence bakal gagal
@@ -447,3 +447,13 @@ O. Dasbor mitra (alur baru)
 - nominal voucer sekarang bebas diketik mitra. Batas yg dipake frontend dan server contoh: potongan Rp1.000 sampai Rp100.000, minimal belanja 0 sampai Rp10.000.000. Validasi ini berlaku di ADD_SPOT maupun UPDATE_PROMO (server contoh sekarang ngecek dua2nya). Server asli wajib validasi juga, jgn percaya frontend
 - ADD_SPOT sekarang wajib ngirim quest.targetObjectPrompt (gak boleh kosong). referenceImages dari klien diabaikan, foto cuma lewat endpoint di atas
 - pemilih lokasi di form lapak: cari alamat lewat Nominatim OpenStreetMap (nominatim.openstreetmap.org, cuma buat pemakaian ringan, dipicu tombol Cari). Ganti lewat NEXT_PUBLIC_GEOCODE_URL kalo backend nyediain geocoder sendiri (format Nominatim /search). Tombol Pakai lokasiku sekarang pake izin lokasi yg sama dgn fitur pandu
+
+P. Dasbor pengelola (alur baru)
+
+- tab: Persetujuan (terbuka duluan, ada lencana jumlah), Titik di Peta, Kuota & Tiket, Hadiah & Voucer, Pengetahuan Loka. Kartu ringkasan di atas bisa diketuk. Istilah teknis (P0 sampai P4, RAG) sudah dibuang dari tampilan
+- daftar semua mitra (aktif, menunggu, ditolak) pake GET /api/admin/merchants tanpa filter status. Nonaktifkan = POST /api/admin/merchants/{id}/reject dgn reason, aktifkan lagi = POST .../approve. Backend asli: mitra yg dinonaktifkan harus ditolak di semua endpoint tulis (ACCOUNT_NOT_APPROVED) dan sebaiknya lapaknya disembunyiin dari publik
+- tombol simulasi Lengang 45 persen dan Padat 95 persen DIHAPUS. Gantinya pengelola ngisi angka jumlah pengunjung sekarang per titik (POST /api/spots action UPDATE_QUOTA, 0 sampai maxCapacity). Backend asli sebaiknya ngitung ini otomatis dari check-in dan tiket, input manual cuma koreksi
+- review titik dari mitra sekarang nampilin objek yg dipotret, voucer, dan foto contoh. Pengelola bisa ubah objek dan foto contoh titik mana pun (PATCH quest.targetObjectPrompt dan endpoint reference-images)
+- check-in tiket cepat lewat nomor tiket: POST /api/reservations/checkin dgn ticketId
+- nominal voucer dan XP misi diketik bebas. XP 0 sampai 1000, potongan Rp1.000 sampai Rp100.000
+- kode tiket (ticketId) HARUS unik. Server contoh dulu cuma 3 digit acak dan bisa tabrakan, sekarang 6 digit dan dicek. Backend asli pake unique index

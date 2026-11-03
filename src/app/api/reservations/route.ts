@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { awardXp, currentUser, profileOf } from "@/lib/server/mockBackend";
@@ -21,7 +22,11 @@ export async function POST(request: NextRequest) {
     const store = getLokawiraStore();
     const spot = store.spots.find((s) => s.id === spotId) || store.spots[0];
 
-    const ticketCode = `PASS-${spot.vibe.slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+    // kode tiket harus unik (tabrakan bikin tiket orang lain ketuker): acak 6 digit, ulang kalo sudah ada
+    let ticketCode = "";
+    do {
+      ticketCode = `PASS-${spot.vibe.slice(0, 3).toUpperCase()}-${crypto.randomInt(100000, 999999)}`;
+    } while (store.reservations.some((r) => r.ticketId === ticketCode));
     const newReservation: ReservationPass = {
       ticketId: ticketCode,
       spotId: spot.id,

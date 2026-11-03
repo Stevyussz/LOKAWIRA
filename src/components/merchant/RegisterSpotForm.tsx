@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import LocationPicker from "@/components/map/LocationPicker";
 import MoneyField from "@/components/merchant/MoneyField";
 import { DISCOUNT_MAX, DISCOUNT_MIN } from "@/components/merchant/ScanPromoPanel";
 import { MAX_REFERENCE_PHOTOS } from "@/components/merchant/ReferencePhotos";
+import StagedPhotos, { Staged } from "@/components/merchant/StagedPhotos";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
-import { fileToJpeg } from "@/lib/image";
 import type { LatLng } from "@/lib/geo";
 import { REGIONS } from "@/lib/regions";
 import type { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/lokawira";
@@ -47,8 +47,6 @@ interface Props {
   setSpots: React.Dispatch<React.SetStateAction<CulturalSpot[]>>;
 }
 
-interface Staged { id: string; blob: Blob; url: string }
-
 // formulir daftar lapak baru, dibagi langkah-langkah biar gampang diikuti
 export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, activeVibe, spots, setSpots }: Props) {
   const [name, setName] = useState("");
@@ -68,30 +66,8 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const regionSpots = useMemo(() => spots.filter((s) => s.vibe === region), [spots, region]);
-
-  // bersihin URL pratinjau foto biar gak bocor memori
-  useEffect(() => () => staged.forEach((s) => URL.revokeObjectURL(s.url)), []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const stagePhotos = async (files: FileList | null) => {
-    if (!files) return;
-    const room = MAX_REFERENCE_PHOTOS - staged.length;
-    const next: Staged[] = [];
-    try {
-      for (const f of Array.from(files).slice(0, room)) {
-        const blob = await fileToJpeg(f);
-        next.push({ id: `${Date.now()}-${next.length}`, blob, url: URL.createObjectURL(blob) });
-      }
-      setStaged((p) => [...p, ...next]);
-      setErrors((e) => ({ ...e, photos: "" }));
-    } catch (err) {
-      setErrors((e) => ({ ...e, photos: err instanceof Error ? err.message : "Foto gagal diproses." }));
-    } finally {
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  };
 
   const reset = () => {
     setName("");
@@ -246,26 +222,8 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
       </div>
       <div className="space-y-2">
         <p className={labelCls}>Foto contoh objek (disarankan, maksimal {MAX_REFERENCE_PHOTOS})</p>
-        {staged.length > 0 && (
-          <ul className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
-            {staged.map((s, i) => (
-              <li key={s.id} className="list-none relative aspect-square rounded-xl overflow-hidden border border-stoneSubtle bg-obsidian">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.url} alt={`Foto contoh ${i + 1}`} className="w-full h-full object-cover" />
-                <button type="button" aria-label={`Hapus foto contoh ${i + 1}`} onClick={() => { URL.revokeObjectURL(s.url); setStaged((p) => p.filter((x) => x.id !== s.id)); }} className="absolute top-1 right-1 min-w-[44px] min-h-[44px] -m-1.5 rounded-full flex items-center justify-center">
-                  <span className="w-7 h-7 rounded-full bg-basalt text-quotaFull flex items-center justify-center shadow-sm"><Icon name="close" size={14} weight="bold" /></span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <input ref={fileRef} id="lapak-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(e) => stagePhotos(e.target.files)} disabled={staged.length >= MAX_REFERENCE_PHOTOS} />
-        <label htmlFor="lapak-photos" className={`btn-tactile-secondary min-h-[48px] px-4 text-sm inline-flex items-center justify-center gap-2 cursor-pointer ${staged.length >= MAX_REFERENCE_PHOTOS ? "opacity-60 pointer-events-none" : ""}`}>
-          <Icon name="camera" size={18} className="text-vibePrimary" />
-          <span>{staged.length >= MAX_REFERENCE_PHOTOS ? "Foto sudah penuh" : "Tambah foto contoh"}</span>
-        </label>
+        <StagedPhotos idPrefix="lapak" items={staged} onChange={setStaged} />
         <p className="text-[11px] text-pebble leading-snug">Foto satu objek, dari dekat, di tempat terang. Foto dikirim bersama lapak dan bisa ditambah lagi nanti di tab Promo &amp; Scan.</p>
-        <FieldError id="err-photos" msg={errors.photos} />
       </div>
 
       <StepHead n="4" title="Fasilitas dan kapasitas" />

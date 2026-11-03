@@ -55,12 +55,43 @@ export function ReservationsPanel({ onToast }: { onToast: (text: string, isError
     }
   };
 
+  const [quick, setQuick] = useState("");
+  const [quickBusy, setQuickBusy] = useState(false);
+  const quickCheckIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = quick.trim().toUpperCase();
+    if (!id) {
+      onToast("Ketik nomor tiket dari layar pengunjung.", true);
+      return;
+    }
+    setQuickBusy(true);
+    try {
+      const res = await api.checkInTicket({ ticketId: id });
+      list.setItems((prev) => prev.map((x) => (x.ticketId === id ? res.reservation : x)));
+      onToast(`Tiket ${id} atas nama ${res.reservation.visitorName} ditandai sudah masuk.`);
+      setQuick("");
+    } catch (err) {
+      onToast(describeError(err, "Tiket tidak bisa diproses. Periksa nomornya."), true);
+    } finally {
+      setQuickBusy(false);
+    }
+  };
+
   return (
     <section className="lg:col-span-5 gamiz-card p-6 space-y-3" aria-labelledby="pl-res">
+      <div>
+        <h2 id="pl-res" className="text-base font-extrabold text-alabaster">Tiket masuk (E-Ticket)</h2>
+        <p className="text-xs text-pebble mt-1 leading-relaxed">Saat pengunjung tiba di pintu, minta nomor tiketnya lalu ketik di bawah. Atau cari di daftar dan tekan Check-In.</p>
+      </div>
+      <form onSubmit={quickCheckIn} className="flex gap-2" noValidate>
+        <label htmlFor="pl-quick" className="sr-only">Nomor tiket</label>
+        <input id="pl-quick" type="text" autoComplete="off" autoCapitalize="characters" value={quick} onChange={(e) => setQuick(e.target.value.toUpperCase())} placeholder="Nomor tiket" className="flex-1 min-w-0 min-h-[48px] px-3.5 rounded-xl bg-obsidian border border-stoneStrong text-sm font-num font-bold text-alabaster placeholder:font-sans placeholder:font-normal placeholder:text-ashMuted" />
+        <button type="submit" disabled={quickBusy} className="btn-tactile-primary min-h-[48px] px-4 text-xs shrink-0 disabled:opacity-70">{quickBusy ? "Memeriksa" : "Check-In"}</button>
+      </form>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="pl-res" className="text-base font-extrabold text-alabaster">
-          Verifikasi E-Ticket Masuk <span className="font-num">({list.items.length}{list.hasMore ? "+" : ""})</span>
-        </h2>
+        <h3 className="text-sm font-extrabold text-alabaster">
+          Daftar tiket <span className="font-num">({list.items.length}{list.hasMore ? "+" : ""})</span>
+        </h3>
         <label className="sr-only" htmlFor="pl-res-status">Filter status tiket</label>
         <select id="pl-res-status" value={status} onChange={(e) => setStatus(e.target.value)} className={select}>
           <option value="">Semua</option>
@@ -107,7 +138,7 @@ export function VouchersPanel() {
     <section className="gamiz-card p-6 space-y-4" aria-labelledby="pl-vou">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="pl-vou" className="text-base font-extrabold text-alabaster">
-          Distribusi Tiket Voucer UMKM <span className="font-num">({list.items.length}{list.hasMore ? "+" : ""})</span>
+          Voucer yang beredar <span className="font-num">({list.items.length}{list.hasMore ? "+" : ""})</span>
         </h2>
         <label className="sr-only" htmlFor="pl-vou-status">Filter status voucer</label>
         <select id="pl-vou-status" value={status} onChange={(e) => setStatus(e.target.value)} className={select}>
