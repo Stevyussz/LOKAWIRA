@@ -199,12 +199,21 @@ export function setMerchantStatus(id: string, status: MerchantStatus, reason?: s
   return u;
 }
 
+// lapak milik mitra yg dinonaktifkan (atau belum disetujui) gak tampil ke publik. Pengelola & pemiliknya tetap lihat
+export function ownerInactive(spot: { ownerId?: string }): boolean {
+  if (!spot.ownerId) return false;
+  const o = getMock().users.find((u) => u.id === spot.ownerId);
+  return !!o && o.role === "MERCHANT" && o.status !== "ACTIVE";
+}
+
 // titik yg boleh dilihat user ini: publik cuma yg terbit, pemilik & pengelola lihat yg menunggu/ditolak, arsip gak pernah
 export function visibleSpots(user: AuthUser | null) {
   return getLokawiraStore().spots.filter((s) => {
     if (s.status === "ARCHIVED") return false;
+    const privileged = user?.role === "ADMIN" || (!!user && s.ownerId === user.id);
+    if (ownerInactive(s) && !privileged) return false;
     if (!s.status || s.status === "PUBLISHED") return true;
-    return user?.role === "ADMIN" || (!!user && s.ownerId === user.id);
+    return privileged;
   });
 }
 

@@ -50,6 +50,9 @@ export interface AddSpotResponse {
   spots: CulturalSpot[];
 }
 
+// PATCH /api/ai-notes/{id} (field opsional) dan DELETE /api/ai-notes/{id}, balasan sama kayak AddAiNoteResponse
+export type UpdateAiNoteRequest = Partial<AddAiNoteRequest>;
+
 // POST /api/ai-notes
 export interface AddAiNoteRequest {
   opkCategory: string;
@@ -86,6 +89,10 @@ export interface LensVerifyRequest {
   sampleId: string;
   spotId: string;
   customImageName?: string;
+  // bukti lokasi: wajib kalo server nyalain geofence (LOCATION_REQUIRED), kalo gak diabaikan
+  lat?: number;
+  lng?: number;
+  accuracyMeters?: number;
 }
 export type LensVerifyResponse = LensVerificationResult;
 

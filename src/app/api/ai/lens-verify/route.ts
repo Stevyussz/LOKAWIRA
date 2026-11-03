@@ -1,4 +1,5 @@
 import { awardXp, currentUser, mockDisabled, profileOf } from "@/lib/server/mockBackend";
+import { geofenceCheck } from "@/lib/server/geofence";
 import { NextRequest, NextResponse } from "next/server";
 import {
   CULTURAL_OBJECT_SAMPLES,
@@ -14,10 +15,13 @@ export async function POST(request: NextRequest) {
     let sampleId: string | undefined;
     let spotId: string | undefined;
     let customImageName: string | undefined;
+    // bukti lokasi (dipake kalo geofence nyala): upload lewat field form, demo lewat JSON
+    let where: { lat?: unknown; lng?: unknown; accuracyMeters?: unknown } = {};
     if (isUpload) {
       const form = await request.formData();
       const file = form.get("image");
       spotId = String(form.get("spotId") ?? "");
+      where = { lat: form.get("lat"), lng: form.get("lng"), accuracyMeters: form.get("accuracyMeters") };
       if (!(file instanceof File)) return NextResponse.json({ error: "Foto belum dilampirkan." }, { status: 400 });
       if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "Foto lebih dari 5 MB.", code: "IMAGE_TOO_LARGE" }, { status: 413 });
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
@@ -38,7 +42,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(miss);
       }
     } else {
-      ({ sampleId, spotId, customImageName } = await request.json());
+      const j = await request.json();
+      ({ sampleId, spotId, customImageName } = j);
+      where = { lat: j.lat, lng: j.lng, accuracyMeters: j.accuracyMeters };
     }
     const store = getLokawiraStore();
 
@@ -50,6 +56,10 @@ export async function POST(request: NextRequest) {
     const spot =
       store.spots.find((s) => s.id === (spotId || sample.spotId)) ||
       store.spots[0];
+
+    // scan cuma sah kalo orangnya beneran di lokasi (geofence mati = dilewati)
+    const outside = geofenceCheck(where, spot, "memindai objek");
+    if (outside) return outside;
 
     const randomDigits = Math.floor(100000 + Math.random() * 900000);
     const voucherCode = `LKW-${randomDigits}`;

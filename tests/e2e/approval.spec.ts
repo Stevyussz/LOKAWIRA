@@ -36,6 +36,14 @@ test("alur persetujuan mitra dan review titik (API)", async ({ request }) => {
   const after = (await (await request.get("/api/spots")).json()).spots.map((s: { id: string }) => s.id);
   expect(after).toContain(spot.id);
 
+  // mitra dinonaktifkan: lapaknya hilang dari peta publik, tapi pemilik & pengelola masih lihat. Diaktifkan lagi: muncul lagi
+  await request.post(`/api/admin/merchants/${user.id}/reject`, { headers: bearer(admin), data: { reason: "Uji nonaktif" } });
+  const ids = async (h?: Record<string, string>) => (await (await request.get("/api/spots", { headers: h })).json()).spots.map((s: { id: string }) => s.id);
+  expect(await ids()).not.toContain(spot.id);
+  expect(await ids(bearer(admin))).toContain(spot.id);
+  await request.post(`/api/admin/merchants/${user.id}/approve`, { headers: bearer(admin), data: {} });
+  expect(await ids()).toContain(spot.id);
+
   // mitra tidak boleh me-review titiknya sendiri
   expect((await request.post(`/api/admin/spots/${spot.id}/review`, { headers: bearer(token), data: { decision: "PUBLISH" } })).status()).toBe(403);
 

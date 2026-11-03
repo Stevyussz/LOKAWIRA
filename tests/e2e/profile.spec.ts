@@ -28,7 +28,7 @@ test("XP, kartu lore, voucer, dan tiket dicatat server per akun", async ({ reque
   expect(rsv.ok()).toBeTruthy();
   // scan objek: XP misi + voucer + kartu lore
   const scan = await (
-    await request.post("/api/ai/lens-verify", { headers: bearer(token), multipart: { spotId: spot.id, image: { name: "a.png", mimeType: "image/png", buffer: makePng(300, 300, true) } } })
+    await request.post("/api/ai/lens-verify", { headers: bearer(token), multipart: { spotId: spot.id, lat: String(lat), lng: String(lng), accuracyMeters: "15", image: { name: "a.png", mimeType: "image/png", buffer: makePng(300, 300, true) } } })
   ).json();
   expect(scan.isVerified).toBe(true);
 

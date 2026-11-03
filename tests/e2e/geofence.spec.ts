@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { apiLogin, bearer, uniq } from "./helpers";
+import { apiLogin, bearer, makePng, uniq } from "./helpers";
 
 // server tes menyalakan geofence (radius 100 m), lihat playwright.config.ts
 test("check-in ditolak tanpa lokasi, terlalu jauh, atau GPS kasar; lolos di titik", async ({ request }) => {
@@ -59,4 +59,27 @@ test("di UI: jauh ditolak dengan jarak, lalu pemandu menyatakan sudah tiba dan c
   await page.getByRole("button", { name: "Check-In sekarang" }).click();
   await expect(page.getByText(/KDR-\d+/)).toBeVisible();
   await ctx.close();
+});
+
+test("scan ikut dicek lokasi: tanpa lokasi, terlalu jauh, atau GPS kasar ditolak; di titik lolos", async ({ request }) => {
+  const spot = (await (await request.get("/api/spots")).json()).spots[0];
+  const { lat, lng } = spot.coordinates;
+  const png = makePng(1400, 800, true);
+  const scan = (extra: Record<string, string>) =>
+    request.post("/api/ai/lens-verify", { multipart: { spotId: spot.id, image: { name: "s.png", mimeType: "image/png", buffer: png }, ...extra } });
+
+  const none = await scan({});
+  expect(none.status()).toBe(400);
+  expect((await none.json()).code).toBe("LOCATION_REQUIRED");
+
+  const far = await scan({ lat: String(lat + 0.003), lng: String(lng), accuracyMeters: "20" });
+  expect(far.status()).toBe(403);
+  expect((await far.json()).code).toBe("OUT_OF_RANGE");
+
+  const rough = await scan({ lat: String(lat), lng: String(lng), accuracyMeters: "500" });
+  expect((await rough.json()).code).toBe("LOCATION_TOO_INACCURATE");
+
+  const ok = await scan({ lat: String(lat), lng: String(lng), accuracyMeters: "15" });
+  expect(ok.ok()).toBeTruthy();
+  expect((await ok.json()).isVerified).toBe(true);
 });

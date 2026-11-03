@@ -131,6 +131,16 @@ Titik dan peta
   - request: opkCategory, maestroSource, summary
   - response: aiTrainingNotes (daftar lengkap terbaru), status 201
 
+- PATCH /api/ai-notes/{id}
+  - siapa: ADMIN
+  - request: opkCategory?, maestroSource?, summary? (kirim yg diubah aja)
+  - validasi: maestroSource minimal 5 huruf, summary minimal 20 huruf
+  - response: aiTrainingNotes (daftar lengkap terbaru). 404 kalo id gak ada
+
+- DELETE /api/ai-notes/{id}
+  - siapa: ADMIN
+  - response: aiTrainingNotes (daftar lengkap terbaru). 404 kalo id gak ada. UI minta konfirmasi dulu sebelum manggil ini
+
 Reservasi dan check-in
 
 - POST /api/reservations
@@ -173,8 +183,9 @@ AI
 
 - POST /api/ai/lens-verify
   - siapa: semua
-  - request: sampleId, spotId, customImageName?
+  - request: sampleId, spotId, customImageName?, lat?, lng?, accuracyMeters?
   - response: LensVerificationResult (lihat entitas), isi issuedVoucher kalo dapet voucer
+  - lat, lng, accuracyMeters WAJIB kalo geofence nyala (sama persis kayak check-in, lihat bagian F). Kodenya sama: 400 LOCATION_REQUIRED, 400 LOCATION_TOO_INACCURATE, 403 OUT_OF_RANGE (details: distanceMeters dan radiusMeters). Geofence mati = lat dan lng diabaikan
   - catatan: UI sekarang ngirim FOTO ASLI sbg multipart (field spotId dan image), bukan lagi sampleId. Bentuk JSON di atas tetep diterima buat mode demo. Detail dan kode galatnya di bagian 7 huruf E. Logika AI nya ngebandingin foto dgn quest.targetObjectPrompt dan quest.referenceImages (foto contoh dr mitra)
 
 - POST /api/ai/storyteller
@@ -293,7 +304,7 @@ B. Edit dan hapus titik
 C. Persetujuan mitra dan review titik
 
 - field baru (opsional di tipe): AuthUser.status (cuma buat MERCHANT: PENDING, ACTIVE, REJECTED) dan CulturalSpot.status (PENDING_REVIEW, PUBLISHED, REJECTED, ARCHIVED). Kalo kosong dianggap ACTIVE dan PUBLISHED, jadi data lama aman.
-- aturan: register MERCHANT bikin status PENDING. Mitra PENDING boleh login tapi aksi nuils (POST /api/spots, PUT promo, redeem, verifikasi kehadiran) ditolak 403 ACCOUNT_NOT_APPROVED. Titik dari mitra mulai PENDING_REVIEW, titik dari admin langsung PUBLISHED, tpi itu usulan. GET /api/spots buat publik cuma PUBLISHED, sedangkan pemilik dan admin juga liat titik PENDING_REVIEW atau REJECTED miliknya.
+- aturan: register MERCHANT bikin status PENDING. Mitra PENDING boleh login tapi aksi nuils (POST /api/spots, PUT promo, redeem, verifikasi kehadiran) ditolak 403 ACCOUNT_NOT_APPROVED. Titik dari mitra mulai PENDING_REVIEW, titik dari admin langsung PUBLISHED, tpi itu usulan. Mitra yg dinonaktifkan (REJECTED) atau belum ACTIVE: SEMUA lapaknya juga hilang dari GET /api/spots publik dan dari pemilihan UMKM mitra buat voucer pengalih antrean (pemilik dan admin tetap liat), dan muncul lagi otomatis pas mitranya diaktifkan. GET /api/spots buat publik cuma PUBLISHED, sedangkan pemilik dan admin juga liat titik PENDING_REVIEW atau REJECTED miliknya.
 
 - GET /api/admin/merchants?status=&limit=&cursor=
   - siapa: ADMIN
@@ -343,7 +354,7 @@ D. Akun
 E. Upload gambar buat scanner
 
 - POST /api/ai/lens-verify versi upload (alamat sama, tapi Content-Type multipart/form-data)
-  - request: field spotId (teks) dan image (file jpeg, png, atau webp, maksimal 5 MB)
+  - request: field spotId (teks) dan image (file jpeg, png, atau webp, maksimal 5 MB), plus field teks lat, lng, accuracyMeters (wajib kalo geofence nyala)
   - versi JSON yg sekarang (sampleId) tetep dipake buat mode demo
   - response: LensVerificationResult. Kalo objek GAK dikenali: tetep status 200, isVerified false, confidenceScore kecil, ada message (alasan buat user), dan TANPA issuedVoucher
   - error: 400 kalo gak ada file, 413 IMAGE_TOO_LARGE, 415 IMAGE_TYPE_UNSUPPORTED
@@ -509,4 +520,4 @@ R. Alur wisatawan (yg berubah)
 - respons POST /api/reservations buat tamu cuma isi reservation dan bonusVoucher yg barusan dibuat (bkn semua daftar)
 - voucer pengalih antrean (bonusVoucher, kalo acceptCircularQuest true) sekarang milik UMKM MITRA TERDEKAT di kawasan yg sama, bkn milik cagar. spotId nya lapak mitra itu, nominal dan minimal belanja diambil dr promo lapak itu. Jadi mitra tsb yg bisa nebus di kasirnya. Kalo gak ada mitra di kawasan itu, bonusVoucher kosong
 - scanner: wisatawan sekarang disuruh nyari objek dari quest.targetObjectPrompt, dan foto contoh (quest.referenceImages) ditampilin sbg petunjuk. Tombol Pindai terkunci sampe ada foto (kamera atau unggahan)
-- scan sebaiknya ikut ngecek lokasi di backend asli (wisatawan harus ada di dekat titik), sama kayak check-in. Kontrak lens-verify belum nerima lat dan lng, bilang gw kalo mau ditambahin
+- scan SEKARANG ikut ngecek lokasi, sama persis kayak check-in (env geofence yg sama, kode galat yg sama). Frontend ngirim lat, lng, accuracyMeters di lens-verify. Alurnya: coba dulu tanpa lokasi, kalo server balas LOCATION_REQUIRED baru minta lokasi sekali (persetujuan dulu) lalu kirim ulang. Backend asli wajib ngitung jarak sendiri, jgn percaya klien

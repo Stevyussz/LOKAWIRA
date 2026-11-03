@@ -4,11 +4,8 @@ import crypto from "node:crypto";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { awardXp, currentUser, getMock, jsonError } from "@/lib/server/mockBackend";
 import { distanceMeters } from "@/lib/geo";
+import { GEOFENCE_ON, geofenceCheck } from "@/lib/server/geofence";
 
-// geofence nyala kalo GEOFENCE_ENABLED=true (env server, default mati biar demo juri aman). Radius & batas akurasi bisa diatur
-const GEOFENCE_ON = process.env.GEOFENCE_ENABLED === "true";
-const RADIUS_M = Number(process.env.GEOFENCE_RADIUS_METERS) || 100;
-const MAX_ACCURACY_M = 100;
 // kecepatan antar-titik yg mustahil (m/s, ~144 km/j) dalam 10 menit terakhir
 const MAX_SPEED_MS = 40;
 
@@ -26,24 +23,9 @@ export async function POST(request: NextRequest) {
   if (!spot) return jsonError(404, "Titik lokasi tidak ditemukan.");
 
   const user = currentUser(request);
+  const outside = geofenceCheck(body, spot, "check-in");
+  if (outside) return outside;
   if (GEOFENCE_ON) {
-    const lat = Number(body.lat);
-    const lng = Number(body.lng);
-    if (body.lat == null || body.lng == null) return jsonError(400, "Lokasi dibutuhkan untuk check-in di titik ini.", "LOCATION_REQUIRED");
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-      return jsonError(400, "Koordinat tidak valid.", "LOCATION_REQUIRED");
-    }
-    if (!(Number(body.accuracyMeters) <= MAX_ACCURACY_M)) {
-      return jsonError(400, "Sinyal GPS kurang tepat. Pindah ke area terbuka.", "LOCATION_TOO_INACCURATE");
-    }
-    const dist = distanceMeters({ lat, lng }, spot.coordinates);
-    // koordinat mentah pengguna sengaja TIDAK disimpan, cuma hasil pemeriksaannya
-    if (dist > RADIUS_M) {
-      return NextResponse.json(
-        { error: "Kamu belum cukup dekat dengan titik ini.", code: "OUT_OF_RANGE", details: { distanceMeters: Math.round(dist), radiusMeters: RADIUS_M } },
-        { status: 403 }
-      );
-    }
     if (user) {
       const mine = getMock().checkIns.filter((c) => c.userId === user.id);
       const today = new Date().toDateString();

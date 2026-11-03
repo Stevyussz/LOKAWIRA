@@ -83,6 +83,15 @@ test("pengetahuan Loka: form kosong dgn contoh, validasi jelas, lalu tersimpan",
   await page.getByRole("button", { name: "Simpan rujukan" }).click();
   await expect(page.getByText(/Rujukan .* tersimpan/)).toBeVisible();
   await expect(page.getByText("Dinas Kebudayaan Uji").first()).toBeVisible();
+
+  // ubah rujukan itu, lalu hapus
+  await page.getByRole("button", { name: "Ubah rujukan dari Dinas Kebudayaan Uji" }).first().click();
+  await page.getByLabel("Sumber atau narasumber").fill("Dinas Kebudayaan Revisi");
+  await page.getByRole("button", { name: "Simpan perubahan" }).click();
+  await expect(page.getByText("Dinas Kebudayaan Revisi").first()).toBeVisible();
+  await page.getByRole("button", { name: "Hapus rujukan dari Dinas Kebudayaan Revisi" }).first().click();
+  await page.getByRole("button", { name: "Ya, hapus" }).click();
+  await expect(page.getByRole("button", { name: "Ubah rujukan dari Dinas Kebudayaan Revisi" })).toHaveCount(0);
 });
 
 test("tiket: check-in cepat lewat nomor tiket", async ({ page, request }) => {

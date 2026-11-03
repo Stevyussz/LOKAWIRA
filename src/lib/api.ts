@@ -1,6 +1,7 @@
 import { CulturalSpot } from "@/types/lokawira";
 import type {
   AddAiNoteRequest,
+  UpdateAiNoteRequest,
   AdminListQuery,
   AdminReservationsResponse,
   AdminVouchersResponse,
@@ -200,6 +201,12 @@ export const api = {
   addAiNote: (r: AddAiNoteRequest) =>
     request<AddAiNoteResponse>("/api/ai-notes", { method: "POST", body: r }),
 
+  updateAiNote: (id: string, r: UpdateAiNoteRequest) =>
+    request<AddAiNoteResponse>(`/api/ai-notes/${encodeURIComponent(id)}`, { method: "PATCH", body: r }),
+
+  deleteAiNote: (id: string) =>
+    request<AddAiNoteResponse>(`/api/ai-notes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
   createReservation: (r: CreateReservationRequest) =>
     request<CreateReservationResponse>("/api/reservations", { method: "POST", body: r }),
 
@@ -247,9 +254,14 @@ export const api = {
     request<LensVerifyResponse>("/api/ai/lens-verify", { method: "POST", body: r, timeoutMs: 30000 }),
 
   // versi upload: foto dikecilin dulu (src/lib/image.ts), server balas LensVerificationResult
-  verifyLensImage: (spotId: string, image: Blob) => {
+  verifyLensImage: (spotId: string, image: Blob, where?: { lat: number; lng: number; accuracyMeters: number }) => {
     const form = new FormData();
     form.append("spotId", spotId);
+    if (where) {
+      form.append("lat", String(where.lat));
+      form.append("lng", String(where.lng));
+      form.append("accuracyMeters", String(where.accuracyMeters));
+    }
     form.append("image", image, "scan.jpg");
     return request<LensVerifyResponse>("/api/ai/lens-verify", { method: "POST", body: form, timeoutMs: 45000 });
   },

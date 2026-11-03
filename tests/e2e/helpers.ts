@@ -1,8 +1,19 @@
-import { APIRequestContext, Page, expect } from "@playwright/test";
+import { APIRequestContext, Browser, Page, expect } from "@playwright/test";
 import zlib from "node:zlib";
 
 export const DEMO_PASSWORD = "demo1234";
 export const uniq = (p: string) => `${p}-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+
+// halaman baru dgn lokasi palsu tepat di titik pertama (geofence server tes nyala, jadi scan & check-in butuh lokasi)
+export async function pageAtFirstSpot(browser: Browser, request: APIRequestContext) {
+  const spot = (await (await request.get("/api/spots")).json()).spots[0];
+  const ctx = await browser.newContext({
+    permissions: ["geolocation"],
+    geolocation: { latitude: spot.coordinates.lat, longitude: spot.coordinates.lng, accuracy: 15 },
+    viewport: { width: 768, height: 900 },
+  });
+  return { ctx, page: await ctx.newPage() };
+}
 
 export async function apiLogin(request: APIRequestContext, email: string, password = DEMO_PASSWORD) {
   const res = await request.post("/api/auth/login", { data: { email, password } });

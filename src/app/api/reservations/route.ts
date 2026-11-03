@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { distanceMeters } from "@/lib/geo";
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
-import { awardXp, currentUser, profileOf } from "@/lib/server/mockBackend";
+import { awardXp, currentUser, ownerInactive, profileOf } from "@/lib/server/mockBackend";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { IssuedVoucher, ReservationPass } from "@/types/lokawira";
 
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     let bonusVoucher: IssuedVoucher | undefined;
     if (acceptCircularQuest) {
       const partner = store.spots
-        .filter((x) => x.vibe === spot.vibe && x.spotType !== "PRIMARY_DEST" && (x.status ?? "PUBLISHED") === "PUBLISHED")
+        .filter((x) => x.vibe === spot.vibe && x.spotType !== "PRIMARY_DEST" && (x.status ?? "PUBLISHED") === "PUBLISHED" && !ownerInactive(x))
         .sort((p, q) => distanceMeters(p.coordinates, spot.coordinates) - distanceMeters(q.coordinates, spot.coordinates))[0];
       if (partner) {
         let code = "";

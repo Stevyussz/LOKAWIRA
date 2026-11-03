@@ -23,6 +23,39 @@ export default function KnowledgePanel({ onToast }: Props) {
   const [summary, setSummary] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  // id rujukan yg lagi diedit (null = form buat nambah baru), dan id yg lagi minta konfirmasi hapus
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const startEdit = (n: AiTrainingNote) => {
+    setEditingId(n.id);
+    setConfirmId(null);
+    setOpk(n.opkCategory as OpkCategory);
+    setSource(n.maestroSource);
+    setSummary(n.summary);
+    setErrors({});
+    document.getElementById("kp-source")?.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setSource("");
+    setSummary("");
+    setErrors({});
+  };
+  const remove = async (n: AiTrainingNote) => {
+    setBusy(true);
+    try {
+      const res = await api.deleteAiNote(n.id);
+      setNotes(res.aiTrainingNotes);
+      setConfirmId(null);
+      if (editingId === n.id) cancelEdit();
+      onToast(`Rujukan dari ${n.maestroSource} dihapus. Loka tidak memakainya lagi.`);
+    } catch (err) {
+      onToast(describeError(err, "Rujukan gagal dihapus."), true);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const load = () => {
     setLoadErr("");
@@ -45,9 +78,11 @@ export default function KnowledgePanel({ onToast }: Props) {
     if (Object.keys(errs).length) return;
     setBusy(true);
     try {
-      const res = await api.addAiNote({ opkCategory: opk, maestroSource: source.trim(), summary: summary.trim() });
+      const payload = { opkCategory: opk, maestroSource: source.trim(), summary: summary.trim() };
+      const res = editingId ? await api.updateAiNote(editingId, payload) : await api.addAiNote(payload);
       setNotes(res.aiTrainingNotes);
-      onToast(`Rujukan "${opk}" dari ${source.trim()} tersimpan. Loka memakainya untuk bercerita.`);
+      onToast(editingId ? `Rujukan dari ${source.trim()} diperbarui.` : `Rujukan "${opk}" dari ${source.trim()} tersimpan. Loka memakainya untuk bercerita.`);
+      setEditingId(null);
       setSource("");
       setSummary("");
     } catch (err) {
@@ -61,7 +96,7 @@ export default function KnowledgePanel({ onToast }: Props) {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
       <form onSubmit={submit} className="lg:col-span-6 gamiz-card p-5 space-y-4" noValidate>
         <div>
-          <h2 className="text-base font-extrabold text-alabaster">Tambah rujukan untuk Loka</h2>
+          <h2 className="text-base font-extrabold text-alabaster">{editingId ? "Ubah rujukan" : "Tambah rujukan untuk Loka"}</h2>
           <p className="text-xs text-pebble mt-1 leading-relaxed">
             Loka bercerita berdasarkan fakta yang kamu masukkan di sini, supaya tidak mengarang. Tulis fakta budaya dari sumber yang bisa dipertanggungjawabkan, seperti dinas kebudayaan atau maestro setempat.
           </p>
@@ -85,8 +120,11 @@ export default function KnowledgePanel({ onToast }: Props) {
         </div>
         <button type="submit" disabled={busy} className="btn-tactile-primary min-h-[48px] px-5 text-sm inline-flex items-center gap-2 disabled:opacity-70">
           {busy ? <Icon name="loader" size={16} weight="bold" motion="spin" /> : <Icon name="seal" size={16} />}
-          <span>{busy ? "Menyimpan" : "Simpan rujukan"}</span>
+          <span>{busy ? "Menyimpan" : editingId ? "Simpan perubahan" : "Simpan rujukan"}</span>
         </button>
+        {editingId && (
+          <button type="button" onClick={cancelEdit} className="btn-tactile-secondary min-h-[48px] px-5 text-sm ml-2">Batal ubah</button>
+        )}
       </form>
 
       <section className="lg:col-span-6 gamiz-card p-5 space-y-3" aria-labelledby="kp-list">
@@ -107,6 +145,20 @@ export default function KnowledgePanel({ onToast }: Props) {
               <li key={n.id} className="list-none p-4 rounded-2xl bg-obsidian space-y-1">
                 <span className="text-xs font-bold text-vibePrimary block">{n.opkCategory} • {n.maestroSource}</span>
                 <p className="text-xs text-alabaster leading-relaxed">{n.summary}</p>
+                <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                  {confirmId === n.id ? (
+                    <>
+                      <span className="text-xs font-bold text-quotaFull">Hapus rujukan ini?</span>
+                      <button type="button" disabled={busy} onClick={() => remove(n)} className="btn-tactile-secondary min-h-[44px] px-4 text-xs disabled:opacity-70">Ya, hapus</button>
+                      <button type="button" onClick={() => setConfirmId(null)} className="btn-tactile-secondary min-h-[44px] px-4 text-xs">Batal</button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => startEdit(n)} aria-label={`Ubah rujukan dari ${n.maestroSource}`} className="btn-tactile-secondary min-h-[44px] px-4 text-xs">Ubah</button>
+                      <button type="button" onClick={() => setConfirmId(n.id)} aria-label={`Hapus rujukan dari ${n.maestroSource}`} className="btn-tactile-secondary min-h-[44px] px-4 text-xs">Hapus</button>
+                    </>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

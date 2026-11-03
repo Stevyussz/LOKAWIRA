@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { MotionConfig, motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
-import { API_BASE, api, DEMO_MODE, describeError } from "@/lib/api";
+import { API_BASE, ApiError, api, DEMO_MODE, describeError } from "@/lib/api";
 import { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import { fileToJpeg, shrinkToJpeg, ACCEPTED_IMAGE_TYPES } from "@/lib/image";
 import {
@@ -14,6 +14,8 @@ import {
 } from "@/types/lokawira";
 import { CULTURAL_OBJECT_SAMPLES } from "@/lib/seedCulturalData";
 import Loka from "@/components/brand/Loka";
+import { LocationError, useLocation } from "@/components/layout/LocationProvider";
+import { formatDistance } from "@/lib/geo";
 
 interface ObjectLensScannerProps {
   isOpen: boolean;
@@ -45,6 +47,7 @@ export default function ObjectLensScanner({
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<LensVerificationResult | null>(null);
+  const { position: userPosition, getFix } = useLocation();
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const voucherRef = useRef<HTMLDivElement | null>(null);
@@ -165,13 +168,24 @@ export default function ObjectLensScanner({
       let data: LensVerificationResult;
       // foto beneran (kamera atau unggahan) dikirim sbg gambar. Sampel kurasi cuma buat mode demo
       const video = videoRef.current;
+      // coba dulu tanpa lokasi (geofence server bisa mati). Kalo server minta bukti lokasi, baca sekali lalu ulangi
+      const send = async (blob: Blob) => {
+        const fresh = userPosition && Date.now() - userPosition.at < 20000 ? userPosition : null;
+        try {
+          return await api.verifyLensImage(spotId, blob, fresh ? { lat: fresh.lat, lng: fresh.lng, accuracyMeters: fresh.accuracy } : undefined);
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.code !== "LOCATION_REQUIRED") throw err;
+          const fix = await getFix();
+          return await api.verifyLensImage(spotId, blob, { lat: fix.lat, lng: fix.lng, accuracyMeters: fix.accuracy });
+        }
+      };
       if (cameraActive && video && video.videoWidth > 0) {
-        data = await api.verifyLensImage(spotId, await shrinkToJpeg(video));
+        data = await send(await shrinkToJpeg(video));
       } else if (cameraActive) {
         setScanError("Kamera masih menyiapkan gambar. Tunggu sebentar lalu tekan Pindai lagi.");
         return;
       } else if (uploadedFile) {
-        data = await api.verifyLensImage(spotId, await fileToJpeg(uploadedFile));
+        data = await send(await fileToJpeg(uploadedFile));
       } else if (DEMO_MODE) {
         data = await api.verifyLens({ sampleId: currentSample.id, spotId });
       } else {
@@ -198,7 +212,21 @@ export default function ObjectLensScanner({
 
       onScanVerified(data, newLore, data.issuedVoucher);
     } catch (err) {
-      setScanError(describeError(err, err instanceof Error ? err.message : "Terjadi kesalahan saat memindai objek budaya."));
+      if (err instanceof LocationError) {
+        setScanError(err.reason === "declined" ? "Memindai di titik ini butuh lokasimu untuk memastikan kamu ada di sana. Izinkan lokasi lalu coba lagi." : err.message);
+      } else if (err instanceof ApiError && err.code === "OUT_OF_RANGE") {
+        const d = Number(err.details?.distanceMeters);
+        const r = Number(err.details?.radiusMeters) || 100;
+        setScanError(
+          Number.isFinite(d)
+            ? `Kamu sekitar ${formatDistance(d)} dari ${activeSpot?.name ?? "titik ini"}. Dekati sampai kurang dari ${r} m untuk memindai objeknya.`
+            : "Kamu belum cukup dekat dengan titik ini untuk memindai."
+        );
+      } else if (err instanceof ApiError && err.code === "LOCATION_TOO_INACCURATE") {
+        setScanError("Sinyal GPS kurang tepat. Pindah ke area terbuka lalu coba lagi.");
+      } else {
+        setScanError(describeError(err, err instanceof Error ? err.message : "Terjadi kesalahan saat memindai objek budaya."));
+      }
     } finally {
       setIsScanning(false);
     }
