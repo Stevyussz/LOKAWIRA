@@ -75,9 +75,11 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
         map.on("click", (e) => latest.current.onChange({ lat: e.lngLat.lat, lng: e.lngLat.lng }));
         map.once("style.load", () => {
           if (!map) return;
-          const attrib = hostRef.current?.querySelector(".maplibregl-ctrl-attrib");
-          attrib?.classList.remove("maplibregl-compact-show");
-          attrib?.removeAttribute("open");
+          map.once("idle", () => {
+            const attrib = hostRef.current?.querySelector(".maplibregl-ctrl-attrib");
+            attrib?.classList.remove("maplibregl-compact-show");
+            attrib?.removeAttribute("open");
+          });
           const firstLabel = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
           map.addSource("zone", {
             type: "geojson",
