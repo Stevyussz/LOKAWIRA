@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
@@ -90,6 +89,7 @@ function VoucherTicket({
   onCopy: () => void;
 }) {
   const active = voucher.status === "ACTIVE";
+  const [showCode, setShowCode] = useState(false);
   return (
     <motion.li {...itemMotion(index)} className="ticket-shadow list-none">
       <div className={`ticket-cut-v relative flex rounded-2xl overflow-hidden border border-stoneSubtle ${active ? "" : "opacity-80"}`}>
@@ -136,13 +136,25 @@ function VoucherTicket({
           </div>
 
           {active ? (
-            <Link
-              href={`/merchant-pos?code=${encodeURIComponent(voucher.code)}`}
-              className="btn-tactile-primary min-h-[44px] px-4 text-xs inline-flex items-center gap-1.5"
-            >
-              <Icon name="umkm" size={16} />
-              <span>Tukar di kasir</span>
-            </Link>
+            <>
+              <button
+                type="button"
+                onClick={() => setShowCode((v) => !v)}
+                aria-expanded={showCode}
+                className="btn-tactile-primary min-h-[44px] px-4 text-xs inline-flex items-center gap-1.5"
+              >
+                <Icon name="umkm" size={16} />
+                <span>{showCode ? "Tutup kode" : "Tunjukkan ke kasir"}</span>
+              </button>
+              {showCode && (
+                <div className="rounded-xl bg-obsidian p-3 space-y-1.5">
+                  <p className="font-num text-2xl font-extrabold tracking-wider text-alabaster break-all">{voucher.code}</p>
+                  <p className="text-[11px] text-pebble leading-snug">
+                    Tunjukkan layar ini ke kasir {voucher.merchantName}. Kasir memasukkan kode ini di aplikasi kasirnya, lalu potongan berlaku. Kode hanya bisa dipakai sekali.
+                  </p>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-xs font-extrabold text-pebble flex items-center gap-1.5 min-h-[44px]">
               <Icon name="seal" size={16} />

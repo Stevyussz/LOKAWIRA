@@ -105,3 +105,26 @@ export function curveBetween(a: LatLng, b: LatLng, bend = 0.18, steps = 28): [nu
   }
   return out;
 }
+
+// arah (derajat) dari posisi ke titik di sepanjang rute ~meters di depan titik rute terdekat. Dipakai buat arah hadap pas GPS belum punya heading
+export function lookAheadBearing(coords: [number, number][], from: LatLng, meters = 30): number | null {
+  if (coords.length < 2) return null;
+  let nearest = 0;
+  let best = Infinity;
+  coords.forEach(([lng, lat], i) => {
+    const d = distanceMeters(from, { lat, lng });
+    if (d < best) {
+      best = d;
+      nearest = i;
+    }
+  });
+  let acc = 0;
+  for (let i = nearest; i < coords.length - 1; i++) {
+    acc += distanceMeters({ lat: coords[i][1], lng: coords[i][0] }, { lat: coords[i + 1][1], lng: coords[i + 1][0] });
+    if (acc >= meters || i === coords.length - 2) {
+      const [lng, lat] = coords[i + 1];
+      return distanceMeters(from, { lat, lng }) < 3 ? null : bearingDegrees(from, { lat, lng });
+    }
+  }
+  return null;
+}

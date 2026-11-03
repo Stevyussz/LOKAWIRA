@@ -25,6 +25,7 @@ import type {
   DeleteAccountRequest,
   DeleteSpotResponse,
   ForgotPasswordRequest,
+  HealthResponse,
   OkResponse,
   ResetPasswordRequest,
   ListMerchantsResponse,
@@ -152,6 +153,8 @@ function toQuery(q: object): string {
 }
 
 export const api = {
+  health: () => request<HealthResponse>("/api/health", { timeoutMs: 6000 }),
+
   getSnapshot: (q: SnapshotQuery = {}) =>
     request<SnapshotResponse>(`/api/spots${q.vibe ? `?vibe=${encodeURIComponent(q.vibe)}` : ""}`),
 

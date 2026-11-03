@@ -351,7 +351,8 @@ J. Health check
 
 - GET /api/health
   - siapa: siapa aja, tanpa login
-  - response: ok true, version, time (ISO)
+  - response: ok true, version, time (ISO), dan checkInRadiusMeters (opsional)
+  - checkInRadiusMeters cuma diisi kalo server mewajibkan jarak buat check-in (geofence nyala). Frontend pake angka ini buat nentuin "sudah tiba" di kartu pandu
   - buat monitoring di VPS
 
 Catatan desain: POST /api/spots dipake buat 4 aksi lewat field action. Karena backend nya TS/Node itu bisa langsung ditiru apa adanya, dan endpoint baru di atas (PATCH dan DELETE /api/spots/{id}) gayanya REST. Kalo mau semuanya REST: UPDATE_QUOTA jadi PATCH /spots/{id}/quota, UPDATE_PROMO jadi PUT /spots/{id}/promo, ADD_SPOT jadi POST /spots, ADD_AI_NOTE jadi POST /ai-notes. Bilang aja, yg diubah di frontend cuma satu file yaitu src/lib/api.ts.
@@ -405,7 +406,7 @@ BAGIAN 10 - Catatan tmbahan klo jdi make ts/nodejs
 
 K. Tes otomatis (QA)
 
-- folder tests/e2e plus playwright.config.ts: 22 tes (peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
+- folder tests/e2e plus playwright.config.ts: 23 tes (peta nyata, aksesibilitas axe di 360 dan 390 px, alur login per peran, persetujuan mitra dan review titik, akun, profil/XP server, daftar admin berpaginasi, geofence, scanner)
 - jalanin: npm run test:e2e. Itu otomatis build (dgn NEXT_PUBLIC_DEMO_MODE=true) lalu start di port 3210 dgn geofence nyala. Hentikan npm run dev dulu karena build nulis ke folder .next yg sama
 - browser: pake chromium dari Playwright 1.58.0. Kalo belum ada: npx playwright install chromium
 - tes ke server lain (mis staging): QA_URL=https://alamat npm run test:e2e. Server itu harus mode demo dan geofence nyala, kalo gak tes geofence bakal gagal
@@ -426,3 +427,10 @@ M. Mode demo dimatiin (buat penjurian & integrasi)
 - server contoh bawaan (src/app/api) tetep nyala sbg pengganti sementara kalo MOCK_BACKEND=true diisi (server-side). Isinya in-memory dan akun bawaan (wisatawan/mitra/admin @lokawira.demo, sandi demo1234) masih ada. Itu publik di repo, jadi JANGAN dipake di produksi sungguhan
 - begitu backend asli siap: isi NEXT_PUBLIC_API_BASE_URL, hapus MOCK_BACKEND, selesai. Tanpa keduanya, API contoh bales 503 MOCK_DISABLED
 - lupa sandi: server contoh gak bisa ngirim email dan gak lagi ngebalikin token saat mode demo mati, jadi alur ini baru jalan setelah backend asli punya pengirim email
+
+N. Alur pandu (frontend)
+
+- tombol Pandu aku ada di kartu lokasi. Tekan: minta izin lokasi, peta zoom out nunjukin rute penuh (posisi ke tujuan) + jarak & perkiraan menit jalan kaki. Tekan Mulai: kamera ngikutin posisi dan peta diputar sesuai arah hadap
+- Check-In di kartu pandu terkunci sampai user dalam radius (checkInRadiusMeters dr /api/health, default 60 m kalo kosong). Server TETAP wajib ngecek jarak sendiri, tombol ini cuma UX
+- kode kehadiran (KDR-) = bukti hadir. User nunjukin ke pemilik lapak, lapak ngetik di kasir (POST /api/checkins/verify), baru hadiah misi masuk ke akun user
+- voucer di Tas: tombol Tunjukkan ke kasir nampilin kode besar. Penebusan tetap dilakukan kasir lewat POST /api/vouchers/redeem, user gak diarahin ke halaman kasir

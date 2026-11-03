@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import {
   ArrowLeft,
+  ArrowUp,
   Backpack,
   Bank,
   BookOpenText,
@@ -48,6 +49,7 @@ import {
 
 // nama bermakna → glyph Phosphor - Satu keluarga, satu ketbalan, biar seragam
 const GLYPHS = {
+  arrowUp: ArrowUp,
   compass: Compass,
   map: MapTrifold,
   pin: MapPin,

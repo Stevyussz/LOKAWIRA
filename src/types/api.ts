@@ -310,4 +310,6 @@ export interface HealthResponse {
   version: string;
   // ISO 8601
   time: string;
+  // cuma diisi kalo server mewajibkan jarak buat check-in. Klien nahan tombol Check-In sblm user cukup dekat
+  checkInRadiusMeters?: number;
 }

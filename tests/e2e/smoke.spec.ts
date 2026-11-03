@@ -37,3 +37,18 @@ test("peta nyata: kanvas OpenStreetMap termuat, atribusi ada, dan tanpa penanda 
   // tanpa izin lokasi, gak boleh ada penanda posisi buatan
   await expect(page.getByRole("img", { name: "Posisimu" })).toHaveCount(0);
 });
+
+test("voucer di Tas: 'Tunjukkan ke kasir' menampilkan kode, bukan pindah ke halaman kasir", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-nav-id="WALLET"]').click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  const tab = dialog.getByRole("tab", { name: /Voucer/i });
+  if (await tab.count()) await tab.first().click();
+  const show = dialog.getByRole("button", { name: "Tunjukkan ke kasir" }).first();
+  await expect(show).toBeVisible();
+  const before = page.url();
+  await show.click();
+  await expect(dialog.getByText(/LKW-[A-Z0-9-]+/).first()).toBeVisible();
+  expect(page.url()).toBe(before);
+});

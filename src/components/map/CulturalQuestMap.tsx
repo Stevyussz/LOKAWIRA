@@ -10,9 +10,9 @@ import Loka from "@/components/brand/Loka";
 import { CulturalSpot, CulturalVibe, SurfaceTheme } from "@/types/lokawira";
 import { VIBE_METADATA } from "@/lib/seedCulturalData";
 import { VIBE_HEX } from "@/lib/vibeColors";
-import { ZONE_RADIUS_METERS, LatLng, anchorSpot, bearingDegrees, circlePolygon, curveBetween, distanceMeters, formatDistance, regionOrigin } from "@/lib/geo";
+import { ZONE_RADIUS_METERS, LatLng, anchorSpot, bearingDegrees, circlePolygon, lookAheadBearing, curveBetween, distanceMeters, formatDistance, regionOrigin } from "@/lib/geo";
 import { loadLontarStyle } from "@/lib/mapStyle";
-import { fetchWalkingRoute, WalkingRoute } from "@/lib/route";
+import type { WalkingRoute } from "@/lib/route";
 import { matchesSpotFilter, SpotFilter, SPOT_FILTER_OPTIONS } from "@/lib/spotFilter";
 
 interface CulturalQuestMapProps {
@@ -35,6 +35,14 @@ interface CulturalQuestMapProps {
   onToggleSurgeDemo?: () => void;
   // posisi GPS asli pengguna (kalo lagi dipandu). Kosong = penanda 'Kamu' gak tampil
   userPosition?: { lat: number; lng: number; heading?: number | null } | null;
+  // lagi dipandu? preview = rute penuh dr posisi ke tujuan, navigating = kamera ngikutin posisi & arah hadap
+  guide?: GuideInfo | null;
+}
+
+export interface GuideInfo {
+  phase: "preview" | "navigating";
+  spot: CulturalSpot;
+  route: WalkingRoute | null;
 }
 
 type MapLibre = typeof import("maplibre-gl");
@@ -45,7 +53,9 @@ const prefersReducedMotion = () => typeof window !== "undefined" && window.match
 const isMobileView = () => typeof window !== "undefined" && window.innerWidth < 640;
 
 // padding kamera: ruang buat HUD atas & kartu bawah, biar titik gak ketutup
-const cameraPadding = () => ({ top: 150, bottom: isMobileView() ? 300 : 120, left: 24, right: 84 });
+// tinggi kartu bawah dibaca dr --sheet-h (diisi halaman), jadi padding ngikutin ukuran kartu asli
+const sheetHeight = () => (typeof document === "undefined" ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-h")) || 0);
+const cameraPadding = () => ({ top: 150, bottom: Math.round(92 + (sheetHeight() || (isMobileView() ? 200 : 20)) + 24), left: 24, right: 84 });
 
 // MapLibre nambah role/tabindex ke elemen marker; isinya udah tombol sendiri, jadi dicopot biar gak interaktif bersarang
 function plainMarkerEl(el: HTMLElement) {
@@ -161,6 +171,7 @@ export default function CulturalQuestMap({
   isSurgeDemo = false,
   onToggleSurgeDemo,
   userPosition = null,
+  guide = null,
 }: CulturalQuestMapProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -180,17 +191,18 @@ export default function CulturalQuestMap({
   const routesVisible = redirectActive && !!primarySpotData && visibleIds.has(primarySpotData.id);
 
   // ref ke nilai terbaru, biar handler peta (dibikin sekali) gak basi
-  const latest = useRef({ spots, selectedSpot, userPosition });
-  latest.current = { spots, selectedSpot, userPosition };
+  const latest = useRef({ spots, selectedSpot, userPosition, guide });
+  latest.current = { spots, selectedSpot, userPosition, guide };
 
   // ---- chip di tepi layar: muncul kalo tujuan di luar tampilan, nunjuk arahnya + jarak ----
   const edgeRef = useRef<HTMLButtonElement | null>(null);
   const updateEdge = useCallback(() => {
     const el = edgeRef.current;
     const map = mapRef.current;
-    const { selectedSpot: sel, userPosition: me } = latest.current;
+    const { guide: g, userPosition: me } = latest.current;
+    const sel = g?.spot ?? null;
     if (!el) return;
-    if (!map || !sel || !me) {
+    if (!map || !sel || !me || g?.phase !== "navigating") {
       el.style.display = "none";
       return;
     }
@@ -363,33 +375,20 @@ export default function CulturalQuestMap({
     updateEdge();
   }, [ready, userPosition, updateEdge]);
 
-  // kerucut: arah jalan kalo GPS punya heading, kalo diam mengarah ke tujuan
-  const coneDeg =
-    typeof userPosition?.heading === "number"
-      ? userPosition.heading
-      : userPosition && selectedSpot
-      ? bearingDegrees(userPosition, selectedSpot.coordinates)
-      : 0;
-
-  // ---- rute jalan kaki nyata (OSM), cadangan garis putus kalo layanan gagal ----
-  const [route, setRoute] = useState<WalkingRoute | null>(null);
-  const routeKey = useRef<{ id: string; from: LatLng } | null>(null);
-  const routeToken = useRef(0);
-  useEffect(() => {
-    if (!userPosition || !selectedSpot) {
-      routeKey.current = null;
-      routeToken.current++;
-      setRoute(null);
-      return;
+  // ---- arah hadap: heading GPS (kalo lagi gerak) > arah rute ~30 m di depan > arah lurus ke tujuan ----
+  const route = guide?.route ?? null;
+  const facing = useMemo(() => {
+    if (!userPosition) return null;
+    if (typeof userPosition.heading === "number") return userPosition.heading;
+    if (guide && route) {
+      const ahead = lookAheadBearing(route.coords, userPosition, 30);
+      if (ahead !== null) return ahead;
     }
-    const last = routeKey.current;
-    if (last && last.id === selectedSpot.id && distanceMeters(last.from, userPosition) < 40) return;
-    routeKey.current = { id: selectedSpot.id, from: { lat: userPosition.lat, lng: userPosition.lng } };
-    const token = ++routeToken.current;
-    fetchWalkingRoute(userPosition, selectedSpot.coordinates).then((r) => {
-      if (token === routeToken.current) setRoute(r);
-    });
-  }, [userPosition, selectedSpot]);
+    return guide ? bearingDegrees(userPosition, guide.spot.coordinates) : null;
+  }, [userPosition, guide, route]);
+  const [mapBearing, setMapBearing] = useState(0);
+  // kerucut digambar relatif ke putaran peta (pas ngikutin arah, peta ikut muter jadi kerucut tetap menghadap atas)
+  const coneDeg = (facing ?? 0) - mapBearing;
 
   // ---- data garis & zona ----
   useEffect(() => {
@@ -411,15 +410,15 @@ export default function CulturalQuestMap({
     set("redirect", { type: "FeatureCollection", features: feats });
     set("redirect-end", { type: "FeatureCollection", features: ends });
 
-    if (userPosition && selectedSpot) {
+    if (userPosition && guide) {
       const geometry = route
         ? { type: "LineString", coordinates: route.coords }
-        : { type: "LineString", coordinates: [ll(userPosition), ll(selectedSpot.coordinates)] };
+        : { type: "LineString", coordinates: [ll(userPosition), ll(guide.spot.coordinates)] };
       set("route", { type: "Feature", properties: { kind: route ? "road" : "straight" }, geometry });
     } else {
       set("route", EMPTY);
     }
-  }, [ready, primarySpotData, routesVisible, filteredSpots, userPosition, selectedSpot, route]);
+  }, [ready, primarySpotData, routesVisible, filteredSpots, userPosition, guide, route]);
 
   // ---- kamera ----
   const fitAll = useCallback((list: CulturalSpot[], animate: boolean) => {
@@ -438,6 +437,7 @@ export default function CulturalQuestMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || !selectedSpot) return;
+    if (latest.current.guide) return;
     const sel = spots.find((x) => x.id === selectedSpot.id);
     if (!sel) return;
     const primary = anchorSpot(spots);
@@ -457,12 +457,95 @@ export default function CulturalQuestMap({
 
   useEffect(() => {
     updateEdge();
-  }, [ready, selectedSpot, userPosition, updateEdge]);
+  }, [ready, guide, userPosition, updateEdge]);
+
+  // ---- kamera pandu ----
+  // preview: zoom out biar rute penuh (posisi -> tujuan) keliatan
+  const followRef = useRef(false);
+  const [following, setFollowing] = useState(false);
+  const phase = guide?.phase ?? null;
+  const guideId = guide?.spot.id ?? null;
+  useEffect(() => {
+    const map = mapRef.current;
+    const ml = mlRef.current;
+    if (!ready || !map || !ml) return;
+    if (phase !== "preview" || !guide) return;
+    followRef.current = false;
+    setFollowing(false);
+    const pts: Pt[] = [ll(guide.spot.coordinates)];
+    if (userPosition) pts.push(ll(userPosition));
+    if (route) route.coords.forEach((c) => pts.push(c));
+    const b = new ml.LngLatBounds(pts[0], pts[0]);
+    pts.forEach((c) => b.extend(c));
+    map.fitBounds(b, { padding: cameraPadding(), maxZoom: 18, bearing: 0, pitch: 0, duration: prefersReducedMotion() ? 0 : 900 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, phase, guideId, route, !!userPosition]);
+
+  // navigating: kamera ngikutin posisi, peta diputar biar arah hadap ada di atas layar
+  const lastBearing = useRef(0);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    if (phase !== "navigating") {
+      if (lastBearing.current !== 0 || map.getBearing() !== 0) {
+        lastBearing.current = 0;
+        map.easeTo({ bearing: 0, pitch: 0, duration: prefersReducedMotion() ? 0 : 500 });
+      }
+      followRef.current = false;
+      setFollowing(false);
+      return;
+    }
+    if (!followRef.current) {
+      followRef.current = true;
+      setFollowing(true);
+    }
+  }, [ready, phase]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || phase !== "navigating" || !followRef.current || !userPosition) return;
+    let bearing = lastBearing.current;
+    // arah cuma diputar kalo beda > 8 derajat, biar peta gak goyang tiap fix GPS
+    if (facing !== null) {
+      const diff = ((facing - bearing + 540) % 360) - 180;
+      if (Math.abs(diff) > 8 || lastBearing.current === 0) bearing = facing;
+    }
+    lastBearing.current = bearing;
+    map.easeTo({
+      center: ll(userPosition),
+      zoom: Math.max(map.getZoom(), 18),
+      bearing,
+      pitch: 0,
+      padding: cameraPadding(),
+      duration: prefersReducedMotion() ? 0 : 900,
+      easing: (t) => t,
+    });
+  }, [ready, phase, userPosition, facing, following]);
+  // geser manual = lepas dari mode ngikutin (tombol pusatkan menyalakannya lagi)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const onDrag = () => {
+      if (followRef.current) {
+        followRef.current = false;
+        setFollowing(false);
+      }
+    };
+    const onRotate = () => setMapBearing(Math.round(map.getBearing()));
+    map.on("dragstart", onDrag);
+    map.on("rotate", onRotate);
+    return () => {
+      map.off("dragstart", onDrag);
+      map.off("rotate", onRotate);
+    };
+  }, [ready]);
 
   const handleRecenter = () => {
     const map = mapRef.current;
     if (!map) return;
-    if (userPosition) {
+    if (phase === "navigating") {
+      followRef.current = true;
+      setFollowing(true);
+    } else if (userPosition) {
       map.easeTo({ center: ll(userPosition), zoom: Math.max(map.getZoom(), 17), padding: cameraPadding(), duration: prefersReducedMotion() ? 0 : 600 });
     } else {
       fitAll(spots, true);
@@ -471,8 +554,10 @@ export default function CulturalQuestMap({
 
   const focusTarget = () => {
     const map = mapRef.current;
-    if (!map || !selectedSpot) return;
-    map.easeTo({ center: ll(selectedSpot.coordinates), padding: cameraPadding(), duration: prefersReducedMotion() ? 0 : 600 });
+    if (!map || !guide) return;
+    followRef.current = false;
+    setFollowing(false);
+    map.easeTo({ center: ll(guide.spot.coordinates), padding: cameraPadding(), duration: prefersReducedMotion() ? 0 : 600 });
   };
 
   const handleSelect = (spot: CulturalSpot) => {
@@ -572,12 +657,12 @@ export default function CulturalQuestMap({
         style={{ display: "none" }}
         className="fixed z-20 -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full bg-basalt px-3 min-h-[44px] text-[11px] font-extrabold text-alabaster shadow-md border border-stoneStrong"
       >
-        <span aria-hidden="true" className="inline-flex text-vibePrimary"><Icon name="up" size={18} weight="bold" /></span>
+        <span aria-hidden="true" className="inline-flex text-vibePrimary"><Icon name="arrowUp" size={18} weight="bold" /></span>
         <span />
       </button>
 
       {/* kontrol kamera: zoom cuma di layar lebar, di HP pakai cubit */}
-      <div className="fixed right-3 sm:right-5 z-20 flex flex-col gap-2 top-1/2 -translate-y-1/2" style={{ top: "calc(50% - 40px)" }}>
+      <div className="fixed right-3 sm:right-5 z-20 flex flex-col gap-2" style={{ bottom: "calc(var(--sheet-h, 0px) + 108px + env(safe-area-inset-bottom))" }}>
         <div className="andesite-glass rounded-2xl p-1 hidden sm:flex flex-col">
           <button
             type="button"
@@ -641,7 +726,7 @@ export default function CulturalQuestMap({
         <button
           type="button"
           onClick={handleRecenter}
-          aria-label={userPosition ? "Pusatkan ke lokasi saya" : "Tampilkan semua titik di kawasan"}
+          aria-label={phase === "navigating" ? "Ikuti posisi dan arah saya" : userPosition ? "Pusatkan ke lokasi saya" : "Tampilkan semua titik di kawasan"}
           title="Pusatkan peta"
           className="andesite-glass min-h-[48px] min-w-[48px] rounded-2xl flex items-center justify-center hover:bg-slateElev transition-colors"
         >

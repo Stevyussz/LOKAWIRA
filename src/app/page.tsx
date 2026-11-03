@@ -7,8 +7,9 @@ import Icon from "@/components/ui/Icon";
 import { matchesSpotFilter, SpotFilter } from "@/lib/spotFilter";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import { LocationError, useLocation } from "@/components/layout/LocationProvider";
-import NavigateToSpot from "@/components/map/NavigateToSpot";
-import { formatDistance } from "@/lib/geo";
+import GuideCard from "@/components/map/GuideCard";
+import { useWalkingRoute } from "@/lib/useWalkingRoute";
+import { distanceMeters, formatDistance } from "@/lib/geo";
 import { anchorSpot } from "@/lib/geo";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import VibeSwitcherBar from "@/components/layout/VibeSwitcherBar";
@@ -51,7 +52,20 @@ export default function LokawiraExplorerPage() {
     markSpotCheckedIn,
     syncProfile,
   } = useLokawira();
-  const { position: userPosition, getFix } = useLocation();
+  const { position: userPosition, getFix, startWatching, stopWatching } = useLocation();
+
+  // ---- pandu: off -> preview (rute penuh) -> navigating (kamera ngikutin) ----
+  const [guidePhase, setGuidePhase] = useState<"off" | "preview" | "navigating">("off");
+  const [guideSpot, setGuideSpot] = useState<CulturalSpot | null>(null);
+  const { route: guideRoute, loading: guideRouteLoading } = useWalkingRoute(
+    guidePhase !== "off" ? userPosition : null,
+    guidePhase !== "off" ? guideSpot : null
+  );
+  // radius check-in dr server (kosong = server gak mewajibkan jarak)
+  const [checkInRadius, setCheckInRadius] = useState<number | null>(null);
+  useEffect(() => {
+    api.health().then((h) => setCheckInRadius(h.checkInRadiusMeters ?? null)).catch(() => undefined);
+  }, []);
 
   const regionalSpots = useMemo(
     () => spots.filter((s) => s.vibe === activeVibe),
@@ -75,6 +89,24 @@ export default function LokawiraExplorerPage() {
   const [bannerIsError, setBannerIsError] = useState<boolean>(false);
   // kode kehadiran per titik, dr server - Ditunjukkan ke pemilik lapak utk hadiah misi
   const [checkInCodes, setCheckInCodes] = useState<Record<string, string>>({});
+  // tinggi kartu bawah dibagi lewat --sheet-h biar tombol peta & kamera gak ketutup kartu
+  const [cardEl, setCardEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!cardEl) {
+      root.style.setProperty("--sheet-h", "0px");
+      return;
+    }
+    const apply = () => root.style.setProperty("--sheet-h", `${Math.round(cardEl.getBoundingClientRect().height)}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(cardEl);
+    return () => {
+      ro.disconnect();
+      root.style.setProperty("--sheet-h", "0px");
+    };
+  }, [cardEl]);
+
   const notify = (text: string, isError = false) => {
     setBannerIsError(isError);
     setStatusBanner(text);
@@ -103,9 +135,19 @@ export default function LokawiraExplorerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeVibe]);
 
-  // Data titik berubah (kuota, demo): segarkan salinan titik teriplih, jgn ganti pilihan user
+  // Data titik berubah (kuota, demo): segarkan salinan titik teriplih, jgn ganti pilihan user.
+  // Kalo belum ada yg dipilih (data baru datang dr server), pilih titik pertama kawasan biar kartu langsung muncul
   useEffect(() => {
     setSelectedSpot((prev) => (prev ? spots.find((s) => s.id === prev.id) ?? prev : prev));
+  }, [spots]);
+  useEffect(() => {
+    if (selectedSpot) return;
+    const first = spots.find((s) => s.vibe === activeVibe) ?? spots[0];
+    if (first) {
+      setSelectedSpot(first);
+      setIsSpotCardVisible(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spots]);
 
   // filter beerubah: titik terpilih yg tersaring hrs pindah ke titik yg tampil, atw kartunya disembunyikan kalo gak ada satu pun yg cocok
@@ -212,7 +254,7 @@ export default function LokawiraExplorerPage() {
     syncProfile();
   };
 
-  const handleCheckInQuest = async (spot: CulturalSpot) => {
+  const handleCheckInQuest = async (spot: CulturalSpot): Promise<boolean> => {
     try {
       let res;
       try {
@@ -234,6 +276,7 @@ export default function LokawiraExplorerPage() {
       setCheckInCodes((prev) => ({ ...prev, [spot.id]: res.checkIn.code }));
       notify(`Check-in di ${spot.name} berhasil. +${res.awardedPoints} XP. Tunjukkan kode kehadiranmu ke pemilik lapak.`);
       syncProfile();
+      return true;
     } catch (err) {
       if (err instanceof LocationError) {
         notify(
@@ -247,7 +290,7 @@ export default function LokawiraExplorerPage() {
         const r = Number(err.details?.radiusMeters) || 100;
         notify(
           Number.isFinite(d)
-            ? `Kamu sekitar ${formatDistance(d)} dari ${spot.name}. Dekati sampai kurang dari ${r} m, lalu check-in lagi.`
+            ? `Kamu sekitar ${formatDistance(d)} dari ${spot.name}. Dekati sampai kurang dari ${r} m, lalu check-in lagi. Tekan Pandu aku untuk diarahkan.`
             : `Kamu belum cukup dekat dengan ${spot.name}.`,
           true
         );
@@ -265,6 +308,7 @@ export default function LokawiraExplorerPage() {
       } else {
         notify(describeError(err, "Check-in gagal. Coba lagi."), true);
       }
+      return false;
     }
   };
 
@@ -297,6 +341,32 @@ export default function LokawiraExplorerPage() {
     ? selectedSpot.quota.currentVisitors / selectedSpot.quota.maxCapacity
     : 0;
   const isSelectedCrowded = activeQuotaRatio >= 0.85;
+  const startGuide = async (spot: CulturalSpot) => {
+    setGuideSpot(spot);
+    const ok = await startWatching();
+    if (!ok) {
+      setGuideSpot(null);
+      notify("Pandu butuh lokasimu. Izinkan lokasi lalu tekan Pandu aku lagi.", true);
+      return;
+    }
+    setIsSheetCompact(false);
+    setGuidePhase("preview");
+  };
+  const stopGuide = () => {
+    setGuidePhase("off");
+    setGuideSpot(null);
+    stopWatching();
+  };
+  // pindah ke titik lain = pandu sebelumnya berhenti
+  useEffect(() => {
+    if (guidePhase !== "off" && selectedSpot && guideSpot && selectedSpot.id !== guideSpot.id) {
+      setGuidePhase("off");
+      setGuideSpot(null);
+      stopWatching();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSpot?.id]);
+
   const isAlreadyCheckedIn = selectedSpot
     ? checkedInSpotIds.includes(selectedSpot.id)
     : false;
@@ -321,6 +391,7 @@ export default function LokawiraExplorerPage() {
         isSurgeDemo={isSurgeDemo}
         onToggleSurgeDemo={DEMO_MODE ? handleToggleSurgeDemo : undefined}
         userPosition={userPosition}
+        guide={guidePhase !== "off" && guideSpot ? { phase: guidePhase, spot: guideSpot, route: guideRoute } : null}
       />
 
       {/* 2 - TOP FLOATING GAMIFICATION HUD & FILTER CHIPS */}
@@ -382,6 +453,7 @@ export default function LokawiraExplorerPage() {
       {selectedSpot && isSpotCardVisible && !isStoryExpanded && (
         <div
           key="spot-card"
+          ref={setCardEl}
           style={{ bottom: "calc(92px + env(safe-area-inset-bottom))" }}
           className="fixed left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-20 sm:w-[500px]"
         >
@@ -402,6 +474,20 @@ export default function LokawiraExplorerPage() {
           >
             <span className="w-10 h-1.5 rounded-full bg-[var(--map-road-edge)]" />
           </button>
+          {guidePhase !== "off" && guideSpot ? (
+            <GuideCard
+              spot={guideSpot}
+              phase={guidePhase}
+              route={guideRoute}
+              routeLoading={guideRouteLoading}
+              arriveRadius={checkInRadius}
+              isCheckedIn={checkedInSpotIds.includes(guideSpot.id)}
+              onStart={() => setGuidePhase("navigating")}
+              onStop={stopGuide}
+              onCheckIn={() => handleCheckInQuest(guideSpot).then((ok) => ok && stopGuide())}
+            />
+          ) : (
+          <>
           <div className="flex items-start gap-3">
             <div
               className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
@@ -457,7 +543,7 @@ export default function LokawiraExplorerPage() {
               <div className="flex items-center justify-between text-[11px] font-bold text-pebble mb-1">
                 <span>{isSelectedCrowded ? "Padat" : "Masih lega"}</span>
                 <span className="tabular-nums">
-                  {selectedSpot.quota.currentVisitors}/{selectedSpot.quota.maxCapacity} (data demo)
+                  {selectedSpot.quota.currentVisitors}/{selectedSpot.quota.maxCapacity}
                 </span>
               </div>
               <div className="h-2.5 rounded-full bg-obsidian overflow-hidden">
@@ -488,9 +574,26 @@ export default function LokawiraExplorerPage() {
             </button>
           )}
 
-          {!isSheetCompact && <NavigateToSpot spot={selectedSpot} />}
+          
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => startGuide(selectedSpot)}
+              className="btn-tactile-primary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
+            >
+              <Icon name="compass" size={20} motion="pop" />
+              <span>Pandu aku</span>
+            </button>
 
-          <div className="grid grid-cols-[1fr_1fr] sm:grid-cols-[auto_auto_1fr] gap-2">
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
+            >
+              <Icon name="camera" size={20} className="text-vibePrimary" motion="pop" />
+              <span>Scan Objek</span>
+            </button>
+
             <button
               type="button"
               onClick={() => handleCheckInQuest(selectedSpot)}
@@ -509,25 +612,18 @@ export default function LokawiraExplorerPage() {
               <Icon name="ticket" size={20} className="text-vibePrimary" motion="pop" />
               <span>Tiket</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setIsScannerOpen(true)}
-              className="btn-tactile-primary col-span-2 sm:col-span-1 min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
-            >
-              <Icon name="camera" size={22} motion="pop" />
-              <span>Scan Objek</span>
-            </button>
           </div>
 
           {checkInCodes[selectedSpot.id] && (
-            <p className="text-xs text-pebble flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span>Kode kehadiran:</span>
-              <span className="font-num text-sm font-extrabold tracking-wider text-alabaster bg-obsidian rounded-lg px-2.5 py-1">
-                {checkInCodes[selectedSpot.id]}
-              </span>
-              <span>Tunjukkan ke pemilik lapak.</span>
-            </p>
+            <div className="rounded-2xl bg-obsidian p-3 space-y-1">
+              <p className="text-[11px] font-bold text-pebble">Kode kehadiranmu</p>
+              <p className="font-num text-xl font-extrabold tracking-wider text-alabaster">{checkInCodes[selectedSpot.id]}</p>
+              <p className="text-[11px] text-pebble">
+                Tunjukkan ke pemilik lapak. Setelah dia memverifikasi kode ini di aplikasi kasir, hadiah misi (+{selectedSpot.quest.rewardPoints} XP) masuk ke akunmu. Kode hanya berlaku sekali.
+              </p>
+            </div>
+          )}
+          </>
           )}
         </motion.section>
         </div>

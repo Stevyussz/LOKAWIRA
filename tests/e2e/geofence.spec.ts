@@ -42,12 +42,17 @@ test("di UI: jauh ditolak dengan jarak, lalu pemandu menyatakan sudah tiba dan c
   await page.getByRole("button", { name: "Izinkan", exact: true }).click();
   await expect(page.getByText(/Kamu sekitar .* dari /)).toBeVisible();
 
-  await page.getByRole("button", { name: "Pandu aku ke sini" }).click();
+  // pandu: preview rute penuh dulu, baru Mulai
+  await page.getByRole("button", { name: "Pandu aku" }).click();
+  await expect(page.getByText("Rute jalan kaki")).toBeVisible();
+  await page.getByRole("button", { name: "Mulai" }).click();
   await expect(page.getByText(/ke arah selatan/)).toBeVisible();
+  // belum tiba: Check-In di kartu pandu masih terkunci
+  await expect(page.getByRole("button", { name: /Check-In \(setelah tiba\)/ })).toBeDisabled();
 
   await ctx.setGeolocation({ latitude: lat, longitude: lng, accuracy: 15 });
   await expect(page.getByText("Kamu sudah tiba. Silakan Check-In.")).toBeVisible();
-  await page.getByRole("button", { name: "Check-In", exact: true }).click();
+  await page.getByRole("button", { name: "Check-In sekarang" }).click();
   await expect(page.getByText(/KDR-\d+/)).toBeVisible();
   await ctx.close();
 });
