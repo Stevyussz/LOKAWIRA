@@ -4,7 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { AuthUser, MerchantStatus, UnlockedLoreCard, UserRole } from "@/types/lokawira";
 
-import { DEMO_MODE as DEMO } from "@/lib/api";
+import { DEMO_MODE } from "@/lib/api";
+
+// server contoh (in-memory) nyala kalo MOCK_BACKEND=true, atau mode demo UI nyala. Ini pengganti sementara sampe backend asli tersambung
+const DEMO = process.env.MOCK_BACKEND === "true" || DEMO_MODE;
 
 interface UserRecord extends AuthUser {
   salt: string;
@@ -258,10 +261,10 @@ export function clearLoginFailures(email: string) {
 
 export { err as jsonError };
 
-// server cth cuma boleh hidup di mode demo
+// server cth cuma hidup kalo MOCK_BACKEND=true atau mode demo
 export function mockDisabled(): NextResponse | null {
   return DEMO
     ? null
-    : err(503, "Backend belum tersambung. Isi NEXT_PUBLIC_API_BASE_URL ke server sungguhan.", "MOCK_DISABLED");
+    : err(503, "Backend belum tersambung. Isi NEXT_PUBLIC_API_BASE_URL ke server sungguhan, atau set MOCK_BACKEND=true buat server contoh.", "MOCK_DISABLED");
 }
 export const isDemoBackend = DEMO;

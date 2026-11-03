@@ -419,3 +419,10 @@ L. Peta (sudah nyata, bukan gambar dummy lagi)
 - penanda Kamu cuma muncul dr GPS asli. Gak ada lagi posisi simulasi
 - koordinat titik di data (coordinates.lat dan lng) sekarang kelihatan di peta nyata, jadi harus akurat. Cek tiap titik di Google Maps atau OSM sebelum penjurian
 
+
+M. Mode demo dimatiin (buat penjurian & integrasi)
+
+- NEXT_PUBLIC_DEMO_MODE=false: tombol Demo lonjakan, sampel scanner, daftar akun demo, dan semua fallback lokal (check-in/kapasitas yg cuma di perangkat) ilang. Semua harus lewat server
+- server contoh bawaan (src/app/api) tetep nyala sbg pengganti sementara kalo MOCK_BACKEND=true diisi (server-side). Isinya in-memory dan akun bawaan (wisatawan/mitra/admin @lokawira.demo, sandi demo1234) masih ada. Itu publik di repo, jadi JANGAN dipake di produksi sungguhan
+- begitu backend asli siap: isi NEXT_PUBLIC_API_BASE_URL, hapus MOCK_BACKEND, selesai. Tanpa keduanya, API contoh bales 503 MOCK_DISABLED
+- lupa sandi: server contoh gak bisa ngirim email dan gak lagi ngebalikin token saat mode demo mati, jadi alur ini baru jalan setelah backend asli punya pengirim email

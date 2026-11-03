@@ -319,7 +319,7 @@ export default function LokawiraExplorerPage() {
         isOffline={dataStatus === "offline"}
         onRetry={() => refreshServerData()}
         isSurgeDemo={isSurgeDemo}
-        onToggleSurgeDemo={handleToggleSurgeDemo}
+        onToggleSurgeDemo={DEMO_MODE ? handleToggleSurgeDemo : undefined}
         userPosition={userPosition}
       />
 
