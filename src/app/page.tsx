@@ -12,6 +12,7 @@ import { useWalkingRoute } from "@/lib/useWalkingRoute";
 import { distanceMeters, formatDistance } from "@/lib/geo";
 import { anchorSpot } from "@/lib/geo";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
+import Loka from "@/components/brand/Loka";
 import VibeSwitcherBar from "@/components/layout/VibeSwitcherBar";
 import BottomNavConsole from "@/components/layout/BottomNavConsole";
 import StoryTellerDock from "@/components/ai/StoryTellerDock";
@@ -616,7 +617,10 @@ export default function LokawiraExplorerPage() {
 
           {checkInCodes[selectedSpot.id] && (
             <div className="rounded-2xl bg-obsidian p-3 space-y-1">
-              <p className="text-[11px] font-bold text-pebble">Kode kehadiranmu</p>
+              <div className="flex items-center gap-2">
+                <Loka variant="mark" size={32} mood="cheer" motion="hop" />
+                <p className="text-[11px] font-bold text-pebble">Kamu sudah sampai. Ini kode kehadiranmu</p>
+              </div>
               <p className="font-num text-xl font-extrabold tracking-wider text-alabaster">{checkInCodes[selectedSpot.id]}</p>
               <p className="text-[11px] text-pebble">
                 Tunjukkan ke pemilik lapak. Setelah dia memverifikasi kode ini di aplikasi kasir, hadiah misi (+{selectedSpot.quest.rewardPoints} XP) masuk ke akunmu. Kode hanya berlaku sekali.

@@ -279,7 +279,25 @@ body {
 [data-perf="low"] .animate-ground-pulse,
 [data-perf="low"] .animate-ping { animation: none !important; }
 
+/* gerak Loka: sekali jalan, bukan loop, biar gak ganggu */
+@keyframes lokaHop {
+  0% { transform: translateY(0) scale(1, 1); }
+  25% { transform: translateY(2px) scale(1.06, 0.92); }
+  55% { transform: translateY(-14px) scale(0.96, 1.05); }
+  80% { transform: translateY(0) scale(1.04, 0.96); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes lokaWiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-7deg); }
+  45% { transform: rotate(6deg); }
+  70% { transform: rotate(-3deg); }
+}
+.loka-hop { transform-origin: 50% 90%; animation: lokaHop 720ms cubic-bezier(0.23, 1, 0.32, 1) 1 both; }
+.loka-wiggle { transform-origin: 50% 90%; animation: lokaWiggle 800ms ease-in-out 1 both; }
+
 @media (prefers-reduced-motion: reduce) {
+  .loka-hop, .loka-wiggle { animation: none !important; }
   .animate-pin-bob, .animate-sheet-up, .animate-ground-pulse, .animate-ping, .animate-scanline { animation: none !important; }
 }
 

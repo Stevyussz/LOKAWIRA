@@ -1,7 +1,9 @@
 import React, { useId } from "react";
 
 // Loka, pemandu & maskot LOKAWIRA. Badan = pin lokasi, ujung bawah = titik tepat.
-export type LokaMood = "happy" | "curious" | "cheer" | "think";
+export type LokaMood = "happy" | "curious" | "cheer" | "think" | "oops";
+// gerak kecil: hop = loncat senang (berhasil), wiggle = geleng pelan (nyasar / galat)
+export type LokaMotion = "hop" | "wiggle";
 
 const INK = "#2A2433";
 const CREAM = "#FFFAEE";
@@ -16,6 +18,7 @@ interface LokaProps {
   size?: number;
   // mark = versi ikon kecil (marker, favicon, avatar <= 48 px), full = lengkap dgn lengan & bintang
   variant?: "full" | "mark";
+  motion?: LokaMotion;
   // kalo diisi, jadi gambar bernama utk pembaca layar. Kosong = dekorasi
   label?: string;
   className?: string;
@@ -45,6 +48,12 @@ function FullFace({ mood }: { mood: LokaMood }) {
           <circle cx={301 + dx} cy={259 + dy} r="4.5" fill={CREAM} />
         </>
       )}
+      {mood === "oops" && (
+        <>
+          <path d="M172 214 C190 200 212 204 226 214" fill="none" stroke={INK} strokeWidth="6" strokeLinecap="round" />
+          <path d="M286 214 C300 204 322 200 340 214" fill="none" stroke={INK} strokeWidth="6" strokeLinecap="round" />
+        </>
+      )}
       {mood === "think" && <path d="M170 196 C186 186 210 186 226 194" fill="none" stroke={INK} strokeWidth="6" strokeLinecap="round" />}
       <circle cx="166" cy="292" r="17" fill={GOLD} opacity=".7" />
       <circle cx="346" cy="292" r="17" fill={GOLD} opacity=".7" />
@@ -55,6 +64,7 @@ function FullFace({ mood }: { mood: LokaMood }) {
         <path d="M222 288 C226 326 286 326 290 288 C274 296 238 296 222 288 Z" fill={TERRA_DEEP} stroke={INK} strokeWidth="5" strokeLinejoin="round" />
       )}
       {mood === "curious" && <ellipse cx="256" cy="304" rx="12" ry="14" fill={TERRA_DEEP} stroke={INK} strokeWidth="5" />}
+      {mood === "oops" && <path d="M232 308 C244 294 268 294 280 308" fill="none" stroke={INK} strokeWidth="7" strokeLinecap="round" />}
       {mood === "think" && <path d="M236 302 C246 296 262 308 276 298" fill="none" stroke={INK} strokeWidth="7" strokeLinecap="round" />}
     </>
   );
@@ -76,7 +86,9 @@ function MarkFace({ mood }: { mood: LokaMood }) {
           <ellipse cx="38.5" cy="30" rx="2.6" ry="3.4" fill={INK} />
         </>
       )}
-      {mood === "curious" ? (
+      {mood === "oops" ? (
+        <path d="M28.5 38.5 C30.5 36 33.5 36 35.5 38.5" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" />
+      ) : mood === "curious" ? (
         <ellipse cx="32" cy="37.5" rx="2" ry="2.4" fill={INK} />
       ) : mood === "think" ? (
         <path d="M28.5 37.5 L35.5 37" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" />
@@ -87,13 +99,14 @@ function MarkFace({ mood }: { mood: LokaMood }) {
   );
 }
 
-export default function Loka({ mood = "happy", size = 64, variant = "full", label, className }: LokaProps) {
+export default function Loka({ mood = "happy", size = 64, variant = "full", motion, label, className }: LokaProps) {
   const uid = useId().replace(/:/g, "");
+  const cls = [motion ? `loka-${motion}` : "", className ?? ""].filter(Boolean).join(" ") || undefined;
   const a11y = label ? { role: "img" as const, "aria-label": label } : { "aria-hidden": true as const };
 
   if (variant === "mark") {
     return (
-      <svg viewBox="0 0 64 64" width={size} height={size} className={className} {...a11y}>
+      <svg viewBox="0 0 64 64" width={size} height={size} className={cls} {...a11y}>
         <path d="M32 62 C32 62 8 40 8 26 A24 24 0 0 1 56 26 C56 40 32 62 32 62 Z" fill={TERRA} stroke={INK} strokeWidth="2.6" strokeLinejoin="round" />
         <MarkFace mood={mood} />
         <path d="M8.5 23 C9 8 55 8 55.5 23 C46 16.5 18 16.5 8.5 23 Z" fill={TEAL} stroke={INK} strokeWidth="2.2" strokeLinejoin="round" />
@@ -105,7 +118,7 @@ export default function Loka({ mood = "happy", size = 64, variant = "full", labe
   const pin = "M256 476 C256 476 104 336 104 222 A152 152 0 0 1 408 222 C408 336 256 476 256 476 Z";
   const band = "M112 214 C116 128 396 128 400 214 C346 184 166 184 112 214 Z";
   return (
-    <svg viewBox="0 0 512 512" width={size} height={size} className={className} {...a11y}>
+    <svg viewBox="0 0 512 512" width={size} height={size} className={cls} {...a11y}>
       <defs>
         <clipPath id={`${uid}-body`}><path d={pin} /></clipPath>
         <clipPath id={`${uid}-band`}><path d={band} /></clipPath>

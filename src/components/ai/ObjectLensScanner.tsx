@@ -13,6 +13,7 @@ import {
   UnlockedLoreCard,
 } from "@/types/lokawira";
 import { CULTURAL_OBJECT_SAMPLES } from "@/lib/seedCulturalData";
+import Loka from "@/components/brand/Loka";
 
 interface ObjectLensScannerProps {
   isOpen: boolean;
@@ -494,7 +495,7 @@ export default function ObjectLensScanner({
                     transition={{ type: "spring", stiffness: 420, damping: 12, delay: 0.25 }}
                     className="inline-flex"
                   >
-                    <Icon name="check" size={28} className="text-quotaSafe" />
+                    <Loka variant="mark" size={40} mood="cheer" motion="hop" />
                   </motion.span>
                   <div>
                     <span className="text-xs font-bold text-quotaSafe block">
