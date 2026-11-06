@@ -477,6 +477,14 @@ M. Mode demo dimatiin (buat penjurian & integrasi)
 - begitu backend asli siap: isi NEXT_PUBLIC_API_BASE_URL, hapus MOCK_BACKEND, selesai. Tanpa keduanya, API contoh bales 503 MOCK_DISABLED
 - lupa sandi: server contoh gak bisa ngirim email dan gak lagi ngebalikin token saat mode demo mati, jadi alur ini baru jalan setelah backend asli punya pengirim email
 
+IMPLEMENTASI SERVICE TYPESCRIPT DI REPO
+
+- Service Fastify + PostgreSQL ada di backend/. Jalankan sesuai backend/README.md; service menerapkan skema dan mengisi titik awal saat start pertama.
+- Service berjalan terpisah di port 4000 secara default. Isi NEXT_PUBLIC_API_BASE_URL dengan alamat service, dan CORS_ORIGINS dengan origin frontend.
+- Route Next.js di src/app/api tetap server contoh/demo, jangan dihapus saat service backend ini mulai dipakai.
+- Perlu konfigurasi PostgreSQL, SESSION_SECRET kuat, akun ADMIN awal, provider NineRouter untuk validasi foto, dan SMTP untuk email. Tanpa kredensial AI, scan tidak memberi XP/voucher; storyteller memakai fallback kurasi.
+- Anti-spam tamu yang belum punya ID perangkat memakai hash IP sebagai batas sementara, bukan identitas perangkat yang kuat.
+
 N. Alur pandu (frontend)
 
 - tombol Pandu aku ada di kartu lokasi. Tekan: minta izin lokasi, peta zoom out nunjukin rute penuh (posisi ke tujuan) + jarak & perkiraan menit jalan kaki. Tekan Mulai: kamera ngikutin posisi dan peta diputar sesuai arah hadap
