@@ -48,7 +48,7 @@ const w = await scan("spot-mjp-03", "batik.jpg");
 ok("foto batik di lapak wedang/cobek: ditolak", w.j.isVerified === false && !w.j.issuedVoucher, `conf=${w.j.confidenceScore} "${w.j.message ?? ""}" ${w.ms}ms`);
 const b = await scan("spot-bhr-01", "batik.jpg");
 ok("foto batik tiga negeri di lapak batik Lasem: cocok", b.j.isVerified === true, `conf=${b.j.confidenceScore} ${b.ms}ms ${b.j.message ?? ""}`);
-const guest = await scan("spot-mjp-02", "celengan.jpg", undefined);
+const guest = await scan("spot-mjp-02", "celengan.jpg", null);
 ok("tamu: kisah terbuka tanpa voucer", guest.j.isVerified === true && !guest.j.issuedVoucher && guest.j.rewardNote === "LOGIN_FOR_REWARD", `${guest.ms}ms`);
 const prof = await call("GET", "/api/me/profile", { token: V });
 ok("kartu kisah & XP tersimpan di akun", prof.j.loreCards.length >= 1 && prof.j.xp > 0, `xp=${prof.j.xp} kartu=${prof.j.loreCards.length}`);

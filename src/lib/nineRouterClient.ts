@@ -1,7 +1,13 @@
-const NINE_ROUTER_BASE_URL = process.env.NINE_ROUTER_BASE_URL || "https://api.9router.local/v1";
+const NINE_ROUTER_BASE_URL = (process.env.NINE_ROUTER_BASE_URL || "https://api.9router.local/v1").replace(/\/$/, "");
 const NINE_ROUTER_API_KEY = process.env.NINE_ROUTER_API_KEY || "";
-// model reasoning kadang >3 dtk; bisa diatur, default 8 dtk (lewat itu pakai narasi kurasi)
-const NINE_ROUTER_TIMEOUT_MS = Number(process.env.NINE_ROUTER_TIMEOUT_MS) || 8000;
+// batas waktu total cerita Loka; lewat itu pakai narasi kurasi
+const NINE_ROUTER_TIMEOUT_MS = Number(process.env.NINE_ROUTER_TIMEOUT_MS) || 12000;
+const PER_MODEL_MS = Number(process.env.NINE_ROUTER_PER_MODEL_MS) || 6000;
+// daftar model dipisah koma: kalo penyedia pertama putus/error, langsung coba berikutnya
+const modelList = (v?: string) => (v || "gemini-2.5-flash").split(",").map((m) => m.trim()).filter(Boolean);
+export const TEXT_MODELS = modelList(process.env.NINE_ROUTER_MODEL);
+export const VISION_MODELS = modelList(process.env.NINE_ROUTER_VISION_MODEL || process.env.NINE_ROUTER_MODEL);
+export const aiConfigured = () => !!NINE_ROUTER_API_KEY;
 
 // isi balasan model kadang dibungkus ```json ... ```; ambil objek JSON-nya aja
 export function parseModelJson(content: unknown): Record<string, unknown> {
@@ -10,6 +16,37 @@ export function parseModelJson(content: unknown): Record<string, unknown> {
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("Balasan model bukan JSON");
   return JSON.parse(text.slice(start, end + 1));
+}
+
+// satu panggilan chat ke 9router (non-streaming; 9router defaultnya SSE). Coba model satu2 sampai tenggat total habis.
+// Balikin objek JSON dr model + nama model yg berhasil
+export async function chatJson(messages: unknown[], opts: { models?: string[]; timeoutMs?: number; perModelMs?: number } = {}): Promise<{ json: Record<string, unknown>; model: string }> {
+  if (!NINE_ROUTER_API_KEY) throw new Error("NINE_ROUTER_API_KEY kosong");
+  const deadline = Date.now() + (opts.timeoutMs ?? NINE_ROUTER_TIMEOUT_MS);
+  let last: unknown = new Error("tanpa model");
+  for (const model of opts.models ?? TEXT_MODELS) {
+    const left = deadline - Date.now();
+    if (left < 500) break;
+    const controller = new AbortController();
+    // tiap model dibatasi sendiri biar satu model lambat gak ngabisin jatah model cadangan
+    const timer = setTimeout(() => controller.abort(), Math.min(left, opts.perModelMs ?? PER_MODEL_MS));
+    try {
+      const res = await fetch(`${NINE_ROUTER_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${NINE_ROUTER_API_KEY}` },
+        signal: controller.signal,
+        body: JSON.stringify({ model, stream: false, response_format: { type: "json_object" }, messages }),
+      });
+      if (!res.ok) throw new Error(`${model}: HTTP ${res.status}`);
+      const data = (await res.json()) as { choices?: { message?: { content?: unknown } }[] };
+      return { json: parseModelJson(data.choices?.[0]?.message?.content), model };
+    } catch (cause) {
+      last = cause;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw last;
 }
 
 export async function generateCulturalStoryAndValidation(params: {
@@ -49,38 +86,18 @@ ${params.context || `[R0] ${params.loreNarrative || params.verifiedLoreSource}`}
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), NINE_ROUTER_TIMEOUT_MS);
-
-    const response = await fetch(`${NINE_ROUTER_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${NINE_ROUTER_API_KEY}`,
+    const { json: parsed } = await chatJson([
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content:
+          params.mode === "LENS_SCAN"
+            ? `Verifikasi pemindaian objek budaya di ${params.spotName} dan berikan narasi singkat beserta pengesahan voucer UMKM.`
+            : params.userQueryOrImageBase64
+            ? `Wisatawan di ${params.spotName} bertanya: "${params.userQueryOrImageBase64}". Jawab hanya berdasarkan RUJUKAN, lalu beri teka-teki singkat.`
+            : `Sambut wisatawan di ${params.spotName} dengan penggalan kisah tradisi lisan dan berikan teka-teki singkat menuju titik UMKM/Sanggar terdekat.`,
       },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: process.env.NINE_ROUTER_MODEL || "gemini-2.5-flash",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content:
-              params.mode === "LENS_SCAN"
-                ? `Verifikasi pemindaian objek budaya di ${params.spotName} dan berikan narasi singkat beserta pengesahan voucer UMKM.`
-                : params.userQueryOrImageBase64
-                ? `Wisatawan di ${params.spotName} bertanya: "${params.userQueryOrImageBase64}". Jawab hanya berdasarkan RUJUKAN, lalu beri teka-teki singkat.`
-                : `Sambut wisatawan di ${params.spotName} dengan penggalan kisah tradisi lisan dan berikan teka-teki singkat menuju titik UMKM/Sanggar terdekat.`,
-          },
-        ],
-      }),
-    });
-
-    clearTimeout(timeout);
-    if (!response.ok) throw new Error(`9router status: ${response.status}`);
-    const data = await response.json();
-    const parsed = parseModelJson(data?.choices?.[0]?.message?.content);
+    ]);
     const story = typeof parsed.story === "string" ? parsed.story.trim() : "";
     if (!story) throw new Error("Cerita kosong");
     return {

@@ -19,6 +19,7 @@ Service API LOKAWIRA: TypeScript, Fastify 5, PostgreSQL, Zod, Nodemailer. Fronte
 | `src/seed.ts` | Isi awal idempoten: kawasan, titik, acara, rujukan; admin pertama; akun uji opsional. |
 | `schema.sql` | Skema idempoten (aman dijalankan ulang). |
 | `qa/smoke.mjs` | 59 cek QA: alur penuh dan celah eksploit lama. |
+| `qa/ai.mjs` | 8 cek AI nyata lewat 9router (Loka live, foto cocok/ditolak, batas hadiah). Butuh folder foto `celengan.jpg` dan `batik.jpg`. |
 
 Aturan yang dipakai bersama frontend dan server contoh: `src/lib/spotRules.ts` (cara masuk, jam buka, zona waktu, `openState`), `src/lib/eventRules.ts` (kemunculan acara), `src/lib/regionMatch.ts`, `src/lib/server/regionInput.ts`, `src/lib/server/loreContext.ts`, `src/lib/enums.ts`, `src/lib/geo.ts`.
 
@@ -48,6 +49,7 @@ Penjurian: set `DEMO_ACCOUNTS=true` supaya akun uji `wisatawan@`, `mitra@`, `cal
 - **E-Ticket:** hanya untuk titik RESERVATION/TICKET (`NO_BOOKING_NEEDED`). XP sekali per titik per hari. Voucer pengalih hanya untuk akun, sekali per lapak per hari, berlaku sampai 23.59 WIB.
 - **Kasir:** voucer dikunci `FOR UPDATE` (tebus serentak, hanya 1 yang sukses), hanya di lapak penerbitnya, ditolak 410 `VOUCHER_EXPIRED` bila lewat masa berlaku.
 - **Pindai objek:** wajib foto JPEG/PNG/WebP asli (signature dicek). Diverifikasi model multimodal 9router (ambang keyakinan 0,65, dibandingkan dengan foto contoh mitra). Kisah tetap diambil dari narasi kurasi, bukan karangan model. Hadiah hanya untuk akun, sekali per titik per hari. Dibatasi 20 pindai per 10 menit per akun/IP. Tanpa API key: tidak ada voucer.
+- **9router:** permintaan dikirim `stream:false` (9router membalas SSE bila tidak diminta), balasan JSON yang dibungkus ```json tetap dibaca, dan `NINE_ROUTER_MODEL`/`NINE_ROUTER_VISION_MODEL` berupa daftar cadangan dengan batas waktu per model. Saat diuji, salah satu penyedia (gemini/gemini-3.8-flash) sempat putus dan cadangan langsung mengambil alih.
 - **Loka:** cerita hanya dari rujukan (`[R0]` narasi titik + maksimal 3 rujukan Pengetahuan Loka). Respons menyertakan `references`. Bila AI gagal atau timeout, narasi kurasi dipakai.
 - **Limiter:** login 5 gagal per email per menit; daftar 10/jam per IP; reservasi 30/jam per IP; tebus 120/jam per akun; Loka 40 per 10 menit; metrik 30/jam per jenis/titik/IP.
 

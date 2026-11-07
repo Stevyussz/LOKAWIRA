@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { CulturalSpot, IssuedVoucher, LensVerificationResult, OpkCategory, UnlockedLoreCard } from "../../../src/types/lokawira";
-import { generateCulturalStoryAndValidation, parseModelJson } from "../../../src/lib/nineRouterClient";
+import { aiConfigured, chatJson, generateCulturalStoryAndValidation, VISION_MODELS } from "../../../src/lib/nineRouterClient";
 import { buildContext, pickNotes, type LoreNote } from "../../../src/lib/server/loreContext";
 import { OPK_VALUES } from "../../../src/lib/enums";
 import { pool, tx } from "../db.js";
@@ -17,7 +17,7 @@ type AiVerdict = { isVerified: boolean; confidence: number; objectName: string; 
 
 // verifikasi foto ke model multimodal lewat 9router. Model cuma menilai cocok/enggak, kisahnya tetep dr narasi kurasi (anti halusinasi)
 async function verifyWithAi(spot: CulturalSpot, image: { type: string; data: Buffer }): Promise<AiVerdict | "UNAVAILABLE"> {
-  if (!process.env.NINE_ROUTER_API_KEY) return "UNAVAILABLE";
+  if (!aiConfigured()) return "UNAVAILABLE";
   const refs = await Promise.all(
     (spot.quest.referenceImages ?? []).slice(0, 3).map(async (ref) => {
       const r = await pool.query<{ file_data: Buffer; mime_type: string }>("SELECT file_data,mime_type FROM entities WHERE kind='reference-image' AND id=$1", [ref.id]);
@@ -29,29 +29,19 @@ async function verifyWithAi(spot: CulturalSpot, image: { type: string; data: Buf
   const prompt = [
     `Objek yang harus dipotret wisatawan di "${spot.name}": ${spot.quest.targetObjectPrompt}.`,
     "Gambar PERTAMA adalah foto wisatawan." + (refParts.length ? ` ${refParts.length} gambar berikutnya adalah foto contoh resmi dari pemilik lapak sebagai pembanding.` : ""),
-    "Nilai apakah foto wisatawan benar-benar menunjukkan objek tersebut (foto asli di lokasi, bukan layar/foto dari foto lain bila terlihat jelas).",
+    "Nilai HANYA apakah objek di foto wisatawan sama jenisnya dengan objek yang diminta. Abaikan latar, tempat, atau etalase: lokasi wisatawan sudah dicek GPS oleh sistem.",
+    "Tolak bila objeknya berbeda, tidak terlihat jelas, atau foto jelas-jelas memotret layar HP/monitor.",
     'Balas HANYA JSON: {"isVerified": boolean, "confidenceScore": number 0..1, "detectedObjectName": string singkat bahasa Indonesia, "message": string singkat bila tidak cocok}.',
     "Jika ragu, isVerified false.",
   ].join("\n");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SCAN_TIMEOUT_MS);
   try {
-    const res = await fetch(`${(process.env.NINE_ROUTER_BASE_URL || "http://localhost:20128/v1").replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.NINE_ROUTER_API_KEY}` },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: process.env.NINE_ROUTER_VISION_MODEL || process.env.NINE_ROUTER_MODEL || "gemini-2.5-flash",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: "Anda verifikator objek budaya yang konservatif. Jangan mengarang. Jawab JSON saja." },
-          { role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: `data:${image.type};base64,${image.data.toString("base64")}` } }, ...refParts] },
-        ],
-      }),
-    });
-    if (!res.ok) throw new Error(`9router ${res.status}`);
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const j = parseModelJson(data.choices?.[0]?.message?.content);
+    const { json: j } = await chatJson(
+      [
+        { role: "system", content: "Anda verifikator objek budaya yang konservatif. Jangan mengarang. Jawab JSON saja." },
+        { role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: `data:${image.type};base64,${image.data.toString("base64")}` } }, ...refParts] },
+      ],
+      { models: VISION_MODELS, timeoutMs: SCAN_TIMEOUT_MS, perModelMs: 15000 }
+    );
     const confidence = Math.max(0, Math.min(1, Number(j.confidenceScore) || 0));
     return {
       isVerified: j.isVerified === true && confidence >= MIN_CONFIDENCE,
@@ -62,8 +52,6 @@ async function verifyWithAi(spot: CulturalSpot, image: { type: string; data: Buf
   } catch (cause) {
     console.warn("Verifikasi AI gagal:", (cause as Error).message);
     return "UNAVAILABLE";
-  } finally {
-    clearTimeout(timer);
   }
 }
 
