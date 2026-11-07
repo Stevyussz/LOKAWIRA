@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS entities (
 CREATE INDEX IF NOT EXISTS entities_kind_created_idx ON entities (kind, created_at DESC);
 CREATE INDEX IF NOT EXISTS entities_owner_kind_idx ON entities (owner_id, kind);
 CREATE INDEX IF NOT EXISTS entities_voucher_status_idx ON entities (kind, (payload->>'status'));
+CREATE INDEX IF NOT EXISTS entities_spot_ref_idx ON entities (kind, (payload->>'spotId'));
 CREATE UNIQUE INDEX IF NOT EXISTS entities_voucher_code_unique ON entities ((payload->>'code')) WHERE kind = 'voucher';
 CREATE UNIQUE INDEX IF NOT EXISTS entities_checkin_code_unique ON entities ((payload->>'code')) WHERE kind = 'checkin';
 CREATE UNIQUE INDEX IF NOT EXISTS entities_reservation_ticket_unique ON entities ((payload->>'ticketId')) WHERE kind = 'reservation';
@@ -62,3 +63,22 @@ CREATE TABLE IF NOT EXISTS redemption_audit (
   merchant_user_id text NOT NULL,
   redeemed_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- jejak hadiah per akun/titik/jenis/hari WIB. Primary key = hadiah cuma bisa diklaim sekali sehari (atomik)
+CREATE TABLE IF NOT EXISTS reward_log (
+  user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  spot_id text NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('SCAN', 'RESERVATION', 'REDIRECT', 'CHECKIN')),
+  day date NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, spot_id, kind, day)
+);
+
+-- jejak dampak anonim (UU PDP): cuma jenis, titik, waktu. Tanpa user, IP, atau lokasi
+CREATE TABLE IF NOT EXISTS metrics (
+  id bigserial PRIMARY KEY,
+  type text NOT NULL CHECK (type IN ('QR_OPEN', 'REMINDER_SAVED', 'GUIDE_START')),
+  spot_id text NOT NULL,
+  at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS metrics_spot_at_idx ON metrics (spot_id, at);

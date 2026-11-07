@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Loka">
-  <path d="M32 62 C32 62 8 40 8 26 A24 24 0 0 1 56 26 C56 40 32 62 32 62 Z" fill="#C8421F" stroke="#2A2433" stroke-width="2.6" stroke-linejoin="round"/>
-  <ellipse cx="32" cy="31" rx="17" ry="13" fill="#FFFAEE" stroke="#2A2433" stroke-width="2"/>
-  <ellipse cx="25.5" cy="30" rx="2.6" ry="3.4" fill="#2A2433"/><ellipse cx="38.5" cy="30" rx="2.6" ry="3.4" fill="#2A2433"/>
-  <path d="M28.5 36.5 C30.5 39 33.5 39 35.5 36.5" fill="none" stroke="#2A2433" stroke-width="2" stroke-linecap="round"/>
-  <path d="M8.5 23 C9 8 55 8 55.5 23 C46 16.5 18 16.5 8.5 23 Z" fill="#1F8A83" stroke="#2A2433" stroke-width="2.2" stroke-linejoin="round"/>
-  <path d="M30 13 C28.5 7 33 3.5 38 1.5 C38 6 39 10 38 13.5 Z" fill="#1F8A83" stroke="#2A2433" stroke-width="2" stroke-linejoin="round"/>
-</svg>
