@@ -296,10 +296,10 @@ body {
 .loka-hop { transform-origin: 50% 90%; animation: lokaHop 720ms cubic-bezier(0.23, 1, 0.32, 1) 1 both; }
 .loka-wiggle { transform-origin: 50% 90%; animation: lokaWiggle 800ms ease-in-out 1 both; }
 
-@media (prefers-reduced-motion: reduce) {
-  .loka-hop, .loka-wiggle { animation: none !important; }
-  .animate-pin-bob, .animate-sheet-up, .animate-ground-pulse, .animate-ping, .animate-scanline { animation: none !important; }
-}
+/* data-motion dipasang di <html> (lib/motionPref): reduce = pengaturan "kurangi animasi" di HP atau pilihan di Akun */
+[data-motion="reduce"] .loka-hop, [data-motion="reduce"] .loka-wiggle,
+[data-motion="reduce"] .animate-pin-bob, [data-motion="reduce"] .animate-sheet-up, [data-motion="reduce"] .animate-ground-pulse,
+[data-motion="reduce"] .animate-ping, [data-motion="reduce"] .animate-scanline { animation: none !important; }
 
 /* efek Potongan Tiket Fisik utk Voucer UMKM & Tiket Reservasi (Identity Motif) */
 .perforated-ticket {
@@ -416,7 +416,7 @@ body {
 @keyframes audioBar { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
 .audio-bar { transform-origin: bottom; animation: audioBar 0.9s ease-in-out infinite; }
 [data-perf="low"] .audio-bar { animation: none; transform: scaleY(0.7); }
-@media (prefers-reduced-motion: reduce) { .audio-bar { animation: none; transform: scaleY(0.7); } }
+[data-motion="reduce"] .audio-bar { animation: none; transform: scaleY(0.7); }
 
 /* teks berwarna primer: dicampur 35% tinta lontar biar lolos kontras 4,5:1 di smua kawasan & smua latar krem */
 .text-vibePrimary {

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import { AnimatePresence, MotionConfig, motion, useDragControls } from "motion/react";
+import { useReducedMotionConfig } from "@/lib/motionPref";
 
 interface SheetProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export default function Sheet({
   children,
   maxWidthClass = "sm:max-w-2xl",
 }: SheetProps) {
+  const reducedMotion = useReducedMotionConfig();
   const controls = useDragControls();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const closeRef = useRef(onClose);
@@ -67,7 +69,7 @@ export default function Sheet({
   }, [isOpen]);
 
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={reducedMotion}>
       <AnimatePresence>
         {isOpen && (
           <div key="sheet" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6">

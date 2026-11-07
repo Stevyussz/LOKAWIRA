@@ -12,7 +12,8 @@ test("scanner: format salah ditolak, foto kecil tidak dikenali, foto jelas berha
 
   await input.setInputFiles({ name: "kecil.png", mimeType: "image/png", buffer: makePng(16, 16, false) });
   await page.getByRole("button", { name: /Pindai/ }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "belum dikenali" })).toBeVisible();
+  // mesin tes (WebGL lewat SwiftShader) lambat ngolah gambar, jadi waktu tunggunya dilonggarin
+  await expect(page.getByRole("alert").filter({ hasText: "belum dikenali" })).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("Kartu Koleksi Terbuka")).toBeHidden();
 
   await input.setInputFiles({ name: "besar.png", mimeType: "image/png", buffer: makePng(1400, 800, true) });

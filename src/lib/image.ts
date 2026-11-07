@@ -23,11 +23,19 @@ export async function shrinkToJpeg(src: Drawable, quality = 0.85): Promise<Blob>
   );
 }
 
+// HP lemah kadang macet pas ngolah gambar besar: kasih batas waktu biar tombol gak muter selamanya
+function withTimeout<T>(p: Promise<T>, ms = 20000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("Foto terlalu lama diproses. Coba foto yang lebih kecil atau ulangi.")), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 export async function fileToJpeg(file: File): Promise<Blob> {
   if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) throw new Error("Format foto harus JPEG, PNG, atau WebP.");
-  const bmp = await createImageBitmap(file);
+  const bmp = await withTimeout(createImageBitmap(file));
   try {
-    return await shrinkToJpeg(bmp);
+    return await withTimeout(shrinkToJpeg(bmp));
   } finally {
     bmp.close();
   }

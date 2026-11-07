@@ -3,6 +3,7 @@
 import React from "react";
 import { MotionConfig, motion } from "motion/react";
 import Icon, { IconName } from "@/components/ui/Icon";
+import { useReducedMotionConfig } from "@/lib/motionPref";
 
 type Section = "MAP" | "STORY" | "QUOTA" | "WALLET";
 
@@ -28,8 +29,9 @@ export default function BottomNavConsole({
   activeVoucherCount,
   isPrimaryCrowded,
 }: BottomNavConsoleProps) {
+  const reducedMotion = useReducedMotionConfig();
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={reducedMotion}>
       <nav
         aria-label="Navigasi petualang"
         style={{ bottom: "calc(12px + env(safe-area-inset-bottom))" }}

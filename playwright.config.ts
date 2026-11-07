@@ -14,11 +14,14 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [["list"]],
   use: {
+    // service worker diblok biar tes deterministik; tes PWA bikin konteks sendiri yg ngizinin SW
+    serviceWorkers: "block",
     baseURL: BASE,
     viewport: { width: 390, height: 844 },
     trace: "retain-on-failure",
     // peta MapLibre butuh WebGL: di headless pakai renderer software (SwiftShader)
-    launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] },
+    // PW_CHROMIUM_PATH: pakai chromium yg udah ada di mesin kalo versi bawaan playwright belum terunduh
+    launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH || undefined, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] },
   },
   // QA_URL diisi = tes ke server yg sudah jalan (mis staging), selain itu jalanin build lokal
   webServer: process.env.QA_URL

@@ -7,6 +7,7 @@ import { useVibeHex } from "@/lib/vibeColors";
 import Icon from "@/components/ui/Icon";
 import { api, describeError } from "@/lib/api";
 import { CulturalSpot } from "@/types/lokawira";
+import { useReducedMotionConfig } from "@/lib/motionPref";
 
 interface StoryTellerDockProps {
   selectedSpot: CulturalSpot | null;
@@ -23,6 +24,7 @@ export default function StoryTellerDock({
   onOpenScanner,
   onSelectNearbyUmkm,
 }: StoryTellerDockProps) {
+  const reducedMotion = useReducedMotionConfig();
   const vh = useVibeHex();
   const [narrative, setNarrative] = useState<string>("");
   const [displayedText, setDisplayedText] = useState<string>("");
@@ -113,7 +115,7 @@ export default function StoryTellerDock({
   };
 
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={reducedMotion}>
     <AnimatePresence>
     {isExpanded && (
     <motion.aside

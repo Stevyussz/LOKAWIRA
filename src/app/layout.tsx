@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { LokawiraProvider } from "@/components/layout/LokawiraProvider";
 import PerfMode from "@/components/ui/PerfMode";
+import { MOTION_BOOT } from "@/lib/motionPref";
 import { AuthProvider } from "@/components/layout/AuthProvider";
 import { LocationProvider } from "@/components/layout/LocationProvider";
 
@@ -26,7 +27,11 @@ const fraunces = localFont({
 export const metadata: Metadata = {
   title: "LOKAWIRA: Geo-Cultural Quest & Ekonomi Sirkular UMKM",
   description:
-    "Platform Pemandu Wisata Budaya Interaktif Berbasis Geo-Cultural Quest, Object Lens Scanner, Smart Quota Redistribution, dan One-Tap UMKM Micro-POS (BUDAYA GO! 2026).",
+    "Pemandu wisata budaya interaktif: peta, cerita Loka, pindai objek budaya, kuota antrean, dan voucer UMKM lokal (BUDAYA GO! 2026).",
+  applicationName: "LOKAWIRA",
+  // iPhone: buka layar penuh dr layar utama & pakai ikon Loka
+  appleWebApp: { capable: true, title: "LOKAWIRA", statusBarStyle: "default" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 // viewport-fit=cover wajib biar env(safe-area-inset-*) bekeerja di HP berponi/berbilah gestur
@@ -46,7 +51,12 @@ export default function RootLayout({
     <html
       lang="id"
       className={`${figtree.variable} ${fraunces.variable}`}
+      // data-motion dipasang skrip di bawah sblm React jalan
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT }} />
+      </head>
       <body className="bg-andesite text-alabaster antialiased">
         <PerfMode />
         <AuthProvider>

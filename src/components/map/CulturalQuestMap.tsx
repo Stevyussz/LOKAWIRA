@@ -14,6 +14,7 @@ import { ZONE_RADIUS_METERS, LatLng, anchorSpot, bearingDegrees, circlePolygon, 
 import { loadLontarStyle } from "@/lib/mapStyle";
 import type { WalkingRoute } from "@/lib/route";
 import { matchesSpotFilter, SpotFilter, SPOT_FILTER_OPTIONS } from "@/lib/spotFilter";
+import { motionReduced } from "@/lib/motionPref";
 
 interface CulturalQuestMapProps {
   spots: CulturalSpot[];
@@ -49,7 +50,8 @@ type MapLibre = typeof import("maplibre-gl");
 type Pt = [number, number];
 const EMPTY = { type: "FeatureCollection", features: [] } as const;
 const ll = (c: LatLng): Pt => [c.lng, c.lat];
-const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// ikut tingkat animasi aplikasi (pengaturan HP atau pilihan di Akun)
+const prefersReducedMotion = motionReduced;
 const isMobileView = () => typeof window !== "undefined" && window.innerWidth < 640;
 
 // padding kamera: ruang buat HUD atas & kartu bawah, biar titik gak ketutup

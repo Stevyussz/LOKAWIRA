@@ -9,6 +9,8 @@ import { useLokawira } from "@/components/layout/LokawiraProvider";
 import AccountSecurity from "@/components/layout/AccountSecurity";
 import { useLocation } from "@/components/layout/LocationProvider";
 import { levelProgress } from "@/lib/progress";
+import MotionSetting from "@/components/layout/MotionSetting";
+import InstallApp from "@/components/layout/InstallApp";
 
 interface AccountSheetProps {
   isOpen: boolean;
@@ -108,6 +110,8 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
 
           {journey}
           {locationRow}
+          <InstallApp />
+          <MotionSetting />
 
           <div className="space-y-2.5">
             {(user.role === "MERCHANT" || user.role === "ADMIN") && (
@@ -144,6 +148,8 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
         <div className="space-y-4 pt-1">
           {journey}
           {locationRow}
+          <InstallApp />
+          <MotionSetting />
           <p className="text-sm text-pebble leading-relaxed">
             Kamu bisa menjelajah, memindai objek, dan memesan tiket tanpa akun. Daftar atau masuk supaya XP, kartu kisah,
             voucer, dan tiketmu tersimpan dan ikut ke HP lain. Mitra (UMKM, sanggar) dan pengelola juga masuk dari sini.

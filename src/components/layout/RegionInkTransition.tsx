@@ -1,20 +1,23 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useMotion } from "@/lib/motionPref";
 import { VIBE_HEX } from "@/lib/vibeColors";
 import { CulturalVibe } from "@/types/lokawira";
 
 // pergantian kawasan terasa kyk tinta budaya baru yg merembes di atas lontar: lingkaran berwarna kawasan tujuan melebar dr t
 export default function RegionInkTransition({ activeVibe }: { activeVibe: CulturalVibe }) {
-  const reduce = useReducedMotion();
+  const { tier } = useMotion();
+  const reduce = tier === "reduce";
   const prev = useRef<CulturalVibe>(activeVibe);
   const [ink, setInk] = useState<{ key: number; color: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (prev.current === activeVibe) return;
     prev.current = activeVibe;
-    if (reduce || document.documentElement.dataset.perf === "low") return;
+    // tinta cuma di tingkat full: efek layar penuh terlalu berat buat HP spek rendah
+    if (tier !== "full") return;
     const trigger = document.querySelector<HTMLElement>('[aria-haspopup="true"]');
     const r = trigger?.getBoundingClientRect();
     setInk({
@@ -23,7 +26,7 @@ export default function RegionInkTransition({ activeVibe }: { activeVibe: Cultur
       x: r ? r.left + r.width / 2 : window.innerWidth - 60,
       y: r ? r.top + r.height / 2 : 60,
     });
-  }, [activeVibe, reduce]);
+  }, [activeVibe, tier]);
 
   return (
     <AnimatePresence>

@@ -31,8 +31,10 @@ import {
   ReservationPass,
   UnlockedLoreCard,
 } from "@/types/lokawira";
+import { useReducedMotionConfig } from "@/lib/motionPref";
 
 export default function LokawiraExplorerPage() {
+  const reducedMotion = useReducedMotionConfig();
   const vh = useVibeHex();
   const {
     activeVibe,
@@ -449,7 +451,7 @@ export default function LokawiraExplorerPage() {
       </AnimatePresence>
 
       {/* 4 - KARTU LOKASI */}
-      <MotionConfig reducedMotion="user">
+      <MotionConfig reducedMotion={reducedMotion}>
       <AnimatePresence>
       {selectedSpot && isSpotCardVisible && !isStoryExpanded && (
         <div

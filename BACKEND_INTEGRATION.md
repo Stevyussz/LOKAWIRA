@@ -521,3 +521,11 @@ R. Alur wisatawan (yg berubah)
 - voucer pengalih antrean (bonusVoucher, kalo acceptCircularQuest true) sekarang milik UMKM MITRA TERDEKAT di kawasan yg sama, bkn milik cagar. spotId nya lapak mitra itu, nominal dan minimal belanja diambil dr promo lapak itu. Jadi mitra tsb yg bisa nebus di kasirnya. Kalo gak ada mitra di kawasan itu, bonusVoucher kosong
 - scanner: wisatawan sekarang disuruh nyari objek dari quest.targetObjectPrompt, dan foto contoh (quest.referenceImages) ditampilin sbg petunjuk. Tombol Pindai terkunci sampe ada foto (kamera atau unggahan)
 - scan SEKARANG ikut ngecek lokasi, sama persis kayak check-in (env geofence yg sama, kode galat yg sama). Frontend ngirim lat, lng, accuracyMeters di lens-verify. Alurnya: coba dulu tanpa lokasi, kalo server balas LOCATION_REQUIRED baru minta lokasi sekali (persetujuan dulu) lalu kirim ulang. Backend asli wajib ngitung jarak sendiri, jgn percaya klien
+
+S. PWA dan tingkat animasi
+
+- aplikasi sekarang PWA beneran: manifest di /manifest.webmanifest (dibikin dari src/app/manifest.ts), ikon di public/icons, service worker di public/sw.js, halaman /offline buat pas gak ada sinyal. Bisa dipasang ke layar utama HP (Android lewat tombol Pasang di Akun, iPhone lewat Bagikan lalu Tambah ke Layar Utama)
+- PENTING buat backend: service worker SENGAJA gak nyentuh /api/ apa pun (gak dicache sama sekali), jadi data akun, voucer, dan tiket selalu langsung dari server dan gak bocor antar akun. Request ke origin lain (NEXT_PUBLIC_API_BASE_URL kalo beda domain, ubin peta, routing) juga gak disentuh. Jadi backend gak perlu ngatur apa2 khusus buat PWA
+- yg dicache cuma aset build (/_next/static, berhash), ikon, dan salinan halaman terakhir yg dibuka. Kalo strategi cache diubah, naikin VERSION di public/sw.js biar cache lama dibuang
+- service worker cuma aktif di build produksi (next build), di dev gak
+- animasi sekarang 3 tingkat (src/lib/motionPref.ts): full, lite (HP RAM sekitar 3 GB ke bawah, prosesor 2 inti, hemat data, jaringan 2g, atau layar tersendat di bawah ~30 fps), dan reduce (pengaturan "kurangi animasi" di HP). Pengguna bisa milih sendiri di Akun: Otomatis, Penuh, atau Hemat. Ini murni frontend, gak ada endpoint

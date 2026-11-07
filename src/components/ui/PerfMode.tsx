@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import { applyMotion, probeFps } from "@/lib/motionPref";
+import { initPwa } from "@/lib/pwa";
 
-// menandai perangkat spek rendah di <html data-perf="low"> biar CSS bisa mematikan efek mahal
+// tingkat animasi (data-motion & data-perf di <html>) dipasang dulu oleh skrip di <head>.
+// Di sini disinkronkan ke React, lalu kelancaran layar diukur sekali setelah halaman tenang
 export default function PerfMode() {
   useEffect(() => {
-    const nav = navigator as Navigator & { deviceMemory?: number };
-    const lowCores = typeof nav.hardwareConcurrency === "number" && nav.hardwareConcurrency <= 2;
-    const lowMemory = typeof nav.deviceMemory === "number" && nav.deviceMemory <= 2;
-    if (lowCores || lowMemory) document.documentElement.dataset.perf = "low";
+    applyMotion();
+    initPwa();
+    const t = window.setTimeout(probeFps, 2500);
+    return () => window.clearTimeout(t);
   }, []);
   return null;
 }

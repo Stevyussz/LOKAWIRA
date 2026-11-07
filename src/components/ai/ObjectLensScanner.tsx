@@ -16,6 +16,7 @@ import { CULTURAL_OBJECT_SAMPLES } from "@/lib/seedCulturalData";
 import Loka from "@/components/brand/Loka";
 import { LocationError, useLocation } from "@/components/layout/LocationProvider";
 import { formatDistance } from "@/lib/geo";
+import { motionReduced, useReducedMotionConfig } from "@/lib/motionPref";
 
 interface ObjectLensScannerProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export default function ObjectLensScanner({
   activeSpot,
   onScanVerified,
 }: ObjectLensScannerProps) {
+  const reducedMotion = useReducedMotionConfig();
   const [selectedSampleId, setSelectedSampleId] = useState<string>(
     CULTURAL_OBJECT_SAMPLES[0].id
   );
@@ -102,7 +104,7 @@ export default function ObjectLensScanner({
   // hasil scan hrs langsung terlihat, bkn tersembunyi di bawah liptaan layar
   useEffect(() => {
     if (!scanResult) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = motionReduced();
     resultRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
   }, [scanResult]);
 
@@ -269,7 +271,7 @@ export default function ObjectLensScanner({
       aria-labelledby="lens-scanner-title"
       className="fixed inset-0 z-50 bg-alabaster/60 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
     >
-      <MotionConfig reducedMotion="user">
+      <MotionConfig reducedMotion={reducedMotion}>
       <div className="gamiz-card w-full max-w-2xl my-auto p-5 sm:p-6 space-y-5">
         {/* Clean Gamiz Modal Header */}
         <div className="flex items-center justify-between gap-3">
