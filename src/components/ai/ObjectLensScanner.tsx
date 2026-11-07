@@ -13,6 +13,7 @@ import {
   UnlockedLoreCard,
 } from "@/types/lokawira";
 import { CULTURAL_OBJECT_SAMPLES } from "@/lib/seedCulturalData";
+import Link from "next/link";
 import Loka from "@/components/brand/Loka";
 import { LocationError, useLocation } from "@/components/layout/LocationProvider";
 import { formatDistance } from "@/lib/geo";
@@ -536,9 +537,11 @@ export default function ObjectLensScanner({
                     </h3>
                   </div>
                 </div>
-                <span className="font-num text-xs font-extrabold px-3 py-1.5 rounded-full bg-obsidian text-vibeSecondary">
-                  +{scanResult.awardedPoints} XP
-                </span>
+                {scanResult.awardedPoints > 0 && (
+                  <span className="font-num text-xs font-extrabold px-3 py-1.5 rounded-full bg-obsidian text-vibeSecondary">
+                    +{scanResult.awardedPoints} XP
+                  </span>
+                )}
               </div>
 
               <div className="bg-obsidian rounded-2xl p-4">
@@ -550,6 +553,23 @@ export default function ObjectLensScanner({
                 </p>
               </div>
             </div>
+
+            {/* kenapa gak ada voucer: tamu (perlu akun) atau udah ambil hari ini */}
+            {!scanResult.issuedVoucher && scanResult.rewardNote && (
+              <div className="rounded-2xl bg-obsidian p-4 space-y-2.5">
+                <p className="text-sm text-alabaster leading-relaxed">
+                  {scanResult.rewardNote === "LOGIN_FOR_REWARD"
+                    ? "Kisahnya sudah tersimpan di perangkat ini. Masuk atau daftar untuk mendapat XP dan voucer belanja dari lapak ini."
+                    : "Kamu sudah mengambil voucer dan XP di titik ini hari ini. Kisahnya tetap bisa dibaca kapan saja. Datang lagi besok untuk hadiah berikutnya."}
+                </p>
+                {scanResult.rewardNote === "LOGIN_FOR_REWARD" && (
+                  <Link href="/masuk" className="btn-tactile-secondary min-h-[44px] px-4 text-xs inline-flex items-center gap-1.5">
+                    <Icon name="user" size={16} />
+                    <span>Masuk atau daftar</span>
+                  </Link>
+                )}
+              </div>
+            )}
 
             {scanResult.issuedVoucher && (
               <>

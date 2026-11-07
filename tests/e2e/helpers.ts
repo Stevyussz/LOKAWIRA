@@ -21,6 +21,15 @@ export async function apiLogin(request: APIRequestContext, email: string, passwo
   return (await res.json()).token as string;
 }
 
+// akun wisatawan baru per tes: hadiah dibatasi 1x/titik/hari per akun, jadi tes gak boleh rebutan akun demo
+export async function newVisitor(request: APIRequestContext) {
+  const email = `${uniq("wis")}@uji.id`;
+  const password = "rahasia123";
+  const res = await request.post("/api/auth/register", { data: { name: "Wisatawan Uji", email, password, role: "VISITOR" } });
+  expect(res.ok(), "register").toBeTruthy();
+  return { email, password, token: (await res.json()).token as string };
+}
+
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 export async function uiLogin(page: Page, email: string, next: string, password = DEMO_PASSWORD) {

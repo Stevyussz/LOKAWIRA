@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
-import { formatExpiry, formatWhen } from "@/lib/formatTime";
+import { formatExpiry, formatWhen, isExpired } from "@/lib/formatTime";
 import { IssuedVoucher, ReservationPass, UnlockedLoreCard } from "@/types/lokawira";
 
 interface VoucherWalletSheetProps {
@@ -88,7 +88,8 @@ function VoucherTicket({
   copied: boolean;
   onCopy: () => void;
 }) {
-  const active = voucher.status === "ACTIVE";
+  const expired = voucher.status === "ACTIVE" && isExpired(voucher.expiresAt);
+  const active = voucher.status === "ACTIVE" && !expired;
   const [showCode, setShowCode] = useState(false);
   return (
     <motion.li {...itemMotion(index)} className="ticket-shadow list-none">
@@ -155,6 +156,11 @@ function VoucherTicket({
                 </div>
               )}
             </>
+          ) : expired ? (
+            <p className="text-xs font-extrabold text-pebble flex items-center gap-1.5 min-h-[44px]">
+              <Icon name="alert" size={16} />
+              <span>Kedaluwarsa, tidak bisa ditukar lagi</span>
+            </p>
           ) : (
             <p className="text-xs font-extrabold text-pebble flex items-center gap-1.5 min-h-[44px]">
               <Icon name="seal" size={16} />
@@ -289,12 +295,13 @@ export default function VoucherWalletSheet({
   const sortedVouchers = useMemo(
     () =>
       [...vouchers].sort((a, b) => {
-        if (a.status !== b.status) return a.status === "ACTIVE" ? -1 : 1;
+        const live = (v: IssuedVoucher) => v.status === "ACTIVE" && !isExpired(v.expiresAt);
+        if (live(a) !== live(b)) return live(a) ? -1 : 1;
         return b.discountAmount - a.discountAmount;
       }),
     [vouchers]
   );
-  const active = vouchers.filter((v) => v.status === "ACTIVE");
+  const active = vouchers.filter((v) => v.status === "ACTIVE" && !isExpired(v.expiresAt));
   const activeValue = active.reduce((sum, v) => sum + v.discountAmount, 0);
 
   const counts: Record<WalletTab, number> = {

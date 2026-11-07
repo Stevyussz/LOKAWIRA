@@ -18,6 +18,13 @@ export function formatWhen(v?: string | null): string {
   return d ? `${dateFmt.format(d)}, ${timeFmt.format(d)} WIB` : v;
 }
 
+// voucer lewat masa berlaku (cuma kalo ISO; teks lama dianggap masih berlaku)
+export function isExpired(v?: string | null): boolean {
+  if (!v) return false;
+  const d = parse(v);
+  return !!d && d.getTime() < Date.now();
+}
+
 // buat masa berlaku voucer: null = gak kadaluarsa
 export function formatExpiry(v?: string | null): string {
   if (v === null || v === undefined || v === "") return "Tanpa batas waktu";

@@ -459,6 +459,9 @@ export const CULTURAL_OBJECT_SAMPLES: CulturalObjectSample[] = [
   },
 ];
 
+// voucer contoh berlaku 30 hari dr server nyala (ISO, dicek kasir)
+const IN_30_DAYS = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+
 export const INITIAL_VOUCHERS: IssuedVoucher[] = [
   {
     code: "LKW-849201",
@@ -468,7 +471,7 @@ export const INITIAL_VOUCHERS: IssuedVoucher[] = [
     discountTitle: "Potongan Kriya & Kelas Membentuk Tanah Liat",
     discountAmount: 15000,
     minimumSpend: 35000,
-    expiresAt: "2026-11-07 21:00 WIB",
+    expiresAt: IN_30_DAYS,
     status: "ACTIVE",
   },
   {
@@ -479,10 +482,23 @@ export const INITIAL_VOUCHERS: IssuedVoucher[] = [
     discountTitle: "Potongan Paket Wader Krispi + Wedang Pokak",
     discountAmount: 10000,
     minimumSpend: 25000,
-    expiresAt: "2026-11-05 20:00 WIB",
+    expiresAt: IN_30_DAYS,
     status: "ACTIVE",
   },
 ];
+
+// satu voucer contoh yg udah kedaluwarsa: nunjukin kasir nolak voucer lewat masa berlaku
+INITIAL_VOUCHERS.push({
+  code: "LKW-100001",
+  signatureHash: "sha256:expired-sample",
+  spotId: "spot-mjp-02",
+  merchantName: "Sanggar Kriya Terakota Citra Majapahit",
+  discountTitle: "Potongan Kriya (contoh kedaluwarsa)",
+  discountAmount: 5000,
+  minimumSpend: 20000,
+  expiresAt: "2026-01-01T00:00:00+07:00",
+  status: "ACTIVE",
+});
 
 export const INITIAL_RESERVATIONS: ReservationPass[] = [
   {

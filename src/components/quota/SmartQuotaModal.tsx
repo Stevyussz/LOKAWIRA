@@ -15,7 +15,8 @@ interface SmartQuotaModalProps {
   nearbyUmkmSpots: CulturalSpot[];
   onReservationCreated: (
     reservation: ReservationPass,
-    bonusVoucher?: IssuedVoucher
+    bonusVoucher?: IssuedVoucher,
+    awardedPoints?: number
   ) => void;
   onSelectSpotOnMap: (spot: CulturalSpot) => void;
 }
@@ -40,6 +41,8 @@ export default function SmartQuotaModal({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [createdPass, setCreatedPass] = useState<ReservationPass | null>(null);
+  // alasan voucer pengalih gak terbit walau misinya diterima
+  const [rewardNote, setRewardNote] = useState<"LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY" | "NO_PARTNER" | undefined>(undefined);
   const [createdVoucher, setCreatedVoucher] = useState<IssuedVoucher | undefined>(
     undefined
   );
@@ -49,6 +52,7 @@ export default function SmartQuotaModal({
     setScheduledSlot(spot.quota.nextAvailableSlot || "14:30 WIB");
     setCreatedPass(null);
     setCreatedVoucher(undefined);
+    setRewardNote(undefined);
     setFormError(null);
   }, [isOpen, spot]);
 
@@ -81,7 +85,8 @@ export default function SmartQuotaModal({
 
       setCreatedPass(data.reservation);
       setCreatedVoucher(data.bonusVoucher);
-      onReservationCreated(data.reservation, data.bonusVoucher);
+      setRewardNote(data.rewardNote);
+      onReservationCreated(data.reservation, data.bonusVoucher, data.awardedPoints ?? 0);
     } catch (err) {
       setFormError(
         err instanceof Error ? err.message : "Terjadi kesalahan saat memesan slot."
@@ -334,6 +339,16 @@ export default function SmartQuotaModal({
                 </strong>
               </div>
             </div>
+
+            {!createdVoucher && rewardNote && (
+              <p className="p-3.5 rounded-2xl bg-obsidian text-xs text-alabaster leading-relaxed">
+                {rewardNote === "LOGIN_FOR_REWARD"
+                  ? "Voucer pengalih antrean hanya untuk pengguna yang masuk. Masuk atau daftar, lalu pesan lagi untuk mendapatkannya."
+                  : rewardNote === "ALREADY_CLAIMED_TODAY"
+                  ? "Voucer pengalih antrean dari lapak ini sudah kamu terima hari ini."
+                  : "Belum ada lapak mitra di kawasan ini, jadi voucer pengalih antrean belum tersedia."}
+              </p>
+            )}
 
             {createdVoucher && (
               <div className="p-3.5 rounded-2xl bg-obsidian text-xs flex flex-wrap items-center justify-between gap-2">

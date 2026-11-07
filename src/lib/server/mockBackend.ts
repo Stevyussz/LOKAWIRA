@@ -37,7 +37,11 @@ interface MockState {
   failedLogins: Map<string, { count: number; until: number }>;
   checkIns: CheckInRecord[];
   resetTokens: Map<string, { userId: string; expires: number }>;
+  // jejak hadiah per akun/titik/hari: biar XP & voucer gak bisa dipanen dgn ngulang aksi
+  rewardLog: { userId: string; spotId: string; kind: RewardKind; day: string }[];
 }
+
+export type RewardKind = "SCAN" | "RESERVATION" | "REDIRECT";
 
 const g = globalThis as unknown as { lokawiraMock?: MockState };
 
@@ -104,7 +108,7 @@ export function getMock(): MockState {
         });
       }
     }
-    g.lokawiraMock = { users, profiles: new Map(), sessions: new Map(), failedLogins: new Map(), checkIns: [], resetTokens: new Map() };
+    g.lokawiraMock = { users, profiles: new Map(), sessions: new Map(), failedLogins: new Map(), checkIns: [], resetTokens: new Map(), rewardLog: [] };
   }
   return g.lokawiraMock;
 }
@@ -119,6 +123,29 @@ export function profileOf(userId: string): ProfileRecord {
   }
   return p;
 }
+// tanggal kalender WIB (YYYY-MM-DD): batas "per hari" ngikut jam Indonesia, bkn jam server
+export const wibDay = (d = new Date()) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+
+// true kalo akun ini belum dapet hadiah jenis ini di titik ini hari ini (sekalian dicatat)
+export function claimOnce(userId: string, spotId: string, kind: RewardKind): boolean {
+  const log = getMock().rewardLog;
+  const day = wibDay();
+  if (log.some((r) => r.userId === userId && r.spotId === spotId && r.kind === kind && r.day === day)) return false;
+  log.push({ userId, spotId, kind, day });
+  return true;
+}
+
+// akhir hari ini jam 23.59 WIB, buat voucer yg cuma berlaku hari itu
+export function endOfWibDay(): string {
+  return new Date(`${wibDay()}T23:59:59+07:00`).toISOString();
+}
+
+export const isExpiredIso = (v?: string | null) => {
+  if (!v || !/^\d{4}-\d{2}-\d{2}T/.test(v)) return false;
+  const t = new Date(v).getTime();
+  return Number.isFinite(t) && t < Date.now();
+};
+
 export function awardXp(userId: string | null | undefined, points: number) {
   if (userId && points > 0) profileOf(userId).xp += points;
 }

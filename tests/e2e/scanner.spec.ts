@@ -1,9 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { makePng, pageAtFirstSpot } from "./helpers";
+import { makePng, newVisitor, pageAtFirstSpot, uiLogin } from "./helpers";
 
 test("scanner: format salah ditolak, foto kecil tidak dikenali, foto jelas berhasil", async ({ browser, request }) => {
   const { ctx, page } = await pageAtFirstSpot(browser, request);
-  await page.goto("/");
+  // voucer cuma buat akun
+  const u = await newVisitor(request);
+  await uiLogin(page, u.email, "/", u.password);
   await page.getByRole("button", { name: "Scan Objek" }).click();
   const input = page.locator("input[type=file]");
 

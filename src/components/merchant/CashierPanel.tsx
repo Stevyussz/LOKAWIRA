@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Icon from "@/components/ui/Icon";
+import { isExpired } from "@/lib/formatTime";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import type { IssuedVoucher } from "@/types/lokawira";
 
@@ -54,14 +55,21 @@ export default function CashierPanel({ myVouchers, setVouchers, noLapak, onGoReg
         });
       } else {
         const res = await api.verifyCheckIn({ code: d.code });
-        setResult({ ok: true, title: "Kehadiran terverifikasi", text: `Pengunjung benar hadir di ${res.spotName}. Hadiah misi +${res.awardedPoints} XP sudah masuk ke akunnya. Kode ini tidak bisa dipakai lagi.` });
+        setResult({
+          ok: true,
+          title: "Kehadiran terverifikasi",
+          text:
+            res.visitorHasAccount === false
+              ? `Pengunjung benar hadir di ${res.spotName}. Ia belum punya akun, jadi hadiah XP tidak tercatat. Sarankan ia daftar di LOKAWIRA agar hadiah berikutnya tersimpan. Kode ini tidak bisa dipakai lagi.`
+              : `Pengunjung benar hadir di ${res.spotName}. Hadiah misi +${res.awardedPoints} XP sudah masuk ke akunnya. Kode ini tidak bisa dipakai lagi.`,
+        });
       }
       setCode("");
     } catch (err) {
       if (d.kind === "VOUCHER" && err instanceof ApiError && err.isOffline && DEMO_MODE) {
         const local = myVouchers.find((v) => v.code.toUpperCase() === d.code);
         if (local && local.status === "ACTIVE") {
-          const updated: IssuedVoucher = { ...local, status: "REDEEMED", redeemedAt: "Baru saja ditebus" };
+          const updated: IssuedVoucher = { ...local, status: "REDEEMED", redeemedAt: new Date().toISOString() };
           setVouchers((prev) => prev.map((v) => (v.code === local.code ? updated : v)));
           setResult({ ok: true, title: "Voucer dicatat di perangkat ini", text: "Mode demo: server tidak terjangkau." });
           setCode("");
@@ -154,20 +162,24 @@ export default function CashierPanel({ myVouchers, setVouchers, noLapak, onGoReg
           <p className="text-sm text-pebble">Belum ada voucer. Voucer muncul setelah wisatawan memotret objek di lapakmu. Atur objeknya di tab Promo &amp; Scan.</p>
         ) : (
           <ul className="space-y-2.5">
-            {myVouchers.map((v) => (
+            {myVouchers.map((v) => {
+              const expired = v.status === "ACTIVE" && isExpired(v.expiresAt);
+              const live = v.status === "ACTIVE" && !expired;
+              return (
               <li key={v.code} className="list-none rounded-2xl border border-stoneSubtle bg-basalt p-3.5 flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <span className={`font-num text-sm font-extrabold block ${v.status === "ACTIVE" ? "text-quotaSafe" : "text-pebble"}`}>{v.code}</span>
+                  <span className={`font-num text-sm font-extrabold block ${live ? "text-quotaSafe" : "text-pebble"}`}>{v.code}</span>
                   <p className="text-xs font-bold text-alabaster mt-0.5 truncate">{v.merchantName}</p>
                   <p className="font-num text-[11px] text-vibeSecondary">-{rupiah(v.discountAmount)}</p>
                 </div>
-                {v.status === "ACTIVE" ? (
+                {live ? (
                   <button type="button" onClick={() => { setCode(v.code); setResult(null); }} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs">Pilih</button>
                 ) : (
-                  <span className="text-[11px] font-bold text-pebble">Sudah dipakai</span>
+                  <span className="text-[11px] font-bold text-pebble">{expired ? "Kedaluwarsa" : "Sudah dipakai"}</span>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

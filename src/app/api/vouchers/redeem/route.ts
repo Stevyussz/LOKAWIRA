@@ -1,7 +1,8 @@
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
-import { ownsSpot, requireRole } from "@/lib/server/mockBackend";
+import { isExpiredIso, ownsSpot, requireRole } from "@/lib/server/mockBackend";
+import { formatWhen } from "@/lib/formatTime";
 
 export async function POST(request: NextRequest) {
   const off = mockDisabled();
@@ -45,22 +46,29 @@ export async function POST(request: NextRequest) {
     if (target.status === "REDEEMED") {
       return NextResponse.json(
         {
-          error: `Kode voucer "${target.code}" sudah pernah ditebus sebelumnya (${target.redeemedAt}).`,
+          error: `Kode voucer "${target.code}" sudah pernah ditebus sebelumnya (${formatWhen(target.redeemedAt)}).`,
           code: "VOUCHER_ALREADY_REDEEMED",
         },
         { status: 409 }
       );
     }
 
-    target.status = "REDEEMED";
-    target.redeemedAt = new Date().toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }) + " WIB";
+    // masa berlaku beneran dicek (dulu cuma teks, voucer kedaluwarsa tetep bisa ditebus)
+    if (isExpiredIso(target.expiresAt)) {
+      return NextResponse.json(
+        { error: `Kode voucer "${target.code}" sudah kedaluwarsa.`, code: "VOUCHER_EXPIRED" },
+        { status: 410 }
+      );
+    }
 
+    target.status = "REDEEMED";
+    target.redeemedAt = new Date().toISOString();
+
+    // cuma voucer lapak yg dipegang akun ini (dulu ngirim semua voucer semua mitra)
+    const mine = auth.user.role === "ADMIN" ? store.vouchers : store.vouchers.filter((v) => ownsSpot(auth.user, v.spotId));
     return NextResponse.json({
       redeemedVoucher: target,
-      vouchers: store.vouchers,
+      vouchers: mine,
     });
   } catch {
     return NextResponse.json(

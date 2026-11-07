@@ -1,4 +1,5 @@
-import { awardXp, currentUser, mockDisabled, profileOf } from "@/lib/server/mockBackend";
+import crypto from "node:crypto";
+import { awardXp, claimOnce, currentUser, mockDisabled, profileOf, visibleSpots } from "@/lib/server/mockBackend";
 import { geofenceCheck } from "@/lib/server/geofence";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -53,29 +54,37 @@ export async function POST(request: NextRequest) {
       CULTURAL_OBJECT_SAMPLES.find((s) => s.spotId === spotId) ||
       CULTURAL_OBJECT_SAMPLES[0];
 
-    const spot =
-      store.spots.find((s) => s.id === (spotId || sample.spotId)) ||
-      store.spots[0];
+    const user = currentUser(request);
+    // cuma titik yg keliatan buat dia; id salah = 404, bkn diem2 pake titik pertama
+    const spot = visibleSpots(user).find((s) => s.id === (spotId || sample.spotId));
+    if (!spot) return NextResponse.json({ error: "Titik lokasi tidak ditemukan.", code: "NOT_FOUND" }, { status: 404 });
 
     // scan cuma sah kalo orangnya beneran di lokasi (geofence mati = dilewati)
     const outside = geofenceCheck(where, spot, "memindai objek");
     if (outside) return outside;
 
-    const randomDigits = Math.floor(100000 + Math.random() * 900000);
-    const voucherCode = `LKW-${randomDigits}`;
-    const issuedVoucher: IssuedVoucher = {
-      code: voucherCode,
-      signatureHash: `sha256:${Date.now().toString(16)}`,
-      spotId: spot.id,
-      merchantName: spot.quest.voucherReward.merchantName,
-      discountTitle: spot.quest.voucherReward.discountTitle,
-      discountAmount: spot.quest.voucherReward.discountAmount,
-      minimumSpend: spot.quest.voucherReward.minimumSpend,
-      expiresAt: "Berlaku 7 Hari (Sirkular UMKM)",
-      status: "ACTIVE",
-    };
-
-    store.vouchers.unshift(issuedVoucher);
+    // hadiah (XP + voucer) cuma buat akun, sekali per titik per hari. Tamu tetep dapet kisahnya.
+    // Tanpa batas ini, pindai ulang = voucer baru terus (dipanen)
+    const first = user ? claimOnce(user.id, spot.id, "SCAN") : false;
+    let issuedVoucher: IssuedVoucher | undefined;
+    if (first) {
+      let code = "";
+      do code = `LKW-${crypto.randomInt(100000, 999999)}`;
+      while (store.vouchers.some((v) => v.code === code));
+      issuedVoucher = {
+        code,
+        signatureHash: `sha256:${crypto.randomBytes(8).toString("hex")}`,
+        spotId: spot.id,
+        merchantName: spot.quest.voucherReward.merchantName,
+        discountTitle: spot.quest.voucherReward.discountTitle,
+        discountAmount: spot.quest.voucherReward.discountAmount,
+        minimumSpend: spot.quest.voucherReward.minimumSpend,
+        // berlaku 7 hari (ISO, dicek kasir)
+        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+        status: "ACTIVE",
+      };
+      store.vouchers.unshift(issuedVoucher);
+    }
 
     const responsePayload: LensVerificationResult = {
       isVerified: true,
@@ -86,26 +95,28 @@ export async function POST(request: NextRequest) {
       culturalStory: sample.storyResult,
       opkReference: sample.opkCategory,
       verifiedSource: sample.verifiedSource,
-      awardedPoints: spot.quest.rewardPoints,
+      awardedPoints: first ? spot.quest.rewardPoints : 0,
       issuedVoucher,
+      rewardNote: !user ? "LOGIN_FOR_REWARD" : first ? undefined : "ALREADY_CLAIMED_TODAY",
     };
 
-    // user login: XP, voucer, dan kartu lore dicatat di akunnya oleh server
-    const user = currentUser(request);
+    // user login: XP, voucer, dan kartu lore dicatat di akunnya oleh server. Kartu kisah yg sama gak dobel
     if (user) {
       const prof = profileOf(user.id);
-      prof.voucherCodes.add(issuedVoucher.code);
+      if (issuedVoucher) prof.voucherCodes.add(issuedVoucher.code);
       awardXp(user.id, responsePayload.awardedPoints);
-      prof.loreCards.unshift({
-        id: `lore-${Date.now().toString(36)}`,
-        spotId: spot.id,
-        objectName: responsePayload.detectedObjectName,
-        opkCategory: responsePayload.opkReference,
-        verifiedSource: responsePayload.verifiedSource,
-        story: responsePayload.culturalStory,
-        unlockedAt: new Date().toISOString(),
-        confidenceScore: responsePayload.confidenceScore,
-      });
+      if (!prof.loreCards.some((c) => c.spotId === spot.id && c.objectName === responsePayload.detectedObjectName)) {
+        prof.loreCards.unshift({
+          id: `lore-${crypto.randomBytes(4).toString("hex")}`,
+          spotId: spot.id,
+          objectName: responsePayload.detectedObjectName,
+          opkCategory: responsePayload.opkReference,
+          verifiedSource: responsePayload.verifiedSource,
+          story: responsePayload.culturalStory,
+          unlockedAt: new Date().toISOString(),
+          confidenceScore: responsePayload.confidenceScore,
+        });
+      }
     }
 
     return NextResponse.json(responsePayload);

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { makePng, pageAtFirstSpot } from "./helpers";
+import { makePng, newVisitor, pageAtFirstSpot, uiLogin } from "./helpers";
 
 test("beranda memuat peta tanpa galat dan sheet utama bisa dibuka", async ({ page }) => {
   const errors: string[] = [];
@@ -41,7 +41,8 @@ test("peta nyata: kanvas OpenStreetMap termuat, atribusi ada, dan tanpa penanda 
 
 test("voucer di Tas: hasil scan bisa ditunjukkan ke kasir (kode tampil), bukan pindah ke halaman kasir", async ({ browser, request }) => {
   const { ctx, page } = await pageAtFirstSpot(browser, request);
-  await page.goto("/");
+  const u = await newVisitor(request);
+  await uiLogin(page, u.email, "/", u.password);
   await page.getByRole("button", { name: "Scan Objek" }).click();
   await page.locator("input[type=file]").setInputFiles({ name: "besar.png", mimeType: "image/png", buffer: makePng(1400, 800, true) });
   await page.getByRole("button", { name: /Pindai/ }).click();

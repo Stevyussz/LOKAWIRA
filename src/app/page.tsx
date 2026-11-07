@@ -13,6 +13,7 @@ import { distanceMeters, formatDistance } from "@/lib/geo";
 import { anchorSpot } from "@/lib/geo";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import Loka from "@/components/brand/Loka";
+import { isExpired } from "@/lib/formatTime";
 import VibeSwitcherBar from "@/components/layout/VibeSwitcherBar";
 import BottomNavConsole from "@/components/layout/BottomNavConsole";
 import StoryTellerDock from "@/components/ai/StoryTellerDock";
@@ -219,7 +220,7 @@ export default function LokawiraExplorerPage() {
   };
 
   const activeVouchers = useMemo(
-    () => vouchers.filter((v) => v.status === "ACTIVE"),
+    () => vouchers.filter((v) => v.status === "ACTIVE" && !isExpired(v.expiresAt)),
     [vouchers]
   );
 
@@ -229,14 +230,16 @@ export default function LokawiraExplorerPage() {
     newVoucher?: IssuedVoucher
   ) => {
     addLokaPoints(result.awardedPoints);
-    setLoreCards((prev) => [newLoreCard, ...prev]);
+    setLoreCards((prev) => (prev.some((c) => c.spotId === newLoreCard.spotId && c.objectName === newLoreCard.objectName) ? prev : [newLoreCard, ...prev]));
     if (newVoucher) {
       setVouchers((prev) => [newVoucher, ...prev]);
     }
     notify(
-      `Artefak "${result.detectedObjectName}" terbuka! +${result.awardedPoints} XP & Voucer ${
-        newVoucher?.code || ""
-      } masuk ke Tas.`
+      newVoucher
+        ? `Kisah "${result.detectedObjectName}" terbuka! +${result.awardedPoints} XP dan voucer ${newVoucher.code} masuk ke Tas.`
+        : result.rewardNote === "LOGIN_FOR_REWARD"
+        ? `Kisah "${result.detectedObjectName}" terbuka! Masuk atau daftar untuk mendapat XP dan voucer belanja.`
+        : `Kisah "${result.detectedObjectName}" terbuka. Hadiah di titik ini sudah kamu ambil hari ini.`
     );
     // user login: samakan dgn catatan server (XP gak boleh cuma percaya hitungan klien)
     syncProfile();
@@ -244,15 +247,16 @@ export default function LokawiraExplorerPage() {
 
   const handleReservationCreated = (
     reservation: ReservationPass,
-    bonusVoucher?: IssuedVoucher
+    bonusVoucher?: IssuedVoucher,
+    awardedPoints = 0
   ) => {
     setReservations((prev) => [reservation, ...prev]);
     if (bonusVoucher) {
       setVouchers((prev) => [bonusVoucher, ...prev]);
     }
-    addLokaPoints(75);
+    addLokaPoints(awardedPoints);
     notify(
-      `E-Ticket ${reservation.ticketId} (${reservation.scheduledSlot}) aktif! +75 XP ditambahkan.`
+      `E-Ticket ${reservation.ticketId} (${reservation.scheduledSlot}) aktif!${awardedPoints > 0 ? ` +${awardedPoints} XP.` : ""}`
     );
     syncProfile();
   };
@@ -277,7 +281,11 @@ export default function LokawiraExplorerPage() {
       markSpotCheckedIn(spot.id);
       addLokaPoints(res.awardedPoints);
       setCheckInCodes((prev) => ({ ...prev, [spot.id]: res.checkIn.code }));
-      notify(`Check-in di ${spot.name} berhasil. +${res.awardedPoints} XP. Tunjukkan kode kehadiranmu ke pemilik lapak.`);
+      notify(
+        res.awardedPoints > 0
+          ? `Check-in di ${spot.name} berhasil. +${res.awardedPoints} XP. Tunjukkan kode kehadiranmu ke pemilik lapak.`
+          : `Check-in di ${spot.name} berhasil. Masuk atau daftar agar XP dan hadiah misimu tercatat.`
+      );
       syncProfile();
       return true;
     } catch (err) {

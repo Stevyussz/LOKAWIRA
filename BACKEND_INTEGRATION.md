@@ -544,3 +544,19 @@ U. Rencana (BELUM dikerjain, buat diobrolin)
 - admin pertama: register gak boleh bikin ADMIN, jadi admin pertama dibikin lewat seed. Usul: env ADMIN_BOOTSTRAP_EMAIL + ADMIN_BOOTSTRAP_PASSWORD, pas server start kalo belum ada ADMIN sama sekali bikin satu dari env itu, terus wajib ganti sandi pas login pertama. Admin berikutnya dibikin admin yg udah ada (endpoint khusus admin), bkn lewat daftar
 - pengelola per kawasan: ADMIN dikasih daftar kawasan (regionIds). Kosong = admin pusat (semua kawasan). Semua endpoint admin nyaring data sesuai kawasannya, dicek di server
 - kasir terpisah: mitra bisa nambah akun kasir (peran CASHIER) yg cuma bisa buka Kasir lapak itu, gak bisa ubah lapak/promo
+
+V. Celah ekonomi yg ditutup (WAJIB ditiru backend asli)
+
+- hadiah gak boleh dipanen dgn ngulang aksi. Aturan baru, "hari" = tanggal kalender WIB:
+  - check-in: 1x per titik per hari per akun, SELALU (dulu cuma pas geofence nyala). Tamu tetep dapet kode KDR, tapi awardedPoints 0 krn gak ada akun buat nyatet XP
+  - lens-verify: XP + voucer cuma buat akun dan cuma scan pertama per titik per hari. Scan berikutnya tetep isVerified true + kisahnya, tapi awardedPoints 0, tanpa issuedVoucher, dan rewardNote ALREADY_CLAIMED_TODAY. Tamu: rewardNote LOGIN_FOR_REWARD. Kartu kisah yg sama (spotId + objectName) gak dobel di profil
+  - reservations: XP 75 cuma reservasi pertama per titik per hari per akun (respons nambah awardedPoints). Voucer pengalih antrean cuma buat akun, sekali per hari per lapak mitra. Respons nambah rewardNote: LOGIN_FOR_REWARD, ALREADY_CLAIMED_TODAY, atau NO_PARTNER (gak ada mitra di kawasan)
+- expiresAt voucer sekarang ISO beneran: voucer scan +7 hari, voucer pengalih antrean sampe 23.59 WIB hari itu. POST /api/vouchers/redeem nolak voucer lewat masa berlaku: 410 code VOUCHER_EXPIRED. UI Tas & kasir nampilin "Kedaluwarsa"
+- redeemedAt sekarang ISO (dulu teks jam "14.30 WIB")
+- BOCOR yg ditutup: respons redeem dulu ngirim vouchers SEMUA mitra. Sekarang mitra cuma voucer lapaknya, admin semua
+- kode voucer scan dulu pake Math.random tanpa cek unik, kode KDR juga. Sekarang dua2nya acak 6 digit dan diulang kalo udah ada
+- kode KDR berlaku 24 jam: verify setelah itu 410 code CHECKIN_EXPIRED
+- POST /api/checkins/verify nambah visitorHasAccount (false = pengunjung tamu, XP gak tercatat, awardedPoints 0). Kasir ngasih tau mitra buat nyaranin pengunjung daftar
+- checkins, lens-verify, reservations: spotId harus titik yg KELIATAN buat user itu (bkn PENDING_REVIEW/ARCHIVED/mitra nonaktif). Id salah = 404, dulu diem2 pake titik pertama
+- reservations: partySize harus bilangan bulat 1 sampai 20 (400 kalo bukan), scheduledSlot maks 40 karakter, createdAt ISO
+- server contoh nyatet jejak hadiah di rewardLog (userId, spotId, kind SCAN/RESERVATION/REDIRECT, day). Backend asli sebaiknya pake tabel dgn unique index (userId, spotId, kind, day) biar aman dari request barengan

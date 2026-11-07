@@ -74,6 +74,10 @@ export interface CreateReservationRequest {
 export interface CreateReservationResponse {
   reservation: ReservationPass;
   bonusVoucher?: IssuedVoucher;
+  // XP yg beneran ditambah server (0 kalo udah pesan di titik ini hari ini atau tamu)
+  awardedPoints?: number;
+  // alasan voucer pengalih gak terbit: tamu, udah klaim hari ini, atau gak ada mitra di kawasan
+  rewardNote?: "LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY" | "NO_PARTNER";
   reservations: ReservationPass[];
   vouchers: IssuedVoucher[];
 }
@@ -182,6 +186,8 @@ export interface VerifyCheckInResponse {
   spotId: string;
   spotName: string;
   awardedPoints: number;
+  // false = pengunjung tamu: kehadiran sah, tapi XP gak bisa dicatat
+  visitorHasAccount?: boolean;
 }
 
 // POST /api/reservations/checkin: pengelola menandai E-Ticket dipakai masuk

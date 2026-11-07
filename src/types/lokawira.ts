@@ -138,6 +138,8 @@ export interface LensVerificationResult {
   issuedVoucher?: IssuedVoucher;
   // alasan buat user kalo isVerified false (objek gak dikenali), usulan
   message?: string;
+  // kenapa gak ada XP/voucer walau objek cocok: tamu (perlu akun) atau udah klaim di titik ini hari ini
+  rewardNote?: "LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY";
 }
 
 export interface CulturalObjectSample {

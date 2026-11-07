@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { distanceMeters } from "@/lib/geo";
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
-import { awardXp, currentUser, ownerInactive, profileOf } from "@/lib/server/mockBackend";
+import { awardXp, claimOnce, currentUser, endOfWibDay, ownerInactive, profileOf, visibleSpots } from "@/lib/server/mockBackend";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { IssuedVoucher, ReservationPass } from "@/types/lokawira";
 
@@ -20,8 +20,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const size = Number(partySize ?? 1);
+    if (!Number.isInteger(size) || size < 1 || size > 20) {
+      return NextResponse.json({ error: "Jumlah orang harus 1 sampai 20.", code: "VALIDATION" }, { status: 400 });
+    }
+    const slot = String(scheduledSlot ?? "").trim().slice(0, 40);
     const store = getLokawiraStore();
-    const spot = store.spots.find((s) => s.id === spotId) || store.spots[0];
+    const user = currentUser(request);
+    // id salah = 404, bkn diem2 pake titik pertama; titik yg gak keliatan juga gak bisa dipesan
+    const spot = visibleSpots(user).find((s) => s.id === spotId);
+    if (!spot) return NextResponse.json({ error: "Titik lokasi tidak ditemukan.", code: "NOT_FOUND" }, { status: 404 });
 
     // kode tiket harus unik (tabrakan bikin tiket orang lain ketuker): acak 6 digit, ulang kalo sudah ada
     let ticketCode = "";
@@ -33,27 +41,34 @@ export async function POST(request: NextRequest) {
       spotId: spot.id,
       spotName: spot.name,
       visitorName: visitorName.trim(),
-      partySize: Number(partySize) || 1,
-      scheduledSlot: scheduledSlot || spot.quota.nextAvailableSlot,
+      partySize: size,
+      scheduledSlot: slot || spot.quota.nextAvailableSlot,
       status: "CONFIRMED",
       circularQuestAccepted: Boolean(acceptCircularQuest),
-      createdAt: "Baru saja diterbitkan",
+      createdAt: new Date().toISOString(),
     };
 
     store.reservations.unshift(newReservation);
-    const user = currentUser(request);
+    // XP tiket cuma sekali per titik per hari (pesen berkali2 gak nambah XP)
+    let awardedPoints = 0;
     if (user) {
       profileOf(user.id).ticketIds.add(newReservation.ticketId);
-      awardXp(user.id, 75);
+      if (claimOnce(user.id, spot.id, "RESERVATION")) awardedPoints = 75;
+      awardXp(user.id, awardedPoints);
     }
 
     // voucer pengalih antrean = voucer milik UMKM mitra terdekat di kawasan yg sama (bkn milik cagar), biar mitra itu yg bisa nebus di kasirnya
     let bonusVoucher: IssuedVoucher | undefined;
-    if (acceptCircularQuest) {
+    // voucer pengalih: perlu akun & sekali per hari per lapak mitra, biar gak dipanen
+    let rewardNote: "LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY" | "NO_PARTNER" | undefined;
+    if (acceptCircularQuest && !user) rewardNote = "LOGIN_FOR_REWARD";
+    if (acceptCircularQuest && user) {
       const partner = store.spots
         .filter((x) => x.vibe === spot.vibe && x.spotType !== "PRIMARY_DEST" && (x.status ?? "PUBLISHED") === "PUBLISHED" && !ownerInactive(x))
         .sort((p, q) => distanceMeters(p.coordinates, spot.coordinates) - distanceMeters(q.coordinates, spot.coordinates))[0];
-      if (partner) {
+      if (!partner) rewardNote = "NO_PARTNER";
+      else if (!claimOnce(user.id, partner.id, "REDIRECT")) rewardNote = "ALREADY_CLAIMED_TODAY";
+      else {
         let code = "";
         do {
           code = `LKW-${crypto.randomInt(100000, 999999)}`;
@@ -66,11 +81,12 @@ export async function POST(request: NextRequest) {
           discountTitle: `Voucer Pengalih Antrean: ${partner.quest.voucherReward.discountTitle}`,
           discountAmount: partner.quest.voucherReward.discountAmount,
           minimumSpend: partner.quest.voucherReward.minimumSpend,
-          expiresAt: "Aktif Selama Menunggu Giliran Masuk",
+          // berlaku sampai akhir hari ini (WIB), dicek kasir
+          expiresAt: endOfWibDay(),
           status: "ACTIVE",
         };
         store.vouchers.unshift(bonusVoucher);
-        if (user) profileOf(user.id).voucherCodes.add(bonusVoucher.code);
+        profileOf(user.id).voucherCodes.add(bonusVoucher.code);
       }
     }
 
@@ -79,6 +95,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       reservation: newReservation,
       bonusVoucher,
+      awardedPoints,
+      // kenapa voucer pengalih gak terbit walau misinya diterima
+      rewardNote,
       reservations: mine ? store.reservations.filter((r) => mine.ticketIds.has(r.ticketId)) : [newReservation],
       vouchers: mine ? store.vouchers.filter((v) => mine.voucherCodes.has(v.code)) : bonusVoucher ? [bonusVoucher] : [],
     });

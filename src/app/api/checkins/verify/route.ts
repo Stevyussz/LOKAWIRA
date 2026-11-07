@@ -25,16 +25,22 @@ export async function POST(request: NextRequest) {
     return jsonError(403, "Kode ini untuk lapak lain, bukan lapak Anda.", "NOT_YOUR_SPOT");
   }
   if (rec.verified) return jsonError(409, `Kode "${code}" sudah pernah diverifikasi.`, "CHECKIN_ALREADY_VERIFIED");
+  // kode kehadiran berlaku 24 jam: bukti hadir hari itu, bkn bisa ditukar kapan aja
+  if (Date.now() - new Date(rec.createdAt).getTime() > 24 * 3600 * 1000) {
+    return jsonError(410, `Kode "${code}" sudah lewat 24 jam dan tidak berlaku lagi.`, "CHECKIN_EXPIRED");
+  }
 
   const spot = getLokawiraStore().spots.find((s) => s.id === rec.spotId);
   rec.verified = true;
   rec.verifiedAt = new Date().toISOString();
-  // XP verifikasi masuk ke wisatawan yg check-in (kalo dia login)
-  awardXp(rec.userId, spot?.quest.rewardPoints ?? 0);
+  // XP verifikasi masuk ke wisatawan yg check-in (kalo dia login). Tamu: gak ada akun buat dicatat
+  const points = rec.userId ? spot?.quest.rewardPoints ?? 0 : 0;
+  awardXp(rec.userId, points);
   return NextResponse.json({
     verified: true,
     spotId: rec.spotId,
     spotName: spot?.name ?? "",
-    awardedPoints: spot?.quest.rewardPoints ?? 0,
+    awardedPoints: points,
+    visitorHasAccount: !!rec.userId,
   });
 }
