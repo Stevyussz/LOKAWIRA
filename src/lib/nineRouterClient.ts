@@ -1,5 +1,16 @@
 const NINE_ROUTER_BASE_URL = process.env.NINE_ROUTER_BASE_URL || "https://api.9router.local/v1";
 const NINE_ROUTER_API_KEY = process.env.NINE_ROUTER_API_KEY || "";
+// model reasoning kadang >3 dtk; bisa diatur, default 8 dtk (lewat itu pakai narasi kurasi)
+const NINE_ROUTER_TIMEOUT_MS = Number(process.env.NINE_ROUTER_TIMEOUT_MS) || 8000;
+
+// isi balasan model kadang dibungkus ```json ... ```; ambil objek JSON-nya aja
+export function parseModelJson(content: unknown): Record<string, unknown> {
+  const text = String(content ?? "").trim();
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("Balasan model bukan JSON");
+  return JSON.parse(text.slice(start, end + 1));
+}
 
 export async function generateCulturalStoryAndValidation(params: {
   spotName: string;
@@ -39,7 +50,7 @@ ${params.context || `[R0] ${params.loreNarrative || params.verifiedLoreSource}`}
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
+    const timeout = setTimeout(() => controller.abort(), NINE_ROUTER_TIMEOUT_MS);
 
     const response = await fetch(`${NINE_ROUTER_BASE_URL}/chat/completions`, {
       method: "POST",
@@ -69,12 +80,14 @@ ${params.context || `[R0] ${params.loreNarrative || params.verifiedLoreSource}`}
     clearTimeout(timeout);
     if (!response.ok) throw new Error(`9router status: ${response.status}`);
     const data = await response.json();
-    const parsed = JSON.parse(data.choices[0].message.content);
+    const parsed = parseModelJson(data?.choices?.[0]?.message?.content);
+    const story = typeof parsed.story === "string" ? parsed.story.trim() : "";
+    if (!story) throw new Error("Cerita kosong");
     return {
       isVerified: true,
       sourceMode: "NINE_ROUTER_LIVE",
-      story: parsed.story || params.loreNarrative,
-      riddle: parsed.riddle || params.riddleClue,
+      story: story.slice(0, 1200),
+      riddle: (typeof parsed.riddle === "string" && parsed.riddle.trim()) || params.riddleClue,
     };
   } catch {
     return {

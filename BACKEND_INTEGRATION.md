@@ -477,6 +477,18 @@ M. Mode demo dimatiin (buat penjurian & integrasi)
 - begitu backend asli siap: isi NEXT_PUBLIC_API_BASE_URL, hapus MOCK_BACKEND, selesai. Tanpa keduanya, API contoh bales 503 MOCK_DISABLED
 - lupa sandi: server contoh gak bisa ngirim email dan gak lagi ngebalikin token saat mode demo mati, jadi alur ini baru jalan setelah backend asli punya pengirim email
 
+IMPLEMENTASI SERVICE TYPESCRIPT DI REPO
+
+- backend asli (Fastify + PostgreSQL) ada di backend/, kontraknya udah disamain sama semua bagian dokumen ini sampe bagian Y (kawasan, cara masuk, jam buka, acara, dampak, batas hadiah harian). Cara jalanin & aturan lengkapnya di backend/README.md
+- logika bisnis gak ditulis dua kali: backend ngimpor src/lib/spotRules.ts, eventRules.ts, regionMatch.ts, server/regionInput.ts, server/loreContext.ts, enums.ts, geo.ts. Ngubah aturan di situ = server contoh & backend asli ikut berubah
+- DB: PostgreSQL (udah diputusin). Transaksi + FOR UPDATE + primary key reward_log yg bikin tebus voucer serentak & klaim hadiah harian aman
+- jalan terpisah di port 4000. Frontend isi NEXT_PUBLIC_API_BASE_URL ke domain API, CORS_ORIGINS di backend isi domain frontend
+- route Next di src/app/api tetep jadi server contoh buat mode demo, jangan dihapus
+- akun uji juri: DEMO_ACCOUNTS=true (wisatawan@/mitra@/calon@/admin@lokawira.demo). Akun ini dikunci, gak bisa diganti sandinya/dihapus. Matiin abis penjurian
+- 9router: isi NINE_ROUTER_API_KEY & NINE_ROUTER_MODEL (mis. gemini/gemini-3.8-flash, harus bisa liat gambar buat pindai). Tanpa kunci: Loka pake narasi kurasi, pindai gak ngasih voucer
+- QA: npm run backend:qa (59 cek, termasuk celah lama: XP misi dikarang mitra, XP reservasi tanpa batas, voucer pengalih dipanen tamu & gak kedaluwarsa)
+- tamu gak punya ID perangkat, jadi batas tamu pake hash IP. Bukan identitas kuat, cuma rem
+
 N. Alur pandu (frontend)
 
 - tombol Pandu aku ada di kartu lokasi. Tekan: minta izin lokasi, peta zoom out nunjukin rute penuh (posisi ke tujuan) + jarak & perkiraan menit jalan kaki. Tekan Mulai: kamera ngikutin posisi dan peta diputar sesuai arah hadap

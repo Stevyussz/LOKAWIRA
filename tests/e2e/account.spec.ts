@@ -23,14 +23,19 @@ test("ganti sandi, lupa sandi, dan hapus akun (API)", async ({ request }) => {
   const unknown = await (await request.post("/api/auth/forgot-password", { data: { email: "tidakada@x.id" } })).json();
   expect(unknown).toEqual({ ok: true });
   const forgot = await (await request.post("/api/auth/forgot-password", { data: { email } })).json();
-  const reset = await request.post("/api/auth/reset-password", { data: { token: forgot.demoToken, password: "lagi123456" } });
-  expect(reset.ok()).toBeTruthy();
-  const again = await request.post("/api/auth/reset-password", { data: { token: forgot.demoToken, password: "lagi123456" } });
+  // token cuma dibalikin server contoh mode demo; backend asli ngirim lewat email (gak pernah ada di respons)
+  let pw = "baru12345";
+  if (forgot.demoToken) {
+    const reset = await request.post("/api/auth/reset-password", { data: { token: forgot.demoToken, password: "lagi123456" } });
+    expect(reset.ok()).toBeTruthy();
+    pw = "lagi123456";
+  } else expect(forgot).toEqual({ ok: true });
+  const again = await request.post("/api/auth/reset-password", { data: { token: forgot.demoToken ?? "token-palsu", password: "lagi123456" } });
   expect((await again.json()).code).toBe("TOKEN_INVALID_OR_EXPIRED");
 
-  const t = await apiLogin(request, email, "lagi123456");
+  const t = await apiLogin(request, email, pw);
   expect((await request.delete("/api/me", { headers: bearer(t), data: { password: "salah" } })).status()).toBe(401);
-  expect((await request.delete("/api/me", { headers: bearer(t), data: { password: "lagi123456" } })).ok()).toBeTruthy();
-  const gone = await request.post("/api/auth/login", { data: { email, password: "lagi123456" } });
+  expect((await request.delete("/api/me", { headers: bearer(t), data: { password: pw } })).ok()).toBeTruthy();
+  const gone = await request.post("/api/auth/login", { data: { email, password: pw } });
   expect(gone.status()).toBe(401);
 });
