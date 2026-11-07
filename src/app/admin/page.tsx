@@ -14,10 +14,11 @@ import QuotaPanel from "@/components/admin/QuotaPanel";
 import RewardsPanel from "@/components/admin/RewardsPanel";
 import { ReservationsPanel, VouchersPanel } from "@/components/admin/PagedLists";
 import RequireRole from "@/components/layout/RequireRole";
+import RegionsPanel from "@/components/admin/RegionsPanel";
 
 function AdminContent() {
   const { user, logout } = useAuth();
-  const { activeVibe, spots, setSpots, vouchers, reservations, refreshServerData } = useLokawira();
+  const { activeVibe, spots, setSpots, vouchers, reservations, refreshServerData, regions, setRegions } = useLokawira();
 
   const [tab, setTab] = useState<AdminTab>("APPROVAL");
   const [approvalCount, setApprovalCount] = useState(0);
@@ -47,6 +48,7 @@ function AdminContent() {
     { id: "QUOTA", label: "Kuota & Tiket", icon: "users" },
     { id: "REWARDS", label: "Hadiah & Voucer", icon: "ticket" },
     { id: "KNOWLEDGE", label: "Pengetahuan Loka", icon: "guide" },
+    { id: "REGIONS", label: "Kawasan", icon: "map" },
   ];
 
   return (
@@ -95,7 +97,7 @@ function AdminContent() {
           ]}
         />
 
-        <div role="tablist" aria-label="Menu pengelola" className="gamiz-card p-2 grid grid-cols-2 lg:grid-cols-5 gap-2">
+        <div role="tablist" aria-label="Menu pengelola" className="gamiz-card p-2 grid grid-cols-2 lg:grid-cols-6 gap-2">
           {tabs.map((t, i) => (
             <button
               key={t.id}
@@ -103,7 +105,7 @@ function AdminContent() {
               role="tab"
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={`${i === tabs.length - 1 ? "col-span-2 lg:col-span-1 " : ""}min-h-[52px] px-3 py-2 rounded-2xl text-xs font-extrabold text-center leading-tight flex items-center justify-center gap-2 transition-all ${
+              className={`${tabs.length % 2 === 1 && i === tabs.length - 1 ? "col-span-2 lg:col-span-1 " : ""}min-h-[52px] px-3 py-2 rounded-2xl text-xs font-extrabold text-center leading-tight flex items-center justify-center gap-2 transition-all ${
                 tab === t.id ? "bg-vibePrimary text-[var(--vibe-on-primary)]" : "text-pebble hover:text-alabaster"
               }`}
             >
@@ -138,6 +140,8 @@ function AdminContent() {
         )}
 
         {tab === "KNOWLEDGE" && <KnowledgePanel onToast={toast} />}
+
+        {tab === "REGIONS" && <RegionsPanel regions={regions} spots={spots} onRegions={setRegions} onReload={handleReload} onToast={toast} />}
       </main>
     </div>
   );

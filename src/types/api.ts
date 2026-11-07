@@ -11,6 +11,7 @@ import {
   ReservationPass,
   ReferenceImage,
   SpotEntry,
+  Region,
   OpeningHours,
   SpotEvent,
 } from "@/types/lokawira";
@@ -31,6 +32,8 @@ export interface SnapshotResponse {
   vouchers: IssuedVoucher[];
   reservations: ReservationPass[];
   aiTrainingNotes: AiTrainingNote[];
+  // kawasan: publik cuma ACTIVE, pengelola semua (termasuk DRAFT)
+  regions?: Region[];
   // usulan: ada kalo masih ada halaman berikutnya
   nextCursor?: string;
 }
@@ -55,6 +58,22 @@ export interface AddSpotResponse {
 
 // PATCH /api/ai-notes/{id} (field opsional) dan DELETE /api/ai-notes/{id}, balasan sama kayak AddAiNoteResponse
 export type UpdateAiNoteRequest = Partial<AddAiNoteRequest>;
+
+// GET /api/regions, POST /api/regions, PATCH /api/regions/{id}
+export interface RegionInput {
+  name?: string;
+  label?: string;
+  theme?: CulturalVibe;
+  center?: { lat: number; lng: number };
+  radiusKm?: number;
+  status?: "ACTIVE" | "DRAFT";
+}
+export interface RegionsResponse {
+  regions: Region[];
+  region?: Region;
+  // jumlah lapak di luar kawasan yg otomatis masuk krn kawasan ini dibuat/diperluas
+  adopted?: number;
+}
 
 // POST /api/ai-notes
 export interface AddAiNoteRequest {
@@ -241,8 +260,6 @@ export interface UpdateSpotRequest {
   event?: SpotEvent | null;
   spotType?: SpotType;
   opkCategory?: OpkCategory;
-  vibe?: CulturalVibe;
-  regionName?: string;
 }
 export interface UpdateSpotResponse {
   spot: CulturalSpot;

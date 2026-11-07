@@ -4,7 +4,8 @@ import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { jsonError, merchantBlocked, mockDisabled, ownsSpot, requireRole, visibleSpots } from "@/lib/server/mockBackend";
 import type { UpdateSpotRequest } from "@/types/api";
 import { parseEntry, parseEvent, parseHours } from "@/lib/spotRules";
-import { OPK_VALUES, SPOT_TYPES, VIBES } from "@/lib/enums";
+import { OPK_VALUES, SPOT_TYPES } from "@/lib/enums";
+import { applyRegion, regionFor } from "@/lib/server/regions";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -54,6 +55,11 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError(400, "Koordinat tidak valid.");
     if (!inIndonesia({ lat, lng })) return jsonError(400, "Lokasi pin harus berada di wilayah Indonesia.", "OUT_OF_INDONESIA");
     draft.coordinates = { lat, lng };
+    // pindah lokasi = kawasan dihitung ulang
+    const region = regionFor({ lat, lng });
+    if (!region && isAdmin) return jsonError(400, "Lokasi baru di luar semua kawasan. Buat atau perluas kawasan dulu.", "OUT_OF_REGION");
+    applyRegion(draft, region);
+    if (!region) draft.regionName = "Di luar kawasan";
   }
   if (body.quota?.maxCapacity !== undefined) {
     const cap = Number(body.quota.maxCapacity);
@@ -90,11 +96,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       if (!OPK_VALUES.includes(body.opkCategory)) return jsonError(400, "Kategori OPK tidak valid.");
       draft.opkCategory = body.opkCategory;
     }
-    if (body.vibe) {
-      if (!VIBES.includes(body.vibe)) return jsonError(400, "Kawasan tidak valid.");
-      draft.vibe = body.vibe;
-    }
-    if (body.regionName) draft.regionName = String(body.regionName).trim().slice(0, 80);
+    // vibe & regionName gak diterima lagi: dua2nya ngikut kawasan dr lokasi pin
     if (body.event !== undefined) {
       if (body.event === null) delete draft.event;
       else {

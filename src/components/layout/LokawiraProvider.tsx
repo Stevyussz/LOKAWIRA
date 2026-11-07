@@ -6,6 +6,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import {
   CulturalSpot,
   CulturalVibe,
+  Region,
   IssuedVoucher,
   ReservationPass,
   SurfaceTheme,
@@ -13,14 +14,21 @@ import {
 } from "@/types/lokawira";
 import {
   INITIAL_CULTURAL_SPOTS,
+  INITIAL_REGIONS,
   INITIAL_LORE_CARDS,
   INITIAL_RESERVATIONS,
   INITIAL_VOUCHERS,
 } from "@/lib/seedCulturalData";
 
 interface LokawiraContextValue {
+  // palet warna kawasan aktif (turunan dr activeRegion)
   activeVibe: CulturalVibe;
-  setActiveVibe: (vibe: CulturalVibe) => void;
+  // kawasan dr server; pengelola juga dapet yg DRAFT
+  regions: Region[];
+  activeRegion: Region | null;
+  activeRegionId: string;
+  setActiveRegionId: (id: string) => void;
+  setRegions: React.Dispatch<React.SetStateAction<Region[]>>;
   surfaceTheme: SurfaceTheme;
   toggleSurfaceTheme: () => void;
   gpsSimulated: boolean;
@@ -53,7 +61,25 @@ interface LokawiraContextValue {
 const LokawiraContext = createContext<LokawiraContextValue | null>(null);
 
 export function LokawiraProvider({ children }: { children: React.ReactNode }) {
-  const [activeVibe, setActiveVibe] = useState<CulturalVibe>("majapahit");
+  const [regions, setRegions] = useState<Region[]>(DEMO_MODE ? INITIAL_REGIONS : []);
+  // pilihan kawasan terakhir diingat di perangkat
+  const [activeRegionId, setActiveRegionIdRaw] = useState<string>("");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("lokawira.region");
+      if (saved) setActiveRegionIdRaw(saved);
+    } catch {}
+  }, []);
+  const setActiveRegionId = (id: string) => {
+    setActiveRegionIdRaw(id);
+    try {
+      localStorage.setItem("lokawira.region", id);
+    } catch {}
+  };
+  // wisatawan cuma liat kawasan aktif; kalo pilihan tersimpan udah gak ada, pakai kawasan aktif pertama
+  const liveRegions = regions.filter((r) => r.status === "ACTIVE");
+  const activeRegion = liveRegions.find((r) => r.id === activeRegionId) ?? liveRegions[0] ?? null;
+  const activeVibe: CulturalVibe = activeRegion?.theme ?? "majapahit";
   const [surfaceTheme, setSurfaceTheme] = useState<SurfaceTheme>("andesite");
   const [gpsSimulated, setGpsSimulated] = useState<boolean>(true);
   const [pdpConsentAccepted, setPdpConsentAccepted] = useState<boolean>(false);
@@ -91,6 +117,7 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await api.getSnapshot();
       if (Array.isArray(data.spots) && !spotsTouchedRef.current) setSpotsRaw(data.spots);
+      if (Array.isArray(data.regions)) setRegions(data.regions);
       // user login: server = sumber kebenaran. Tamu: server gak nyimpen tas tamu, jadi digabung biar gak kehapus
       if (Array.isArray(data.vouchers)) {
         const serverVouchers = data.vouchers;
@@ -171,7 +198,11 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
     <LokawiraContext.Provider
       value={{
         activeVibe,
-        setActiveVibe,
+        regions,
+        activeRegion,
+        activeRegionId: activeRegion?.id ?? "",
+        setActiveRegionId,
+        setRegions,
         surfaceTheme,
         toggleSurfaceTheme,
         gpsSimulated,

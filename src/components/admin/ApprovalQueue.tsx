@@ -148,6 +148,11 @@ export default function ApprovalQueue({ spots, onSpots, onToast, onCount }: Prop
               <li key={s.id} className="list-none rounded-2xl bg-obsidian p-3.5 space-y-2.5">
                 <div>
                   <span className="text-[11px] font-bold text-vibeSecondary">{s.regionName} · {s.opkCategory}</span>
+                  {!s.regionId && (
+                    <span className="block mt-1 text-[11px] font-bold text-quotaFull">
+                      Di luar semua kawasan{s.regionProposal ? `. Usulan mitra: "${s.regionProposal}"` : ""}. Buat atau perluas kawasan di tab Kawasan dulu, lalu terbitkan.
+                    </span>
+                  )}
                   <p className="text-sm font-extrabold text-alabaster mt-0.5">{s.name}</p>
                   <p className="font-num text-[11px] text-pebble">{formatCoord(s.coordinates)}</p>
                   <p className="text-[11px] text-pebble">{s.address}</p>

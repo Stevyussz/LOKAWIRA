@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useEffect, useRef, useState } from "react";
 import type { GeoJSONSource, Map as MLMap, Marker as MLMarker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { LatLng, ZONE_RADIUS_METERS, circlePolygon, distanceMeters, formatCoord, formatDistance, regionOrigin, INDONESIA_BOUNDS } from "@/lib/geo";
@@ -17,6 +17,8 @@ interface LocationPickerProps {
   onChange: (c: LatLng) => void;
   // nama utk pembaca layar, mis - "Lokasi lapak"
   label?: string;
+  // acuan kalo belum ada titik (mis. bikin kawasan baru): pusat peta & nama acuannya
+  fallbackCenter?: { name: string; coordinates: LatLng };
 }
 
 type MapLibre = typeof import("maplibre-gl");
@@ -25,7 +27,7 @@ const ll = (c: LatLng): [number, number] => [c.lng, c.lat];
 const PIN_SVG = `<svg viewBox="0 0 64 76" width="40" height="48" aria-hidden="true"><path d="M32 74 C32 74 5 46 5 27 A27 27 0 0 1 59 27 C59 46 32 74 32 74 Z" fill="#1B6334" stroke="#FFFAEE" stroke-width="4" stroke-linejoin="round"/><circle cx="32" cy="27" r="11" fill="#FFFAEE"/></svg>`;
 
 // penentu lokasi dgn pin di peta nyata (OpenStreetMap): ketuk/seret pin, atau panah keyboard
-export default function LocationPicker({ spots, value, onChange, label = "Lokasi" }: LocationPickerProps) {
+export default function LocationPicker({ spots, value, onChange, label = "Lokasi", fallbackCenter }: LocationPickerProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
   const mlRef = useRef<MapLibre | null>(null);
@@ -34,7 +36,16 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const origin = regionOrigin(spots);
+  const spotOrigin = regionOrigin(spots);
+  const origin = useMemo<{ id: string; name: string; coordinates: LatLng } | null>(
+    () =>
+      spotOrigin
+        ? { id: spotOrigin.id, name: spotOrigin.name, coordinates: spotOrigin.coordinates }
+        : fallbackCenter
+        ? { id: `c-${fallbackCenter.coordinates.lat},${fallbackCenter.coordinates.lng}`, ...fallbackCenter }
+        : null,
+    [spotOrigin, fallbackCenter]
+  );
   const { getFix } = useLocation();
   const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
@@ -325,7 +336,7 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
             <span className="text-pebble"> · sekitar {formatDistance(dist)} dari {origin.name.split("&")[0].trim()}</span>
             {dist > 20000 && (
               <span className="block font-bold text-quotaFull">
-                Lokasi ini jauh dari kawasan yang kamu pilih. Periksa pilihan Kawasan, atau pilih ulang pin.
+                Lokasi ini jauh dari {origin.name.split("&")[0].trim()}. Pastikan pin sudah tepat di lokasi sebenarnya.
               </span>
             )}
             {outside && dist <= 20000 && (

@@ -18,6 +18,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     return jsonError(400, "Format permintaan tidak valid.");
   }
   if (body.decision !== "PUBLISH" && body.decision !== "REJECT") return jsonError(400, "Keputusan tidak valid.");
+  // titik di luar semua kawasan gak bisa terbit: gak ada kawasan yg nampilin dia
+  if (body.decision === "PUBLISH" && !target.regionId) {
+    return jsonError(409, "Lapak ini di luar semua kawasan. Buat atau perluas kawasan di tab Kawasan dulu, lalu terbitkan.", "NO_REGION");
+  }
   target.status = body.decision === "PUBLISH" ? "PUBLISHED" : "REJECTED";
   target.statusReason = body.decision === "REJECT" && body.reason ? String(body.reason).trim().slice(0, 200) || undefined : undefined;
   return NextResponse.json({ spot: target, spots: visibleSpots(auth.user) });

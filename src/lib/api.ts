@@ -2,6 +2,8 @@ import { CulturalSpot } from "@/types/lokawira";
 import type {
   AddAiNoteRequest,
   UpdateAiNoteRequest,
+  RegionInput,
+  RegionsResponse,
   AdminListQuery,
   AdminReservationsResponse,
   AdminVouchersResponse,
@@ -206,6 +208,11 @@ export const api = {
 
   deleteAiNote: (id: string) =>
     request<AddAiNoteResponse>(`/api/ai-notes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  listRegions: () => request<RegionsResponse>("/api/regions"),
+  createRegion: (r: RegionInput) => request<RegionsResponse>("/api/regions", { method: "POST", body: r }),
+  updateRegion: (id: string, r: RegionInput) =>
+    request<RegionsResponse>(`/api/regions/${encodeURIComponent(id)}`, { method: "PATCH", body: r }),
 
   createReservation: (r: CreateReservationRequest) =>
     request<CreateReservationResponse>("/api/reservations", { method: "POST", body: r }),

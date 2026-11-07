@@ -54,7 +54,7 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
   }, [spot]);
 
   const sameRegion = useMemo(
-    () => allSpots.filter((s) => s.vibe === spot?.vibe && s.id !== spot?.id),
+    () => allSpots.filter((s) => !!spot?.regionId && s.regionId === spot.regionId && s.id !== spot?.id),
     [allSpots, spot]
   );
 

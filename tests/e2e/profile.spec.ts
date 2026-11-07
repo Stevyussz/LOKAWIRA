@@ -20,10 +20,11 @@ test("XP, kartu lore, voucer, dan tiket dicatat server per akun", async ({ reque
 
   // check-in +50
   const ci = await (await request.post("/api/checkins", { headers: bearer(token), data: { spotId: spot.id, lat, lng, accuracyMeters: 10 } })).json();
-  // reservasi +75 (dan voucer bonus kalo terima misi sirkular)
+  // reservasi +75 (dan voucer bonus kalo terima misi sirkular). Sanggar bebas masuk, jadi pesannya di cagar utama
+  const primary = spots.find((s: { spotType: string; regionId?: string }) => s.spotType === "PRIMARY_DEST" && s.regionId === spot.regionId);
   const rsv = await request.post("/api/reservations", {
     headers: bearer(token),
-    data: { spotId: spot.id, visitorName: "Wisatawan Uji", partySize: 2, scheduledSlot: "14:30 WIB", acceptCircularQuest: true },
+    data: { spotId: primary.id, visitorName: "Wisatawan Uji", partySize: 2, scheduledSlot: "14:30 WIB", acceptCircularQuest: true },
   });
   expect(rsv.ok()).toBeTruthy();
   // scan objek: XP misi + voucer + kartu lore

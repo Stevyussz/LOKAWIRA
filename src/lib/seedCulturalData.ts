@@ -4,6 +4,7 @@ import {
   CulturalVibe,
   IssuedVoucher,
   ReservationPass,
+  Region,
   UnlockedLoreCard,
 } from "@/types/lokawira";
 
@@ -60,6 +61,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-mjp-01",
     name: "Candi Bajang Ratu & Panggung Babad Surya",
     regionName: "Trowulan, Mojokerto",
+    regionId: "rgn-majapahit",
     vibe: "majapahit",
     spotType: "PRIMARY_DEST",
     opkCategory: "Cagar Budaya",
@@ -93,6 +95,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-mjp-02",
     name: "Sanggar Kriya Terakota Citra Majapahit",
     regionName: "Trowulan, Mojokerto",
+    regionId: "rgn-majapahit",
     vibe: "majapahit",
     spotType: "SANGGAR_SENI",
     opkCategory: "Teknologi Tradisional",
@@ -126,6 +129,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-mjp-03",
     name: "Wedang Pokak & Sambel Wader Buarni",
     regionName: "Trowulan, Mojokerto",
+    regionId: "rgn-majapahit",
     vibe: "majapahit",
     spotType: "UMKM_KULINER",
     opkCategory: "Pengetahuan Tradisional",
@@ -163,6 +167,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-sgn-01",
     name: "Kompleks Cepuri & Sendang Seliran Kotagede",
     regionName: "Kotagede, Yogyakarta",
+    regionId: "rgn-sogan",
     vibe: "sogan",
     spotType: "PRIMARY_DEST",
     opkCategory: "Ritus",
@@ -196,6 +201,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-sgn-02",
     name: "Bengkel Perak Filigri Sogan Mulia",
     regionName: "Kotagede, Yogyakarta",
+    regionId: "rgn-sogan",
     vibe: "sogan",
     spotType: "UMKM_KRIYA",
     opkCategory: "Teknologi Tradisional",
@@ -229,6 +235,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-sgn-03",
     name: "Kipo Panggang Daun Pisang Mbok Djinten",
     regionName: "Kotagede, Yogyakarta",
+    regionId: "rgn-sogan",
     vibe: "sogan",
     spotType: "UMKM_KULINER",
     opkCategory: "Tradisi Lisan",
@@ -264,6 +271,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-bhr-01",
     name: "Rumah Merah Heritage & Galeri Tiga Negeri Lasem",
     regionName: "Lasem, Rembang",
+    regionId: "rgn-bahari",
     vibe: "bahari",
     spotType: "PRIMARY_DEST",
     opkCategory: "Pengetahuan Tradisional",
@@ -297,6 +305,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-bhr-02",
     name: "Kopi Lelet & Lontong Tuyuhan Cak Narto",
     regionName: "Lasem, Rembang",
+    regionId: "rgn-bahari",
     vibe: "bahari",
     spotType: "UMKM_KULINER",
     opkCategory: "Seni",
@@ -332,6 +341,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-trd-01",
     name: "Bale Kambang Kertha Gosa & Desa Lukis Kamasan",
     regionName: "Klungkung, Bali",
+    regionId: "rgn-tridatu",
     vibe: "tridatu",
     spotType: "PRIMARY_DEST",
     opkCategory: "Seni",
@@ -367,6 +377,7 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     id: "spot-ukr-01",
     name: "Kampung Adat Tongkonan Kete Kesu",
     regionName: "Toraja Utara, Sulawesi Selatan",
+    regionId: "rgn-ukiran",
     vibe: "ukiran",
     spotType: "PRIMARY_DEST",
     opkCategory: "Adat Istiadat",
@@ -531,7 +542,17 @@ export const INITIAL_LORE_CARDS: UnlockedLoreCard[] = [
 ];
 
 // Server-side in-memory store for API routes during demo session
+// lima kawasan awal (data, bkn kode lagi). Pengelola bisa nambah lewat dasbor
+export const INITIAL_REGIONS: Region[] = [
+  { id: "rgn-majapahit", name: "Majapahit", label: "Trowulan, Mojokerto", theme: "majapahit", center: { lat: -7.5682, lng: 112.3987 }, radiusKm: 15, status: "ACTIVE" },
+  { id: "rgn-sogan", name: "Mataraman", label: "Kotagede, Yogyakarta", theme: "sogan", center: { lat: -7.8295, lng: 110.4009 }, radiusKm: 15, status: "ACTIVE" },
+  { id: "rgn-bahari", name: "Bahari", label: "Lasem, Rembang", theme: "bahari", center: { lat: -6.6953, lng: 111.4521 }, radiusKm: 15, status: "ACTIVE" },
+  { id: "rgn-tridatu", name: "Tridatu", label: "Kamasan, Bali", theme: "tridatu", center: { lat: -8.5441, lng: 115.4052 }, radiusKm: 15, status: "ACTIVE" },
+  { id: "rgn-ukiran", name: "Toraja", label: "Kete Kesu, Toraja", theme: "ukiran", center: { lat: -2.9992, lng: 119.9087 }, radiusKm: 15, status: "ACTIVE" },
+];
+
 interface LokawiraMemoryStore {
+  regions: Region[];
   spots: CulturalSpot[];
   vouchers: IssuedVoucher[];
   reservations: ReservationPass[];
@@ -543,6 +564,7 @@ const globalForStore = globalThis as unknown as { lokawiraStore?: LokawiraMemory
 export function getLokawiraStore(): LokawiraMemoryStore {
   if (!globalForStore.lokawiraStore) {
     globalForStore.lokawiraStore = {
+      regions: structuredClone(INITIAL_REGIONS),
       spots: structuredClone(INITIAL_CULTURAL_SPOTS),
       vouchers: structuredClone(INITIAL_VOUCHERS),
       reservations: structuredClone(INITIAL_RESERVATIONS),

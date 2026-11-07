@@ -3,7 +3,7 @@
 import React from "react";
 import Icon, { IconName } from "@/components/ui/Icon";
 
-export type AdminTab = "APPROVAL" | "SPOTS" | "QUOTA" | "REWARDS" | "KNOWLEDGE";
+export type AdminTab = "APPROVAL" | "SPOTS" | "QUOTA" | "REWARDS" | "KNOWLEDGE" | "REGIONS";
 
 interface Card {
   label: string;

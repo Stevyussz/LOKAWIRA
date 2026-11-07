@@ -26,7 +26,8 @@ const SECTIONS: Section[] = [
       "Ketuk sebuah titik, lalu Pandu aku: rute jalan kaki penuh tampil dulu, kemudian Mulai untuk dipandu (perlu izin lokasi).",
       "Check-In: dapat XP dan kode kehadiran KDR- untuk ditunjukkan ke pemilik lapak.",
       "Scan Objek: lihat objek yang dicari beserta foto contoh, unggah foto, lalu buka kartu kisah dan voucer LKW- yang tersimpan di Tas.",
-      "Tiket: pesan jam masuk. Bila lokasi utama padat dan misi pengalihan diterima, voucer dari UMKM terdekat ikut terbit.",
+      "Tiket (hanya di titik yang perlu pesan atau bertiket): pesan jam masuk. Bila lokasi utama padat dan misi pengalihan diterima, voucer dari UMKM terdekat ikut terbit. Titik bebas masuk menampilkan tombol Info berisi jam buka dan fasilitas.",
+      "Hadiah dibatasi agar adil: XP dan voucer hanya untuk akun, sekali per titik per hari. Tanpa akun, kisah tetap bisa dibaca.",
       "Kisah: tanyakan sesuatu kepada Loka. Jawaban menyebut rujukan yang dipakai.",
       "Akun: pasang LOKAWIRA ke layar utama dan atur tingkat animasi.",
     ],
@@ -37,7 +38,7 @@ const SECTIONS: Section[] = [
     who: "Masuk dengan akun mitra uji, lalu buka Dasbor Mitra.",
     steps: [
       "Kasir: ketik kode LKW- untuk menukar voucer, atau KDR- untuk memverifikasi kehadiran pengunjung. Setiap kode hanya berlaku sekali.",
-      "Lapak Saya: daftarkan lapak baru dalam 5 langkah. Lokasi bisa dicari lewat alamat atau lokasimu sekarang. Lapak baru menunggu review pengelola.",
+      "Lapak Saya: daftarkan lapak baru. Lokasi bisa dicari lewat alamat atau lokasimu sekarang, dan kawasannya terdeteksi otomatis dari lokasi pin. Atur juga cara masuk (bebas, pesan slot, atau bertiket) dan jam buka. Lapak baru menunggu review pengelola.",
       "Promo & Scan: tulis objek yang harus dipotret wisatawan, unggah foto contoh, dan atur nominal voucer.",
     ],
   },
@@ -50,6 +51,7 @@ const SECTIONS: Section[] = [
       "Kuota & Tiket: isi jumlah pengunjung. Di atas 85%, peta wisatawan menampilkan jalur pengalihan ke UMKM sekitar.",
       "Hadiah & Voucer: atur XP misi dan nominal voucer.",
       "Pengetahuan Loka: tambah rujukan budaya, lalu tanyakan topiknya kepada Loka di peta.",
+      "Kawasan: buat kawasan baru (nama, lokasi, palet warna, titik pusat, radius) sebagai draf atau aktif. Lapak mitra di dalam radiusnya otomatis masuk kawasan itu.",
     ],
   },
 ];

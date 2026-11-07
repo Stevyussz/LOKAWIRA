@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     if (acceptCircularQuest && !user) rewardNote = "LOGIN_FOR_REWARD";
     if (acceptCircularQuest && user) {
       const partner = store.spots
-        .filter((x) => x.vibe === spot.vibe && x.spotType !== "PRIMARY_DEST" && (x.status ?? "PUBLISHED") === "PUBLISHED" && !ownerInactive(x))
+        .filter((x) => !!x.regionId && x.regionId === spot.regionId && x.spotType !== "PRIMARY_DEST" && (x.status ?? "PUBLISHED") === "PUBLISHED" && !ownerInactive(x))
         .sort((p, q) => distanceMeters(p.coordinates, spot.coordinates) - distanceMeters(q.coordinates, spot.coordinates))[0];
       if (!partner) rewardNote = "NO_PARTNER";
       else if (!claimOnce(user.id, partner.id, "REDIRECT")) rewardNote = "ALREADY_CLAIMED_TODAY";

@@ -577,3 +577,23 @@ W. Cara masuk, jam buka, acara (field baru di CulturalSpot)
   - POST dari mitra: quest.rewardPoints DIABAIKAN (dipaksa 100, cuma admin yg boleh ngatur), quota.currentVisitors selalu mulai 0. Dulu mitra bisa ngirim XP misi sendiri
   - kapasitas: mitra 1 sampai 500, admin 1 sampai 5000 (candi/festival). Dulu form admin ngebolehin 5000 tapi server/ubah nolak di atas 500
 - contoh di data awal: Wedang Pokak buka 07.00 sampai 23.00
+
+X. Kawasan jadi DATA (dulu 5 kawasan ditulis mati di kode)
+
+- entitas baru Region: { id, name, label, theme, center {lat, lng}, radiusKm, status, createdAt? }. theme = salah satu dari 5 palet (majapahit, sogan, bahari, tridatu, ukiran) dan BOLEH dipake bareng beberapa kawasan. status ACTIVE (tampil ke wisatawan) atau DRAFT (disiapin dulu, belum tampil). Data awal: 5 kawasan lama, id rgn-majapahit, rgn-sogan, rgn-bahari, rgn-tridatu, rgn-ukiran, radius 15 km
+- CulturalSpot nambah regionId (kawasan tempat titik itu) dan regionProposal (usulan nama kawasan dr mitra, maks 80 karakter). vibe dan regionName sekarang TURUNAN dari kawasan, bkn isian klien
+- siapa ngapain:
+  - cuma ADMIN yg bikin/ubah kawasan. Rencana: pengelola per kawasan (bagian U) nanti dibatasi ke regionIds miliknya
+  - kawasan sebuah titik DITENTUKAN SERVER dr koordinat: kawasan (ACTIVE atau DRAFT) terdekat yg radiusnya mencakup titik itu. Logikanya di src/lib/regionMatch.ts (matchRegion), dipake server & form biar hasilnya sama. Dulu mitra milih kawasan sendiri dr dropdown, jadi lapak di Jember bisa masuk daftar Trowulan
+  - mitra yg lapaknya di luar semua kawasan: lapak tetep diterima (PENDING_REVIEW), regionId kosong, regionName "Di luar kawasan", regionProposal disimpen. Admin di luar kawasan: 400 code OUT_OF_REGION
+  - POST /api/admin/spots/{id}/review PUBLISH buat titik tanpa regionId: 409 code NO_REGION
+  - pas kawasan dibuat/diubah, titik yatim (tanpa regionId) yg sekarang masuk radius LANGSUNG ikut kawasan itu (respons ngasih adopted = jumlahnya). Titik yg udah punya kawasan gak dikeluarin otomatis walau radius dikecilin
+  - GET /api/spots publik cuma ngirim titik yg kawasannya ACTIVE. PATCH koordinat titik = kawasannya dihitung ulang
+  - ganti theme kawasan: vibe semua titiknya ikut. Ganti nama/label: regionName titiknya ikut
+- endpoint baru:
+  - GET /api/regions: publik dapet yg ACTIVE, admin dapet semua. Respons: regions
+  - POST /api/regions (ADMIN): name 3 sampai 40 karakter (unik, 409 REGION_NAME_TAKEN), label 3 sampai 80, theme, center (wajib di Indonesia), radiusKm 1 sampai 100, status. Respons 201: region, regions, adopted
+  - PATCH /api/regions/{id} (ADMIN): field opsional, atomik. Respons: region, regions, adopted
+  - GET /api/spots sekarang juga ngirim regions (aturan lihat sama kayak GET /api/regions) dan nerima filter ?regionId=
+- frontend: pemilih kawasan di atas peta ngambil dr data ini (diinget di perangkat). Form lapak gak ada pilihan kawasan lagi, gantinya keterangan "Lapakmu masuk kawasan X" atau isian usulan kawasan. Dasbor pengelola punya tab Kawasan. Mitra pengalih antrean dicari di kawasan (regionId) yg sama, bkn palet yg sama
+- PATCH /api/spots/{id} gak nerima vibe & regionName lagi

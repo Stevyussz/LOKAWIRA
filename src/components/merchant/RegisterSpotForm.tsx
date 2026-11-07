@@ -9,7 +9,8 @@ import { MAX_REFERENCE_PHOTOS } from "@/components/merchant/ReferencePhotos";
 import StagedPhotos, { Staged } from "@/components/merchant/StagedPhotos";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import type { LatLng } from "@/lib/geo";
-import { REGIONS } from "@/lib/regions";
+import { matchRegion } from "@/lib/regionMatch";
+import { useLokawira } from "@/components/layout/LokawiraProvider";
 import ScheduleFields, { scheduleErrors, scheduleFrom, schedulePayload, type ScheduleValue } from "@/components/merchant/ScheduleFields";
 import type { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/lokawira";
 
@@ -52,7 +53,9 @@ interface Props {
 export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, activeVibe, spots, setSpots }: Props) {
   const [name, setName] = useState("");
   const [type, setType] = useState<LapakType>("UMKM_KRIYA");
-  const [region, setRegion] = useState<CulturalVibe>(activeVibe);
+  // kawasan gak dipilih manual lagi: ditentukan dr lokasi pin (sama persis dgn hitungan server)
+  const { regions, activeRegion } = useLokawira();
+  const [proposal, setProposal] = useState("");
   const [address, setAddress] = useState("");
   const [story, setStory] = useState("");
   const [pin, setPin] = useState<LatLng | null>(null);
@@ -70,7 +73,8 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const regionSpots = useMemo(() => spots.filter((s) => s.vibe === region), [spots, region]);
+  const regionSpots = useMemo(() => spots.filter((s) => s.regionId === activeRegion?.id), [spots, activeRegion?.id]);
+  const detected = pin ? matchRegion(pin, regions) : null;
 
   const reset = () => {
     setName("");
@@ -83,6 +87,7 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
     setFacilities([]);
     setSched(scheduleFrom(null, "UMKM_KRIYA"));
     setPin(null);
+    setProposal("");
     setErrors({});
   };
 
@@ -103,13 +108,14 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
     setMsg(null);
     if (Object.keys(errs).length > 0 || !pin) return;
 
-    const r = REGIONS.find((x) => x.id === region)!;
     const nm = name.trim();
     const draft: CulturalSpot = {
       id: "draft", // diganti server
       name: nm,
-      regionName: `${r.shortName}, ${r.regionLabel}`,
-      vibe: region,
+      // server yg nentuin kawasan final; ini cuma perkiraan buat tampilan sebelum dibalas server
+      regionName: detected ? `${detected.name}, ${detected.label}` : "Di luar kawasan",
+      ...(detected ? {} : proposal.trim() ? { regionProposal: proposal.trim() } : {}),
+      vibe: detected?.theme ?? activeRegion?.theme ?? activeVibe,
       spotType: type,
       opkCategory: OPK_BY_TYPE[type],
       coordinates: pin,
@@ -194,12 +200,6 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
             <option value="SANGGAR_SENI">Sanggar seni</option>
           </select>
         </div>
-        <div>
-          <label htmlFor="lapak-region" className={labelCls}>Kawasan budaya</label>
-          <select id="lapak-region" value={region} onChange={(e) => { setRegion(e.target.value as CulturalVibe); setPin(null); }} className={input}>
-            {REGIONS.map((r) => <option key={r.id} value={r.id}>{r.shortName} · {r.regionLabel}</option>)}
-          </select>
-        </div>
       </div>
       <div>
         <label htmlFor="lapak-story" className={labelCls}>Cerita singkat lapak (boleh dikosongkan)</label>
@@ -210,6 +210,21 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
       <div>
         <LocationPicker spots={regionSpots} value={pin} onChange={(c) => { setPin(c); setErrors((x) => ({ ...x, pin: "" })); }} label="Lokasi lapak" />
         <FieldError id="err-pin" msg={errors.pin} />
+        {pin && (
+          detected ? (
+            <p role="status" className="mt-2 text-xs text-alabaster rounded-xl bg-slateElev p-3">
+              Lapakmu masuk kawasan <b>{detected.name}</b> ({detected.label}).
+            </p>
+          ) : (
+            <div role="status" className="mt-2 rounded-xl bg-slateElev p-3 space-y-2">
+              <p className="text-xs text-alabaster leading-relaxed">
+                Lokasi ini di luar kawasan LOKAWIRA yang sudah ada. Lapakmu tetap bisa dikirim. Pengelola akan menambah kawasan baru atau menghubungimu sebelum lapak tampil di peta.
+              </p>
+              <label htmlFor="lapak-proposal" className={labelCls}>Usulkan nama kawasan (boleh dikosongkan)</label>
+              <input id="lapak-proposal" type="text" maxLength={80} value={proposal} onChange={(e) => setProposal(e.target.value)} placeholder="Contoh: Kampung Batik Tanjung Bumi" className={input} />
+            </div>
+          )
+        )}
       </div>
       <div>
         <label htmlFor="lapak-address" className={labelCls}>Alamat atau patokan</label>

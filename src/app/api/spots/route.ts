@@ -2,7 +2,9 @@ import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { inIndonesia } from "@/lib/geo";
 import { parseEntry, parseEvent, parseHours } from "@/lib/spotRules";
-import { OPK_VALUES, SPOT_TYPES, VIBES } from "@/lib/enums";
+import { OPK_VALUES, SPOT_TYPES } from "@/lib/enums";
+import { distanceMeters } from "@/lib/geo";
+import { regionFor, visibleRegions } from "@/lib/server/regions";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 import { currentUser, jsonError, merchantBlocked, profileOf, requireRole, visibleSpots } from "@/lib/server/mockBackend";
@@ -17,7 +19,9 @@ export async function GET(request: NextRequest) {
   const user = currentUser(request);
   // arsip gak tampil, titik yg menunggu review cuma utk pemilik & pengelola
   const live = visibleSpots(user);
-  const spots = vibe ? live.filter((spot) => spot.vibe === vibe) : live;
+  // saring per kawasan (regionId), atau per palet (vibe, cara lama)
+  const regionId = searchParams.get("regionId");
+  const spots = live.filter((spot) => (!vibe || spot.vibe === vibe) && (!regionId || spot.regionId === regionId));
 
   // mitra hnya melihat voucer lapakny dn gak meliihat tiket wisatwan
   const mine = new Set(store.spots.filter((s) => s.ownerId === user?.id).map((s) => s.id));
@@ -36,6 +40,7 @@ export async function GET(request: NextRequest) {
       : [],
     reservations: prof ? store.reservations.filter((r) => prof.ticketIds.has(r.ticketId)) : user?.role === "ADMIN" ? store.reservations : [],
     aiTrainingNotes: store.aiTrainingNotes,
+    regions: visibleRegions(user?.role === "ADMIN"),
   });
 }
 
@@ -73,7 +78,14 @@ export async function POST(request: NextRequest) {
   // enum dicek (dulu string apa aja diterima)
   if (!SPOT_TYPES.includes(input.spotType)) return jsonError(400, "Jenis titik tidak valid.");
   if (!OPK_VALUES.includes(input.opkCategory)) return jsonError(400, "Kategori OPK tidak valid.");
-  if (!VIBES.includes(input.vibe)) return jsonError(400, "Kawasan tidak valid.");
+  // kawasan ditentukan dr lokasi pin, bkn pilihan klien (dulu mitra bisa milih kawasan yg jauhnya ratusan km)
+  const region = regionFor({ lat, lng });
+  if (!region && auth.user.role === "ADMIN") {
+    return jsonError(400, "Lokasi ini di luar semua kawasan. Buat atau perluas kawasan dulu di tab Kawasan.", "OUT_OF_REGION");
+  }
+  // di luar kawasan: palet ngikut kawasan terdekat biar tetep berwarna di dasbor
+  const nearest = region ?? [...store.regions].sort((a, b) => distanceMeters({ lat, lng }, a.center) - distanceMeters({ lat, lng }, b.center))[0];
+  const proposal = String(input.regionProposal ?? "").trim().slice(0, 80);
   // lapak mitra maks 500, titik pengelola (candi, festival) maks 5.000
   const capMax = auth.user.role === "ADMIN" ? 5000 : 500;
   const cap = Number(input.quota?.maxCapacity);
@@ -104,6 +116,10 @@ export async function POST(request: NextRequest) {
     entry,
     openingHours,
     event,
+    vibe: nearest?.theme ?? "majapahit",
+    regionName: region ? `${region.name}, ${region.label}` : "Di luar kawasan",
+    regionId: region?.id,
+    regionProposal: region ? undefined : proposal || undefined,
     // angka kepadatan selalu mulai dr nol (bkn dr klien)
     quota: { currentVisitors: 0, maxCapacity: cap, estimatedWaitMinutes: 0, nextAvailableSlot: "Tersedia langsung" },
   };

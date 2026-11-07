@@ -19,6 +19,18 @@ export type OpkCategory =
 
 export type SpotType = "PRIMARY_DEST" | "SANGGAR_SENI" | "UMKM_KULINER" | "UMKM_KRIYA";
 
+// kawasan budaya: data (bkn kode). Dibuat & diaktifkan pengelola pusat. Lapak masuk kawasan otomatis dr lokasi pin
+export interface Region {
+  id: string;
+  name: string; // nama pendek, mis "Majapahit"
+  label: string; // lokasi, mis "Trowulan, Mojokerto"
+  theme: CulturalVibe; // palet warna (1 dr 5), boleh dipake bareng kawasan lain
+  center: { lat: number; lng: number };
+  radiusKm: number; // lapak dlm radius ini masuk kawasan
+  status: "ACTIVE" | "DRAFT"; // DRAFT gak tampil ke wisatawan
+  createdAt?: string;
+}
+
 // cara masuk titik: FREE = bebas masuk tanpa tiket (acara publik, warung), RESERVATION = gratis tapi pesan slot
 // (kapasitas terbatas), TICKET = berbayar (harga & cara beli). Kosong = data lama (cagar utama RESERVATION, lainnya FREE)
 export type EntryMode = "FREE" | "RESERVATION" | "TICKET";
@@ -74,6 +86,11 @@ export interface CulturalSpot {
   statusReason?: string;
   name: string;
   regionName: string;
+  // kawasan tempat titik ini (ditentukan server dr koordinat). Kosong = di luar semua kawasan, gak bisa terbit
+  regionId?: string;
+  // usulan nama kawasan dr mitra kalo lapaknya di luar semua kawasan
+  regionProposal?: string;
+  // palet warna, ngikut tema kawasannya
   vibe: CulturalVibe;
   spotType: SpotType;
   opkCategory: OpkCategory;

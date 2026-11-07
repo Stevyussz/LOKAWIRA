@@ -21,6 +21,10 @@ interface CulturalQuestMapProps {
   selectedSpot: CulturalSpot | null;
   onSelectSpot: (spot: CulturalSpot) => void;
   activeVibe: CulturalVibe;
+  // id kawasan aktif: ganti kawasan = kamera ngepasin titik2 kawasan baru (dua kawasan bisa sepalet)
+  regionKey?: string;
+  // "Majapahit, Trowulan, Mojokerto" buat label peta
+  regionLabel?: string;
   surfaceTheme?: SurfaceTheme;
   onToggleTheme?: () => void;
   checkedInSpotIds: string[];
@@ -238,6 +242,8 @@ export default function CulturalQuestMap({
   selectedSpot,
   onSelectSpot,
   activeVibe,
+  regionKey = "",
+  regionLabel = "",
   checkedInSpotIds,
   filterType,
   onResetFilter,
@@ -621,7 +627,7 @@ export default function CulturalQuestMap({
 
   useEffect(() => {
     if (ready) fitAll(latest.current.spots, false);
-  }, [ready, activeVibe, fitAll]);
+  }, [ready, activeVibe, regionKey, fitAll]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -757,7 +763,7 @@ export default function CulturalQuestMap({
   return (
     <div
       role="region"
-      aria-label={`Peta eksplorasi budaya ${vibeMeta.region}`}
+      aria-label={`Peta eksplorasi budaya ${regionLabel || vibeMeta.region}`}
       className="fixed inset-0 w-screen h-screen overflow-hidden select-none"
       style={{ backgroundColor: "var(--map-land)", touchAction: "none" }}
     >

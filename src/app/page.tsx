@@ -42,7 +42,10 @@ export default function LokawiraExplorerPage() {
   const vh = useVibeHex();
   const {
     activeVibe,
-    setActiveVibe,
+    regions,
+    activeRegion,
+    activeRegionId,
+    setActiveRegionId,
     lokaPoints,
     addLokaPoints,
     publicSpots: spots,
@@ -75,8 +78,9 @@ export default function LokawiraExplorerPage() {
   }, []);
 
   const regionalSpots = useMemo(
-    () => spots.filter((s) => s.vibe === activeVibe),
-    [spots, activeVibe]
+    // titik kawasan aktif (dr regionId, bkn palet: dua kawasan boleh sepalet)
+    () => spots.filter((s) => s.regionId === activeRegionId),
+    [spots, activeRegionId]
   );
 
   const [selectedSpot, setSelectedSpot] = useState<CulturalSpot | null>(
@@ -138,12 +142,12 @@ export default function LokawiraExplorerPage() {
   // ganti kawasan: pilih titik pertama kawasan itu & reset filter biar peta gak kosong
   useEffect(() => {
     const firstInRegion =
-      spots.find((s) => s.vibe === activeVibe) || spots[0] || null;
+      spots.find((s) => s.regionId === activeRegionId) || spots[0] || null;
     setSelectedSpot(firstInRegion);
     setIsSpotCardVisible(true);
     setFilterType("ALL");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeVibe]);
+  }, [activeRegionId]);
 
   // Data titik berubah (kuota, demo): segarkan salinan titik teriplih, jgn ganti pilihan user.
   // Kalo belum ada yg dipilih (data baru datang dr server), pilih titik pertama kawasan biar kartu langsung muncul
@@ -152,7 +156,7 @@ export default function LokawiraExplorerPage() {
   }, [spots]);
   useEffect(() => {
     if (selectedSpot) return;
-    const first = spots.find((s) => s.vibe === activeVibe) ?? spots[0];
+    const first = spots.find((s) => s.regionId === activeRegionId) ?? spots[0];
     if (first) {
       setSelectedSpot(first);
       setIsSpotCardVisible(true);
@@ -162,7 +166,7 @@ export default function LokawiraExplorerPage() {
 
   // filter beerubah: titik terpilih yg tersaring hrs pindah ke titik yg tampil, atw kartunya disembunyikan kalo gak ada satu pun yg cocok
   useEffect(() => {
-    const visible = spots.filter((s) => s.vibe === activeVibe && matchesSpotFilter(s, filterType));
+    const visible = spots.filter((s) => s.regionId === activeRegionId && matchesSpotFilter(s, filterType));
     setSelectedSpot((prev) => {
       if (prev && matchesSpotFilter(prev, filterType)) return prev;
       return visible[0] ?? prev;
@@ -399,6 +403,8 @@ export default function LokawiraExplorerPage() {
           setIsSpotCardVisible(true);
         }}
         activeVibe={activeVibe}
+        regionKey={activeRegionId}
+        regionLabel={activeRegion ? `${activeRegion.name}, ${activeRegion.label}` : ""}
         checkedInSpotIds={checkedInSpotIds}
         filterType={filterType}
         onResetFilter={() => setFilterType("ALL")}
@@ -413,8 +419,9 @@ export default function LokawiraExplorerPage() {
 
       {/* 2 - TOP FLOATING GAMIFICATION HUD & FILTER CHIPS */}
       <VibeSwitcherBar
-        activeVibe={activeVibe}
-        onChangeVibe={setActiveVibe}
+        regions={regions.filter((r) => r.status === "ACTIVE")}
+        activeRegionId={activeRegionId}
+        onChangeRegion={setActiveRegionId}
         lokaPoints={lokaPoints}
         onOpenAccount={() => setIsAccountOpen(true)}
         filterType={filterType}

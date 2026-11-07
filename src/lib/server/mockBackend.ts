@@ -236,10 +236,16 @@ export function ownerInactive(spot: { ownerId?: string }): boolean {
 
 // titik yg boleh dilihat user ini: publik cuma yg terbit, pemilik & pengelola lihat yg menunggu/ditolak, arsip gak pernah
 export function visibleSpots(user: AuthUser | null) {
-  return getLokawiraStore().spots.filter((s) => {
+  const store = getLokawiraStore();
+  return store.spots.filter((s) => {
     if (s.status === "ARCHIVED") return false;
     const privileged = user?.role === "ADMIN" || (!!user && s.ownerId === user.id);
     if (ownerInactive(s) && !privileged) return false;
+    // publik cuma liat titik di kawasan AKTIF (titik di luar kawasan / kawasan draf disembunyiin)
+    if (!privileged) {
+      const r = s.regionId ? store.regions.find((x) => x.id === s.regionId) : null;
+      if (!r || r.status !== "ACTIVE") return false;
+    }
     // acara yg udah selesai ilang dr peta publik (pengelola & pemilik tetep liat buat arsip)
     if (s.event && !privileged && openState(s).status === "ENDED") return false;
     if (!s.status || s.status === "PUBLISHED") return true;

@@ -6,7 +6,7 @@ import EditSpotSheet from "@/components/merchant/EditSpotSheet";
 import ScanObjectEditor, { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import AdminSpotForm from "@/components/admin/AdminSpotForm";
 import { formatCoord } from "@/lib/geo";
-import { REGIONS } from "@/lib/regions";
+import { useLokawira } from "@/components/layout/LokawiraProvider";
 import type { CulturalSpot, CulturalVibe, SpotType } from "@/types/lokawira";
 
 const SELECT = "min-h-[44px] px-3 rounded-xl bg-obsidian border border-stoneStrong text-xs font-bold text-alabaster";
@@ -35,6 +35,7 @@ interface Props {
 export default function AdminSpotsPanel({ spots, setSpots, defaultRegion, onToast, onReload }: Props) {
   const [q, setQ] = useState("");
   const [region, setRegion] = useState("");
+  const { regions } = useLokawira();
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export default function AdminSpotsPanel({ spots, setSpots, defaultRegion, onToas
     return spots.filter(
       (s) =>
         (!needle || s.name.toLowerCase().includes(needle) || s.address.toLowerCase().includes(needle)) &&
-        (!region || s.vibe === region) &&
+        (!region || (region === "__none" ? !s.regionId : s.regionId === region)) &&
         (!type || s.spotType === type) &&
         (!status || (s.status ?? "PUBLISHED") === status)
     );
@@ -71,7 +72,8 @@ export default function AdminSpotsPanel({ spots, setSpots, defaultRegion, onToas
             <label className="sr-only" htmlFor="asp-region">Kawasan</label>
             <select id="asp-region" value={region} onChange={(e) => setRegion(e.target.value)} className={SELECT}>
               <option value="">Semua kawasan</option>
-              {REGIONS.map((r) => <option key={r.id} value={r.id}>{r.shortName}</option>)}
+              {regions.map((r) => <option key={r.id} value={r.id}>{r.name}{r.status === "DRAFT" ? " (draf)" : ""}</option>)}
+              <option value="__none">Di luar kawasan</option>
             </select>
             <label className="sr-only" htmlFor="asp-type">Jenis</label>
             <select id="asp-type" value={type} onChange={(e) => setType(e.target.value)} className={SELECT}>

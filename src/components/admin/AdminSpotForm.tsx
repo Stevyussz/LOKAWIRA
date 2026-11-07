@@ -8,7 +8,8 @@ import StagedPhotos, { Staged } from "@/components/merchant/StagedPhotos";
 import { MAX_REFERENCE_PHOTOS } from "@/components/merchant/ReferencePhotos";
 import { api, describeError } from "@/lib/api";
 import type { LatLng } from "@/lib/geo";
-import { REGIONS } from "@/lib/regions";
+import { matchRegion } from "@/lib/regionMatch";
+import { useLokawira } from "@/components/layout/LokawiraProvider";
 import type { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/lokawira";
 import ScheduleFields, { scheduleErrors, scheduleFrom, schedulePayload, type ScheduleValue } from "@/components/merchant/ScheduleFields";
 
@@ -43,7 +44,9 @@ interface Props {
 export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast }: Props) {
   const [name, setName] = useState("");
   const [type, setType] = useState<SpotType>("PRIMARY_DEST");
-  const [region, setRegion] = useState<CulturalVibe>(defaultRegion);
+  // kawasan cuma buat mindahin peta; kawasan titik final ditentukan dr lokasi pin
+  const { regions } = useLokawira();
+  const [region, setRegion] = useState<string>(() => regions.find((r) => r.theme === defaultRegion)?.id ?? regions[0]?.id ?? "");
   const [opk, setOpk] = useState<OpkCategory>("Cagar Budaya");
   const [address, setAddress] = useState("");
   const [source, setSource] = useState("");
@@ -60,13 +63,15 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
   const [pin, setPin] = useState<LatLng | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const regionSpots = useMemo(() => spots.filter((x) => x.vibe === region), [spots, region]);
+  const regionSpots = useMemo(() => spots.filter((x) => x.regionId === region), [spots, region]);
+  const detected = pin ? matchRegion(pin, regions) : null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (name.trim().length < 3) errs.name = "Nama minimal 3 huruf.";
     if (!pin) errs.pin = "Taruh pin lokasi di peta. Cari alamat, pakai lokasimu, atau ketuk peta.";
+    else if (!matchRegion(pin, regions)) errs.pin = "Lokasi ini di luar semua kawasan. Buat atau perluas kawasan dulu di tab Kawasan.";
     if (address.trim().length < 5) errs.address = "Isi alamat atau patokan.";
     if (source.trim().length < 5) errs.source = "Sumber rujukan wajib diisi supaya cerita Loka bisa dipertanggungjawabkan.";
     if (story.trim().length < 20) errs.story = "Narasi minimal 20 huruf.";
@@ -80,13 +85,12 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
     setErrors(errs);
     if (Object.keys(errs).length > 0 || !pin) return;
 
-    const r = REGIONS.find((x) => x.id === region)!;
     const nm = name.trim();
     const draft: CulturalSpot = {
       id: "draft",
       name: nm,
-      regionName: `${r.shortName}, ${r.regionLabel}`,
-      vibe: region,
+      regionName: detected ? `${detected.name}, ${detected.label}` : "",
+      vibe: detected?.theme ?? defaultRegion,
       spotType: type,
       opkCategory: opk,
       coordinates: pin,
@@ -155,9 +159,9 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
           </select>
         </div>
         <div>
-          <label htmlFor="ns-region" className={LABEL}>Kawasan budaya</label>
-          <select id="ns-region" value={region} onChange={(e) => { setRegion(e.target.value as CulturalVibe); setPin(null); }} className={FIELD}>
-            {REGIONS.map((r) => <option key={r.id} value={r.id}>{r.shortName} · {r.regionLabel}</option>)}
+          <label htmlFor="ns-region" className={LABEL}>Tampilkan peta kawasan</label>
+          <select id="ns-region" value={region} onChange={(e) => { setRegion(e.target.value); setPin(null); }} className={FIELD}>
+            {regions.map((r) => <option key={r.id} value={r.id}>{r.name} · {r.label}{r.status === "DRAFT" ? " (draf)" : ""}</option>)}
           </select>
         </div>
         <div className="sm:col-span-2">
@@ -173,6 +177,11 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
       <div>
         <LocationPicker spots={regionSpots} value={pin} onChange={(c) => { setPin(c); setErrors((x) => ({ ...x, pin: "" })); }} label="Lokasi titik" />
         <Err msg={errors.pin} />
+        {pin && detected && (
+          <p role="status" className="mt-2 text-xs text-alabaster rounded-xl bg-slateElev p-3">
+            Titik ini masuk kawasan <b>{detected.name}</b> ({detected.label}){detected.status === "DRAFT" ? ", masih draf: titik tampil setelah kawasan diaktifkan" : ""}.
+          </p>
+        )}
       </div>
       <div>
         <label htmlFor="ns-address" className={LABEL}>Alamat atau patokan</label>

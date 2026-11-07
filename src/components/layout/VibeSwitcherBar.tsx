@@ -4,13 +4,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { useVibeHex, VIBE_HEX } from "@/lib/vibeColors";
 import { SPOT_FILTER_OPTIONS, SpotFilter } from "@/lib/spotFilter";
-import { REGIONS } from "@/lib/regions";
 import Icon from "@/components/ui/Icon";
-import { CulturalVibe, SurfaceTheme } from "@/types/lokawira";
+import { Region, SurfaceTheme } from "@/types/lokawira";
 
 interface VibeSwitcherBarProps {
-  activeVibe: CulturalVibe;
-  onChangeVibe: (vibe: CulturalVibe) => void;
+  // daftar kawasan dr server (bkn kode lagi)
+  regions: Region[];
+  activeRegionId: string;
+  onChangeRegion: (regionId: string) => void;
   lokaPoints: number;
   filterType?: SpotFilter;
   onChangeFilter?: (filter: SpotFilter) => void;
@@ -24,11 +25,10 @@ interface VibeSwitcherBarProps {
   onOpenAccount?: () => void;
 }
 
-const VIBE_OPTIONS = REGIONS;
-
 export default function VibeSwitcherBar({
-  activeVibe,
-  onChangeVibe,
+  regions,
+  activeRegionId,
+  onChangeRegion,
   lokaPoints,
   filterType,
   onChangeFilter,
@@ -77,8 +77,8 @@ export default function VibeSwitcherBar({
     }
   }, [filterType]);
 
-  const currentVibe =
-    VIBE_OPTIONS.find((v) => v.id === activeVibe) || VIBE_OPTIONS[0];
+  const VIBE_OPTIONS = regions.map((r) => ({ id: r.id, shortName: r.name, regionLabel: r.label, theme: r.theme }));
+  const currentVibe = VIBE_OPTIONS.find((v) => v.id === activeRegionId) || VIBE_OPTIONS[0] || { id: "", shortName: "Memuat kawasan", regionLabel: "", theme: "majapahit" as const };
 
   const playerLevel = Math.floor(lokaPoints / 150) + 1;
   const currentLevelXp = lokaPoints % 150;
@@ -136,7 +136,7 @@ export default function VibeSwitcherBar({
           >
             <span
               className="w-3 h-3 rounded-full shrink-0"
-              style={{ backgroundColor: VIBE_HEX[currentVibe.id].primary }}
+              style={{ backgroundColor: VIBE_HEX[currentVibe.theme].primary }}
             />
             <span className="min-w-0 flex-1 text-left leading-tight">
               <span className="sr-only">Pilih kawasan: </span>
@@ -167,13 +167,13 @@ export default function VibeSwitcherBar({
               className="absolute right-0 mt-2 w-[min(18rem,calc(100vw-1.5rem))] gamiz-card p-2 space-y-1 z-40"
             >
               {VIBE_OPTIONS.map((v) => {
-                const isSelected = v.id === activeVibe;
+                const isSelected = v.id === activeRegionId;
                 return (
                   <button
                     key={v.id}
                     type="button"
                     onClick={() => {
-                      onChangeVibe(v.id);
+                      onChangeRegion(v.id);
                       setRegionMenuOpen(false);
                     }}
                     className={`w-full min-h-[48px] px-3 py-2 rounded-xl flex items-center justify-between text-left transition-colors ${
@@ -185,7 +185,7 @@ export default function VibeSwitcherBar({
                     <div className="flex items-center gap-3">
                       <span
                         className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: VIBE_HEX[v.id].primary }}
+                        style={{ backgroundColor: VIBE_HEX[v.theme].primary }}
                       />
                       <div>
                         <span className="text-sm font-extrabold block">{v.shortName}</span>
