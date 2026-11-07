@@ -5,6 +5,9 @@ import { CulturalSpot } from "@/types/lokawira";
 // Peta gak bisa digeser ke negara lain, jadi ubin luar negeri gak pernah diunduh
 export const INDONESIA_BOUNDS: [[number, number], [number, number]] = [[90.5, -14.5], [145.5, 9.5]];
 
+export const inIndonesia = (c: LatLng) =>
+  c.lng >= INDONESIA_BOUNDS[0][0] && c.lng <= INDONESIA_BOUNDS[1][0] && c.lat >= INDONESIA_BOUNDS[0][1] && c.lat <= INDONESIA_BOUNDS[1][1];
+
 export const CANVAS_W = 2400;
 export const CANVAS_H = 1600;
 export const ORIGIN_ON_CANVAS = { x: 1180, y: 740 };

@@ -1,5 +1,6 @@
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
+import { inIndonesia } from "@/lib/geo";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 import { currentUser, jsonError, merchantBlocked, profileOf, requireRole, visibleSpots } from "@/lib/server/mockBackend";
@@ -54,6 +55,8 @@ export async function POST(request: NextRequest) {
   if (!input || !String(input.name ?? "").trim() || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return jsonError(400, "Nama dan lokasi pin wajib diisi.");
   }
+  // peta dikunci ke Indonesia: pin di luar itu gak bakal keliatan
+  if (!inIndonesia({ lat, lng })) return jsonError(400, "Lokasi pin harus berada di wilayah Indonesia.", "OUT_OF_INDONESIA");
   const blocked = merchantBlocked(auth.user);
   if (blocked) return blocked;
   const vr = input.quest?.voucherReward;

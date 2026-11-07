@@ -2,17 +2,20 @@ export type CulturalVibe = "majapahit" | "sogan" | "bahari" | "tridatu" | "ukira
 
 export type SurfaceTheme = "andesite" | "daylight";
 
+// 10 Objek Pemajuan Kebudayaan (UU 5/2017 Pasal 5), plus Cagar Budaya (UU 11/2010, bkn OPK)
+// buat titik yg wujudnya situs/bangunan cagar budaya
 export type OpkCategory =
   | "Tradisi Lisan"
+  | "Manuskrip"
+  | "Adat Istiadat"
+  | "Ritus"
   | "Pengetahuan Tradisional"
-  | "Teknologi Tradisional & Kriya"
-  | "Seni Pertunjukan"
-  | "Adat Istiadat & Ritus" 
-  | "Cagar Budaya"
-  | "Manuskrif"
+  | "Teknologi Tradisional"
+  | "Seni"
+  | "Bahasa"
   | "Permainan Rakyat"
   | "Olahraga Tradisional"
-  | "Bahasa";
+  | "Cagar Budaya";
 
 export type SpotType = "PRIMARY_DEST" | "SANGGAR_SENI" | "UMKM_KULINER" | "UMKM_KRIYA";
 

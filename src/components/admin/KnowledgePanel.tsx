@@ -8,7 +8,8 @@ import type { OpkCategory } from "@/types/lokawira";
 
 const FIELD = "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted";
 const LABEL = "block text-xs font-bold text-pebble mb-1.5";
-const OPK: OpkCategory[] = ["Tradisi Lisan", "Pengetahuan Tradisional", "Teknologi Tradisional & Kriya", "Seni Pertunjukan", "Adat Istiadat & Ritus", "Cagar Budaya"];
+// urutan resmi UU 5/2017, Cagar Budaya (UU 11/2010) paling akhir
+const OPK: OpkCategory[] = ["Tradisi Lisan", "Manuskrip", "Adat Istiadat", "Ritus", "Pengetahuan Tradisional", "Teknologi Tradisional", "Seni", "Bahasa", "Permainan Rakyat", "Olahraga Tradisional", "Cagar Budaya"];
 
 interface Props {
   onToast: (text: string, isError?: boolean) => void;
@@ -106,7 +107,7 @@ export default function KnowledgePanel({ onToast }: Props) {
           <select id="kp-opk" value={opk} onChange={(e) => setOpk(e.target.value as OpkCategory)} className={FIELD}>
             {OPK.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
-          <p className="mt-1.5 text-[11px] text-pebble">OPK = Objek Pemajuan Kebudayaan (UU No. 5 Tahun 2017).</p>
+          <p className="mt-1.5 text-[11px] text-pebble">OPK = Objek Pemajuan Kebudayaan (UU No. 5 Tahun 2017). Cagar Budaya diatur terpisah di UU No. 11 Tahun 2010.</p>
         </div>
         <div>
           <label htmlFor="kp-source" className={LABEL}>Sumber atau narasumber</label>

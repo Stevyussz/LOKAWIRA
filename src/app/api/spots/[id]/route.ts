@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { inIndonesia } from "@/lib/geo";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { jsonError, merchantBlocked, mockDisabled, ownsSpot, requireRole, visibleSpots } from "@/lib/server/mockBackend";
 import type { UpdateSpotRequest } from "@/types/api";
@@ -47,6 +48,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     const lat = Number(body.coordinates.lat);
     const lng = Number(body.coordinates.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError(400, "Koordinat tidak valid.");
+    if (!inIndonesia({ lat, lng })) return jsonError(400, "Lokasi pin harus berada di wilayah Indonesia.", "OUT_OF_INDONESIA");
     target.coordinates = { lat, lng };
   }
   if (body.quota?.maxCapacity !== undefined) {

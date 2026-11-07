@@ -35,11 +35,14 @@ export default function StoryTellerDock({
   const [customQuery, setCustomQuery] = useState<string>("");
   const [showAskInput, setShowAskInput] = useState<boolean>(false);
   const [askError, setAskError] = useState<string | null>(null);
+  // sumber yg dipakai jawaban terakhir; kosong = sumber bawaan titik
+  const [refs, setRefs] = useState<string[]>([]);
 
   useEffect(() => {
     if (!selectedSpot) return;
     setNarrative(selectedSpot.quest.loreNarrative);
     setRiddleText(selectedSpot.quest.riddleClue);
+    setRefs([]);
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
@@ -105,6 +108,7 @@ export default function StoryTellerDock({
       });
       setNarrative(data.story);
       setRiddleText(data.riddle);
+      setRefs(data.references ?? []);
       setCustomQuery("");
       setShowAskInput(false);
     } catch (err) {
@@ -215,7 +219,9 @@ export default function StoryTellerDock({
 
               <p className="mt-2 pt-2 border-t border-stoneSubtle text-[11px] text-pebble flex items-center gap-1.5">
                 <Icon name="story" size={16} className="text-vibePrimary" motion="pop" />
-                <span className="truncate">{selectedSpot.quest.verifiedLoreSource}</span>
+                <span className={refs.length > 1 ? "" : "truncate"}>
+                  {refs.length > 1 ? `Rujukan: ${refs.join("; ")}` : selectedSpot.quest.verifiedLoreSource}
+                </span>
               </p>
             </div>
 

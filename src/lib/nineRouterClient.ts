@@ -7,16 +7,22 @@ export async function generateCulturalStoryAndValidation(params: {
   verifiedLoreSource: string;
   riddleClue?: string;
   loreNarrative?: string;
+  // rujukan terkurasi [R0], [R1].. : satu2nya bahan fakta yg boleh dipakai model
+  context?: string;
   userQueryOrImageBase64?: string;
   mode: "STORYTELLER" | "LENS_SCAN";
 }) {
   const systemPrompt = `Anda adalah LOKAWIRA Cultural AI Guardian.
 Tugas Anda adalah menyampaikan kisah Tradisi Lisan dan memvalidasi objek budaya Indonesia secara akurat.
 ATURAN MUTLAK BEBAS HALUSINASI:
-1. Hanya gunakan fakta budaya dari rujukan terverifikasi berikut: ${params.verifiedLoreSource}.
-2. Kategori Objek Pemajuan Kebudayaan (UU No. 5/2017): ${params.opkCategory}.
-3. Gunakan gaya bahasa yang memikat untuk generasi muda (Gen Z) namun tetap menghormati pakem adat.
-4. Kembalikan respons dalam format JSON murni sesuai skema.`;
+1. Fakta budaya HANYA boleh diambil dari RUJUKAN di bawah. Jangan menambah nama, tahun, angka, tokoh, atau peristiwa yang tidak tertulis di rujukan.
+2. Jika pertanyaan wisatawan tidak terjawab oleh rujukan, katakan terus terang bahwa rujukannya belum tersedia, lalu ceritakan yang ada di rujukan.
+3. Kategori budaya: ${params.opkCategory}. Sumber utama: ${params.verifiedLoreSource}.
+4. Gaya bahasa memikat untuk generasi muda, tetap menghormati pakem adat. Bahasa Indonesia, maksimal 90 kata untuk story.
+5. Kembalikan JSON murni: {"story": string, "riddle": string}. riddle = teka-teki singkat menuju titik misi berikutnya.
+
+RUJUKAN:
+${params.context || `[R0] ${params.loreNarrative || params.verifiedLoreSource}`}`;
 
   if (!NINE_ROUTER_API_KEY) {
     return {
@@ -52,6 +58,8 @@ ATURAN MUTLAK BEBAS HALUSINASI:
             content:
               params.mode === "LENS_SCAN"
                 ? `Verifikasi pemindaian objek budaya di ${params.spotName} dan berikan narasi singkat beserta pengesahan voucer UMKM.`
+                : params.userQueryOrImageBase64
+                ? `Wisatawan di ${params.spotName} bertanya: "${params.userQueryOrImageBase64}". Jawab hanya berdasarkan RUJUKAN, lalu beri teka-teki singkat.`
                 : `Sambut wisatawan di ${params.spotName} dengan penggalan kisah tradisi lisan dan berikan teka-teki singkat menuju titik UMKM/Sanggar terdekat.`,
           },
         ],

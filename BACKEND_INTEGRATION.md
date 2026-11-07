@@ -531,3 +531,16 @@ S. PWA dan tingkat animasi
 - animasi sekarang 3 tingkat (src/lib/motionPref.ts): full, lite (HP RAM sekitar 3 GB ke bawah, prosesor 2 inti, hemat data, jaringan 2g, atau layar tersendat di bawah ~30 fps), dan reduce (pengaturan "kurangi animasi" di HP). Pengguna bisa milih sendiri di Akun: Otomatis, Penuh, atau Hemat. Ini murni frontend, gak ada endpoint
 - peta sekarang dikunci ke wilayah Indonesia (bujur 90,5 sampai 145,5, lintang -14,5 sampai 9,5), gak bisa digeser ke luar. Konsekuensinya: titik di luar kotak itu gak akan keliatan di peta. Saran: POST /api/spots dan PATCH /api/spots/{id} nolak coordinates di luar kotak itu (400) biar mitra gak salah naruh pin
 - saat peta diperkecil, pin otomatis mengecil dan yg bertumpuk digabung jadi lingkaran berangka. Ini dihitung di HP, gak butuh endpoint baru
+
+T. OPK, cerita Loka, batas Indonesia, panduan uji
+
+- opkCategory sekarang ngikut UU 5/2017 persis (10 OPK) plus Cagar Budaya (UU 11/2010, bkn OPK tapi dipake buat titik situs): Tradisi Lisan, Manuskrip, Adat Istiadat, Ritus, Pengetahuan Tradisional, Teknologi Tradisional, Seni, Bahasa, Permainan Rakyat, Olahraga Tradisional, Cagar Budaya. Nilai lama ("Teknologi Tradisional & Kriya", "Seni Pertunjukan", "Adat Istiadat & Ritus", "Manuskrif") udah GAK dipake, tolong enum di backend disamain
+- POST /api/ai/storyteller: server sekarang milih maks 3 rujukan Pengetahuan Loka (aiTrainingNotes) yg paling nyambung sama titik dan pertanyaan (cocokin kata + OPK sama), terus dikirim ke model sbg RUJUKAN bersama narasi titik. Model dilarang nambah fakta di luar rujukan. Respons nambah field references (array nama sumber yg dipake), UI nampilin "Rujukan: a; b". Dulu prompt cuma ngirim nama sumber tanpa isi narasinya dan pertanyaan pengunjung gak ikut kekirim, jadi model gampang ngarang. Logika pemilihnya di src/lib/server/loreContext.ts, tiru di backend
+- POST /api/spots dan PATCH /api/spots/{id}: koordinat di luar Indonesia ditolak 400 code OUT_OF_INDONESIA (server contoh udah)
+- halaman /panduan-uji buat Tim Kurasi: langkah nyoba tiap peran. Sandi akun uji SENGAJA gak ditulis di situ, cuma di lampiran proposal
+
+U. Rencana (BELUM dikerjain, buat diobrolin)
+
+- admin pertama: register gak boleh bikin ADMIN, jadi admin pertama dibikin lewat seed. Usul: env ADMIN_BOOTSTRAP_EMAIL + ADMIN_BOOTSTRAP_PASSWORD, pas server start kalo belum ada ADMIN sama sekali bikin satu dari env itu, terus wajib ganti sandi pas login pertama. Admin berikutnya dibikin admin yg udah ada (endpoint khusus admin), bkn lewat daftar
+- pengelola per kawasan: ADMIN dikasih daftar kawasan (regionIds). Kosong = admin pusat (semua kawasan). Semua endpoint admin nyaring data sesuai kawasannya, dicek di server
+- kasir terpisah: mitra bisa nambah akun kasir (peran CASHIER) yg cuma bisa buka Kasir lapak itu, gak bisa ubah lapak/promo

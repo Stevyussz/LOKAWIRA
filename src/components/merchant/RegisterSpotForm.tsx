@@ -15,9 +15,9 @@ import type { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/
 type LapakType = Exclude<SpotType, "PRIMARY_DEST">;
 const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 const OPK_BY_TYPE: Record<LapakType, OpkCategory> = {
-  SANGGAR_SENI: "Seni Pertunjukan",
+  SANGGAR_SENI: "Seni",
   UMKM_KULINER: "Pengetahuan Tradisional",
-  UMKM_KRIYA: "Teknologi Tradisional & Kriya",
+  UMKM_KRIYA: "Teknologi Tradisional",
 };
 const FACILITY_OPTIONS = ["Pembayaran QRIS", "Parkir", "Ramah kursi roda", "Tempat duduk", "Toilet"];
 const input = "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted";

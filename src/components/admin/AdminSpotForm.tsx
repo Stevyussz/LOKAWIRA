@@ -13,7 +13,7 @@ import type { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/
 
 const FIELD = "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted";
 const LABEL = "block text-xs font-bold text-pebble mb-1.5";
-const OPK_OPTIONS: OpkCategory[] = ["Cagar Budaya", "Tradisi Lisan", "Pengetahuan Tradisional", "Teknologi Tradisional & Kriya", "Seni Pertunjukan", "Adat Istiadat & Ritus"];
+const OPK_OPTIONS: OpkCategory[] = ["Cagar Budaya", "Tradisi Lisan", "Manuskrip", "Adat Istiadat", "Ritus", "Pengetahuan Tradisional", "Teknologi Tradisional", "Seni", "Bahasa", "Permainan Rakyat", "Olahraga Tradisional"];
 const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 
 function Err({ msg }: { msg?: string }) {

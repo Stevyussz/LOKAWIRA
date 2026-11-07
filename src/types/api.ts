@@ -106,6 +106,8 @@ export interface StorytellerResponse {
   spotName: string;
   opkCategory: string;
   verifiedSource: string;
+  // semua sumber yg dipakai Loka buat jawaban ini (narasi titik + rujukan Pengetahuan Loka)
+  references?: string[];
   riddleTitle: string;
   isVerified: boolean;
   sourceMode: string;
