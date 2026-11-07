@@ -10,6 +10,9 @@ import {
   LensVerificationResult,
   ReservationPass,
   ReferenceImage,
+  SpotEntry,
+  OpeningHours,
+  SpotEvent,
 } from "@/types/lokawira";
 
 // Kontrak antr frontend & backend - Satu-satunya tempat beentuk request/response didefinisikan
@@ -231,7 +234,11 @@ export interface UpdateSpotRequest {
     verifiedLoreSource?: string;
     rewardPoints?: number;
   };
+  // mitra & admin. null = hapus
+  entry?: SpotEntry | null;
+  openingHours?: OpeningHours | null;
   // field di bawah ini cuma diterima dari ADMIN
+  event?: SpotEvent | null;
   spotType?: SpotType;
   opkCategory?: OpkCategory;
   vibe?: CulturalVibe;

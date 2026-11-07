@@ -7,6 +7,7 @@ import { useAuth } from "@/components/layout/AuthProvider";
 import { motion } from "motion/react";
 import Sheet from "@/components/ui/Sheet";
 import { CulturalSpot, IssuedVoucher, ReservationPass } from "@/types/lokawira";
+import { entryOf } from "@/lib/spotRules";
 
 interface SmartQuotaModalProps {
   isOpen: boolean;
@@ -194,6 +195,17 @@ export default function SmartQuotaModal({
         {/* Booking Form or Ticket Reveal */}
         {!createdPass ? (
           <form onSubmit={handleSubmit} className="space-y-4 bg-obsidian p-4 rounded-2xl">
+            {/* cara masuk: tiket berbayar dibayar di tempat, slot gratis cukup dipesan */}
+            {(() => {
+              const en = entryOf(spot);
+              return (
+                <p className="text-xs text-alabaster leading-relaxed">
+                  {en.mode === "TICKET"
+                    ? `Tiket masuk ${en.priceIdr ? `Rp${en.priceIdr.toLocaleString("id-ID")} per orang` : "gratis"}. ${en.note || "Bayar di loket saat masuk."} Pesan jam masuk di sini supaya tidak antre.`
+                    : "Masuk gratis, tapi tempatnya terbatas. Pesan jam masuk di sini."}
+                </p>
+              );
+            })()}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
                 <label

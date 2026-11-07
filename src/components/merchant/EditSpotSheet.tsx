@@ -7,6 +7,7 @@ import LocationPicker from "@/components/map/LocationPicker";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import type { LatLng } from "@/lib/geo";
 import type { CulturalSpot } from "@/types/lokawira";
+import ScheduleFields, { scheduleErrors, scheduleFrom, schedulePayload, type ScheduleValue } from "@/components/merchant/ScheduleFields";
 
 const FACILITY_OPTIONS = ["Pembayaran QRIS", "Parkir", "Ramah kursi roda", "Tempat duduk", "Toilet"];
 const input =
@@ -30,6 +31,7 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
   const [story, setStory] = useState("");
   const [facilities, setFacilities] = useState<string[]>([]);
   const [capacity, setCapacity] = useState(30);
+  const [sched, setSched] = useState<ScheduleValue>(() => scheduleFrom(null));
   const [pin, setPin] = useState<LatLng | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<"save" | "archive" | null>(null);
@@ -45,6 +47,7 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
     setFacilities(spot.facilities);
     setCapacity(spot.quota.maxCapacity);
     setPin(spot.coordinates);
+    setSched(scheduleFrom(spot));
     setErrors({});
     setMsg(null);
     setConfirming(false);
@@ -68,7 +71,9 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
     if (address.trim().length < 5) errs.address = "Isi alamat atau patokan.";
     if (clue.trim().length < 10) errs.clue = "Petunjuk misi minimal 10 karakter.";
     if (!pin) errs.pin = "Taruh pin lokasi di peta.";
-    if (!Number.isFinite(capacity) || capacity < 1 || capacity > 500) errs.capacity = "Kapasitas 1 sampai 500 orang.";
+    const capMax = isAdmin ? 5000 : 500;
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > capMax) errs.capacity = `Kapasitas 1 sampai ${capMax.toLocaleString("id-ID")} orang.`;
+    Object.assign(errs, scheduleErrors(sched, isAdmin));
     setErrors(errs);
     setMsg(null);
     if (Object.keys(errs).length > 0 || !pin) return;
@@ -82,6 +87,8 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
         coordinates: pin,
         quota: { maxCapacity: capacity },
         quest: { riddleClue: clue.trim(), loreNarrative: story.trim() },
+        // jadwal acara cuma dikirim pengelola
+        ...schedulePayload(sched, isAdmin),
       });
       onSpots(res.spots);
       onClose();
@@ -179,8 +186,13 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
         </fieldset>
         <div>
           <label htmlFor="edit-cap" className={labelCls}>Kapasitas sekaligus</label>
-          <input id="edit-cap" type="number" inputMode="numeric" min={1} max={500} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} aria-invalid={!!errors.capacity} aria-describedby={errors.capacity ? "edit-err-cap" : undefined} className={`${input} font-num`} />
+          <input id="edit-cap" type="number" inputMode="numeric" min={1} max={isAdmin ? 5000 : 500} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} aria-invalid={!!errors.capacity} aria-describedby={errors.capacity ? "edit-err-cap" : undefined} className={`${input} font-num`} />
           {errors.capacity && <p id="edit-err-cap" role="alert" className="mt-1 text-xs font-bold text-quotaFull">{errors.capacity}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-extrabold text-alabaster">Cara masuk dan jadwal</p>
+          <ScheduleFields id="edit-sched" value={sched} onChange={setSched} errors={errors} allowEvent={isAdmin} />
         </div>
 
         {!isAdmin && (name.trim() !== spot.name || (pin && (pin.lat !== spot.coordinates.lat || pin.lng !== spot.coordinates.lng))) && (

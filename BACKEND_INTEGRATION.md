@@ -560,3 +560,20 @@ V. Celah ekonomi yg ditutup (WAJIB ditiru backend asli)
 - checkins, lens-verify, reservations: spotId harus titik yg KELIATAN buat user itu (bkn PENDING_REVIEW/ARCHIVED/mitra nonaktif). Id salah = 404, dulu diem2 pake titik pertama
 - reservations: partySize harus bilangan bulat 1 sampai 20 (400 kalo bukan), scheduledSlot maks 40 karakter, createdAt ISO
 - server contoh nyatet jejak hadiah di rewardLog (userId, spotId, kind SCAN/RESERVATION/REDIRECT, day). Backend asli sebaiknya pake tabel dgn unique index (userId, spotId, kind, day) biar aman dari request barengan
+
+W. Cara masuk, jam buka, acara (field baru di CulturalSpot)
+
+- entry (opsional): { mode, priceIdr?, note? }. mode: FREE (bebas masuk, tanpa tiket: warung, acara publik), RESERVATION (gratis tapi pesan slot krn tempat terbatas), TICKET (berbayar, priceIdr 0 sampai 10000000, note maks 140 karakter mis "Bayar di loket"). Kosong = data lama: PRIMARY_DEST dianggap RESERVATION, sisanya FREE
+- openingHours (opsional): { days: [0..6] (0 = Minggu, kosong = tiap hari), open "HH:MM", close "HH:MM" } waktu setempat. close <= open = buka lewat tengah malam. Kosong = buka setiap saat
+- event (opsional, cuma ADMIN): { startsAt, endsAt } ISO, maks 31 hari, endsAt harus setelah startsAt. Acara yg udah selesai GAK dikirim di GET /api/spots publik (pemilik & admin tetep dapet)
+- timeZone (opsional): Asia/Jakarta, Asia/Makassar, atau Asia/Jayapura. Kosong = ditebak dr bujur (< 114,6 WIB, < 126 WITA, sisanya WIT). Logikanya di src/lib/spotRules.ts (openState), tiru persis
+- aturan:
+  - POST /api/reservations ke titik FREE: 400 code NO_BOOKING_NEEDED. UI gak nampilin tombol Tiket di titik FREE (gantinya tombol Info: jam buka, alamat, fasilitas)
+  - POST /api/checkins dan POST /api/ai/lens-verify di luar jam buka atau di luar jadwal acara: 409 code CLOSED_NOW, error-nya udah berisi kapan buka lagi
+  - POST /api/spots & PATCH /api/spots/{id} nerima entry & openingHours (mitra & admin) dan event (admin). PATCH: kirim null buat ngapus
+- perbaikan lain di POST/PATCH spots (WAJIB ditiru):
+  - PATCH sekarang ATOMIK: semua field divalidasi di salinan dulu. Dulu kalo field ke-3 gagal validasi, field 1 dan 2 udah keburu kesimpen
+  - spotType, opkCategory, vibe dicek enum-nya (dulu string apa aja diterima)
+  - POST dari mitra: quest.rewardPoints DIABAIKAN (dipaksa 100, cuma admin yg boleh ngatur), quota.currentVisitors selalu mulai 0. Dulu mitra bisa ngirim XP misi sendiri
+  - kapasitas: mitra 1 sampai 500, admin 1 sampai 5000 (candi/festival). Dulu form admin ngebolehin 5000 tapi server/ubah nolak di atas 500
+- contoh di data awal: Wedang Pokak buka 07.00 sampai 23.00

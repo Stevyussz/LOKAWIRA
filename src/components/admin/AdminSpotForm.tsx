@@ -10,6 +10,7 @@ import { api, describeError } from "@/lib/api";
 import type { LatLng } from "@/lib/geo";
 import { REGIONS } from "@/lib/regions";
 import type { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/lokawira";
+import ScheduleFields, { scheduleErrors, scheduleFrom, schedulePayload, type ScheduleValue } from "@/components/merchant/ScheduleFields";
 
 const FIELD = "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted";
 const LABEL = "block text-xs font-bold text-pebble mb-1.5";
@@ -51,6 +52,7 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
   const [target, setTarget] = useState("");
   const [staged, setStaged] = useState<Staged[]>([]);
   const [capacity, setCapacity] = useState(150);
+  const [sched, setSched] = useState<ScheduleValue>(() => scheduleFrom(null, "PRIMARY_DEST"));
   const [xp, setXp] = useState(150);
   const [vTitle, setVTitle] = useState("Voucer kunjungan");
   const [discount, setDiscount] = useState(10000);
@@ -74,6 +76,7 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
     if (!Number.isFinite(xp) || xp < 0 || xp > 1000) errs.xp = "Hadiah XP 0 sampai 1.000.";
     if (vTitle.trim().length < 5) errs.vtitle = "Judul voucer minimal 5 huruf.";
     if (discount < 1000 || discount > 100000) errs.discount = `Potongan harus antara ${rupiah(1000)} dan ${rupiah(100000)}.`;
+    Object.assign(errs, scheduleErrors(sched, true));
     setErrors(errs);
     if (Object.keys(errs).length > 0 || !pin) return;
 
@@ -89,6 +92,10 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
       coordinates: pin,
       address: address.trim(),
       facilities: [],
+      ...(() => {
+        const sp = schedulePayload(sched, true);
+        return { entry: sp.entry, ...(sp.openingHours ? { openingHours: sp.openingHours } : {}), ...(sp.event ? { event: sp.event } : {}) };
+      })(),
       quota: { currentVisitors: 0, maxCapacity: capacity, estimatedWaitMinutes: 0, nextAvailableSlot: "Tersedia langsung" },
       quest: {
         riddleTitle: `Misi ${nm}`,
@@ -116,7 +123,7 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
       onToast(`Titik "${res.spot.name}" tersimpan dan tampil di peta wisatawan.${miss ? ` ${miss} foto belum terunggah, tambahkan lewat tombol Objek & foto di daftar titik.` : ""}`, miss > 0);
       staged.forEach((s) => URL.revokeObjectURL(s.url));
       setStaged([]);
-      setName(""); setAddress(""); setSource(""); setStory(""); setRiddle(""); setTarget(""); setPin(null); setErrors({});
+      setName(""); setAddress(""); setSource(""); setStory(""); setRiddle(""); setTarget(""); setPin(null); setErrors({}); setSched(scheduleFrom(null, "PRIMARY_DEST"));
     } catch (err) {
       onToast(describeError(err, "Titik gagal disimpan."), true);
     } finally {
@@ -199,6 +206,11 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
       <div className="space-y-2">
         <p className={LABEL}>Foto contoh objek (disarankan, maksimal {MAX_REFERENCE_PHOTOS})</p>
         <StagedPhotos idPrefix="ns" items={staged} onChange={setStaged} />
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-extrabold text-alabaster">Cara masuk dan jadwal</p>
+        <ScheduleFields id="ns-sched" value={sched} onChange={setSched} errors={errors} allowEvent />
       </div>
 
       <Head n="5" title="Kapasitas dan hadiah" />

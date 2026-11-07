@@ -19,6 +19,30 @@ export type OpkCategory =
 
 export type SpotType = "PRIMARY_DEST" | "SANGGAR_SENI" | "UMKM_KULINER" | "UMKM_KRIYA";
 
+// cara masuk titik: FREE = bebas masuk tanpa tiket (acara publik, warung), RESERVATION = gratis tapi pesan slot
+// (kapasitas terbatas), TICKET = berbayar (harga & cara beli). Kosong = data lama (cagar utama RESERVATION, lainnya FREE)
+export type EntryMode = "FREE" | "RESERVATION" | "TICKET";
+export interface SpotEntry {
+  mode: EntryMode;
+  // cuma utk TICKET, rupiah
+  priceIdr?: number;
+  // mis. "Bayar di loket" atau "Tiket di situs resmi", maks 140 karakter
+  note?: string;
+}
+
+// jam buka berulang. days: 0 = Minggu ... 6 = Sabtu (kosong = tiap hari). close <= open artinya lewat tengah malam
+export interface OpeningHours {
+  days: number[];
+  open: string; // "HH:MM" waktu setempat
+  close: string;
+}
+
+// acara sekali jalan (pentas, festival). Lewat endsAt = disembunyiin dr peta publik
+export interface SpotEvent {
+  startsAt: string; // ISO
+  endsAt: string; // ISO
+}
+
 export type UserRole = "VISITOR" | "MERCHANT" | "ADMIN";
 
 // status akun mitra: PENDING nunggu persetujuan admin (usulan, lihat BACKEND_INTEGRATION bagian 7)
@@ -59,6 +83,11 @@ export interface CulturalSpot {
   };
   address: string;
   facilities: string[];
+  entry?: SpotEntry;
+  openingHours?: OpeningHours;
+  event?: SpotEvent;
+  // zona waktu setempat; kosong = ditebak dr bujur (WIB/WITA/WIT)
+  timeZone?: "Asia/Jakarta" | "Asia/Makassar" | "Asia/Jayapura";
   // Sistem Kuota & Antrean
   quota: {
     currentVisitors: number;

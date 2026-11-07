@@ -4,6 +4,7 @@ import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { awardXp, claimOnce, currentUser, endOfWibDay, ownerInactive, profileOf, visibleSpots } from "@/lib/server/mockBackend";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
+import { needsBooking } from "@/lib/spotRules";
 import { IssuedVoucher, ReservationPass } from "@/types/lokawira";
 
 export async function POST(request: NextRequest) {
@@ -30,6 +31,10 @@ export async function POST(request: NextRequest) {
     // id salah = 404, bkn diem2 pake titik pertama; titik yg gak keliatan juga gak bisa dipesan
     const spot = visibleSpots(user).find((s) => s.id === spotId);
     if (!spot) return NextResponse.json({ error: "Titik lokasi tidak ditemukan.", code: "NOT_FOUND" }, { status: 404 });
+    // titik bebas masuk gak pake tiket sama sekali
+    if (!needsBooking(spot)) {
+      return NextResponse.json({ error: `${spot.name} bebas masuk, tidak perlu tiket.`, code: "NO_BOOKING_NEEDED" }, { status: 400 });
+    }
 
     // kode tiket harus unik (tabrakan bikin tiket orang lain ketuker): acak 6 digit, ulang kalo sudah ada
     let ticketCode = "";

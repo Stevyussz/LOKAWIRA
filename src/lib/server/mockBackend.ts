@@ -2,6 +2,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
+import { openState } from "@/lib/spotRules";
 import { AuthUser, MerchantStatus, UnlockedLoreCard, UserRole } from "@/types/lokawira";
 
 import { DEMO_MODE } from "@/lib/api";
@@ -239,6 +240,8 @@ export function visibleSpots(user: AuthUser | null) {
     if (s.status === "ARCHIVED") return false;
     const privileged = user?.role === "ADMIN" || (!!user && s.ownerId === user.id);
     if (ownerInactive(s) && !privileged) return false;
+    // acara yg udah selesai ilang dr peta publik (pengelola & pemilik tetep liat buat arsip)
+    if (s.event && !privileged && openState(s).status === "ENDED") return false;
     if (!s.status || s.status === "PUBLISHED") return true;
     return privileged;
   });

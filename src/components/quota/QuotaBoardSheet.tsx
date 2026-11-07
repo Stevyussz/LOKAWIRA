@@ -7,6 +7,7 @@ import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
 import { CulturalSpot } from "@/types/lokawira";
 import { anchorSpot } from "@/lib/geo";
+import { needsBooking } from "@/lib/spotRules";
 
 interface QuotaBoardSheetProps {
   isOpen: boolean;
@@ -109,7 +110,7 @@ export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShow
                   <strong className="font-num text-vibeSecondary">{rupiah(bestReward)}</strong>.
                 </p>
               )}
-              {redirect && (
+              {redirect && needsBooking(primary) && (
                 <button
                   type="button"
                   onClick={() => onBook(primary)}
@@ -204,7 +205,7 @@ export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShow
                         <Icon name="pin" size={16} />
                         <span>Lihat di peta</span>
                       </button>
-                      {isPrimary && level !== "SAFE" && (
+                      {isPrimary && level !== "SAFE" && needsBooking(spot) && (
                         <button
                           type="button"
                           onClick={() => onBook(spot)}

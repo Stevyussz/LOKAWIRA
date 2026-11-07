@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { awardXp, claimOnce, currentUser, mockDisabled, profileOf, visibleSpots } from "@/lib/server/mockBackend";
 import { geofenceCheck } from "@/lib/server/geofence";
+import { openState } from "@/lib/spotRules";
 import { NextRequest, NextResponse } from "next/server";
 import {
   CULTURAL_OBJECT_SAMPLES,
@@ -62,6 +63,11 @@ export async function POST(request: NextRequest) {
     // scan cuma sah kalo orangnya beneran di lokasi (geofence mati = dilewati)
     const outside = geofenceCheck(where, spot, "memindai objek");
     if (outside) return outside;
+    // tutup / acara belum mulai: objeknya gak bisa didatangi, hadiah gak sah
+    const os = openState(spot);
+    if (os.status === "CLOSED" || os.status === "UPCOMING" || os.status === "ENDED") {
+      return NextResponse.json({ error: `${spot.name} sedang tidak buka. ${os.label}.`, code: "CLOSED_NOW" }, { status: 409 });
+    }
 
     // hadiah (XP + voucer) cuma buat akun, sekali per titik per hari. Tamu tetep dapet kisahnya.
     // Tanpa batas ini, pindai ulang = voucer baru terus (dipanen)

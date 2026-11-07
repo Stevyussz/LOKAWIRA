@@ -5,6 +5,7 @@ import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { awardXp, currentUser, getMock, jsonError, visibleSpots, wibDay } from "@/lib/server/mockBackend";
 import { distanceMeters } from "@/lib/geo";
 import { GEOFENCE_ON, geofenceCheck } from "@/lib/server/geofence";
+import { openState } from "@/lib/spotRules";
 
 // kecepatan antar-titik yg mustahil (m/s, ~144 km/j) dalam 10 menit terakhir
 const MAX_SPEED_MS = 40;
@@ -26,6 +27,12 @@ export async function POST(request: NextRequest) {
 
   const outside = geofenceCheck(body, spot, "check-in");
   if (outside) return outside;
+  // tutup / acara belum mulai: bukti hadir & hadiah gak sah di luar jam
+  const os = openState(spot);
+  if (os.status === "CLOSED" || os.status === "UPCOMING" || os.status === "ENDED") {
+    return jsonError(409, `${spot.name} sedang tidak buka. ${os.label}.`, "CLOSED_NOW");
+  }
+
   // satu check-in per titik per hari per akun, SELALU (dulu cuma pas geofence nyala, jadi XP & kode KDR bisa dipanen)
   if (user) {
     const mine = getMock().checkIns.filter((c) => c.userId === user.id);

@@ -132,6 +132,8 @@ export const INITIAL_CULTURAL_SPOTS: CulturalSpot[] = [
     coordinates: { lat: -7.5674, lng: 112.3976 },
     address: "Gang Prasasti No. 4, seberang Kolam Segaran, Trowulan",
     facilities: ["Gazebo Bambu", "Pembayaran QRIS", "Dapur Terbuka"],
+    // contoh jam buka: di luar jam ini check-in & scan ditolak
+    openingHours: { days: [], open: "07:00", close: "23:00" },
     quota: {
       currentVisitors: 14,
       maxCapacity: 40,

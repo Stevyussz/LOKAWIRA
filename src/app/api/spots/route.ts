@@ -1,6 +1,8 @@
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { inIndonesia } from "@/lib/geo";
+import { parseEntry, parseEvent, parseHours } from "@/lib/spotRules";
+import { OPK_VALUES, SPOT_TYPES, VIBES } from "@/lib/enums";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 import { currentUser, jsonError, merchantBlocked, profileOf, requireRole, visibleSpots } from "@/lib/server/mockBackend";
@@ -68,6 +70,29 @@ export async function POST(request: NextRequest) {
   if (auth.user.role === "MERCHANT" && input.spotType === "PRIMARY_DEST") {
     return jsonError(403, "Hanya pengelola yang boleh menambah cagar budaya utama.", "FORBIDDEN");
   }
+  // enum dicek (dulu string apa aja diterima)
+  if (!SPOT_TYPES.includes(input.spotType)) return jsonError(400, "Jenis titik tidak valid.");
+  if (!OPK_VALUES.includes(input.opkCategory)) return jsonError(400, "Kategori OPK tidak valid.");
+  if (!VIBES.includes(input.vibe)) return jsonError(400, "Kawasan tidak valid.");
+  // lapak mitra maks 500, titik pengelola (candi, festival) maks 5.000
+  const capMax = auth.user.role === "ADMIN" ? 5000 : 500;
+  const cap = Number(input.quota?.maxCapacity);
+  if (!Number.isInteger(cap) || cap < 1 || cap > capMax) return jsonError(400, `Kapasitas 1 sampai ${capMax.toLocaleString("id-ID")} orang.`);
+  // cara masuk, jam buka, acara: opsional tapi kalo diisi harus sah
+  let entry, openingHours, event;
+  if (input.entry) {
+    entry = parseEntry(input.entry);
+    if (typeof entry === "string") return jsonError(400, entry);
+  }
+  if (input.openingHours) {
+    openingHours = parseHours(input.openingHours);
+    if (typeof openingHours === "string") return jsonError(400, openingHours);
+  }
+  if (input.event) {
+    event = parseEvent(input.event);
+    if (typeof event === "string") return jsonError(400, event);
+  }
+  const isAdmin = auth.user.role === "ADMIN";
   const newSpot: CulturalSpot = {
     ...input,
     id: `spot-${Date.now().toString(36)}`,
@@ -76,8 +101,15 @@ export async function POST(request: NextRequest) {
     // titik mitra nunggu review pengelola, titik pengelola langsung terbit
     status: auth.user.role === "MERCHANT" ? "PENDING_REVIEW" : "PUBLISHED",
     coordinates: { lat, lng },
+    entry,
+    openingHours,
+    event,
+    // angka kepadatan selalu mulai dr nol (bkn dr klien)
+    quota: { currentVisitors: 0, maxCapacity: cap, estimatedWaitMinutes: 0, nextAvailableSlot: "Tersedia langsung" },
   };
-  newSpot.quest = { ...newSpot.quest, referenceImages: [] };
+  // XP misi cuma boleh diatur pengelola: mitra dpt nilai bawaan 100
+  const xp = Number(input.quest?.rewardPoints);
+  newSpot.quest = { ...newSpot.quest, rewardPoints: isAdmin && Number.isFinite(xp) ? Math.max(0, Math.min(1000, Math.round(xp))) : 100, referenceImages: [] };
   store.spots.unshift(newSpot);
   return NextResponse.json({ spot: newSpot, spots: visibleSpots(auth.user) }, { status: 201 });
 }

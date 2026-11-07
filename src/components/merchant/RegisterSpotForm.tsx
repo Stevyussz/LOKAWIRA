@@ -10,6 +10,7 @@ import StagedPhotos, { Staged } from "@/components/merchant/StagedPhotos";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import type { LatLng } from "@/lib/geo";
 import { REGIONS } from "@/lib/regions";
+import ScheduleFields, { scheduleErrors, scheduleFrom, schedulePayload, type ScheduleValue } from "@/components/merchant/ScheduleFields";
 import type { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/lokawira";
 
 type LapakType = Exclude<SpotType, "PRIMARY_DEST">;
@@ -60,6 +61,8 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
   const [staged, setStaged] = useState<Staged[]>([]);
   const [facilities, setFacilities] = useState<string[]>([]);
   const [capacity, setCapacity] = useState(30);
+  // lapak mitra bawaannya masuk bebas tanpa jam buka
+  const [sched, setSched] = useState<ScheduleValue>(() => scheduleFrom(null, "UMKM_KRIYA"));
   const [voucherTitle, setVoucherTitle] = useState("Voucer kunjungan lapak");
   const [discount, setDiscount] = useState(15000);
   const [minSpend, setMinSpend] = useState(30000);
@@ -78,6 +81,7 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
     staged.forEach((s) => URL.revokeObjectURL(s.url));
     setStaged([]);
     setFacilities([]);
+    setSched(scheduleFrom(null, "UMKM_KRIYA"));
     setPin(null);
     setErrors({});
   };
@@ -94,6 +98,7 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
     if (voucherTitle.trim().length < 5) errs.vtitle = "Judul voucer minimal 5 huruf.";
     if (discount < DISCOUNT_MIN || discount > DISCOUNT_MAX) errs.discount = `Potongan harus antara ${rupiah(DISCOUNT_MIN)} dan ${rupiah(DISCOUNT_MAX)}.`;
     if (minSpend > 0 && minSpend < discount) errs.min = `Minimal belanja sebaiknya tidak lebih kecil dari potongan (${rupiah(discount)}).`;
+    Object.assign(errs, scheduleErrors(sched, false));
     setErrors(errs);
     setMsg(null);
     if (Object.keys(errs).length > 0 || !pin) return;
@@ -110,6 +115,10 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
       coordinates: pin,
       address: address.trim(),
       facilities,
+      ...(() => {
+        const sp = schedulePayload(sched, false);
+        return { entry: sp.entry, ...(sp.openingHours ? { openingHours: sp.openingHours } : {}) };
+      })(),
       quota: { currentVisitors: 0, maxCapacity: capacity, estimatedWaitMinutes: 0, nextAvailableSlot: "Tersedia langsung" },
       quest: {
         riddleTitle: `Misi ${nm}`,
@@ -245,6 +254,11 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
         <label htmlFor="lapak-cap" className={labelCls}>Berapa orang bisa masuk sekaligus?</label>
         <input id="lapak-cap" type="number" inputMode="numeric" min={1} max={500} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} aria-invalid={!!errors.capacity} aria-describedby={errors.capacity ? "err-cap" : undefined} className={`${input} font-num`} />
         <FieldError id="err-cap" msg={errors.capacity} />
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-extrabold text-alabaster">Cara masuk dan jam buka</p>
+        <ScheduleFields id="lapak-sched" value={sched} onChange={setSched} errors={errors} allowEvent={false} />
       </div>
 
       <StepHead n="5" title="Voucer hadiah" hint="Diberikan otomatis ke wisatawan yang berhasil memotret objekmu. Nominal bebas kamu tentukan dan bisa diubah kapan saja di tab Promo & Scan." />

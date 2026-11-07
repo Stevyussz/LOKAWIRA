@@ -3,6 +3,8 @@ import { inIndonesia } from "@/lib/geo";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { jsonError, merchantBlocked, mockDisabled, ownsSpot, requireRole, visibleSpots } from "@/lib/server/mockBackend";
 import type { UpdateSpotRequest } from "@/types/api";
+import { parseEntry, parseEvent, parseHours } from "@/lib/spotRules";
+import { OPK_VALUES, SPOT_TYPES, VIBES } from "@/lib/enums";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -28,59 +30,98 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
   }
   const isAdmin = auth.user.role === "ADMIN";
   const before = { name: target.name, lat: target.coordinates.lat, lng: target.coordinates.lng };
+  // semua perubahan dicoba di salinan dulu: kalo satu field gagal validasi, gak ada yg setengah tersimpan
+  const draft = structuredClone(target);
 
   if (body.name !== undefined) {
     const name = String(body.name).trim();
     if (name.length < 3) return jsonError(400, "Nama minimal 3 karakter.");
-    target.name = name;
-    target.quest.voucherReward.merchantName = name;
+    draft.name = name;
+    draft.quest.voucherReward.merchantName = name;
   }
   if (body.address !== undefined) {
     const a = String(body.address).trim();
     if (a.length < 5) return jsonError(400, "Alamat terlalu pendek.");
-    target.address = a;
+    draft.address = a;
   }
   if (body.facilities !== undefined) {
     if (!Array.isArray(body.facilities)) return jsonError(400, "Fasilitas tidak valid.");
-    target.facilities = body.facilities.map(String).slice(0, 12);
+    draft.facilities = body.facilities.map(String).slice(0, 12);
   }
   if (body.coordinates !== undefined) {
     const lat = Number(body.coordinates.lat);
     const lng = Number(body.coordinates.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return jsonError(400, "Koordinat tidak valid.");
     if (!inIndonesia({ lat, lng })) return jsonError(400, "Lokasi pin harus berada di wilayah Indonesia.", "OUT_OF_INDONESIA");
-    target.coordinates = { lat, lng };
+    draft.coordinates = { lat, lng };
   }
   if (body.quota?.maxCapacity !== undefined) {
     const cap = Number(body.quota.maxCapacity);
-    if (!Number.isFinite(cap) || cap < 1 || cap > 500) return jsonError(400, "Kapasitas 1 sampai 500 orang.");
-    target.quota.maxCapacity = cap;
-    target.quota.currentVisitors = Math.min(target.quota.currentVisitors, cap);
+    const capMax = isAdmin ? 5000 : 500;
+    if (!Number.isInteger(cap) || cap < 1 || cap > capMax) return jsonError(400, `Kapasitas 1 sampai ${capMax.toLocaleString("id-ID")} orang.`);
+    draft.quota.maxCapacity = cap;
+    draft.quota.currentVisitors = Math.min(draft.quota.currentVisitors, cap);
   }
   if (body.quest) {
     const q = body.quest;
-    if (q.riddleTitle !== undefined) target.quest.riddleTitle = String(q.riddleTitle).trim();
+    if (q.riddleTitle !== undefined) draft.quest.riddleTitle = String(q.riddleTitle).trim();
     if (q.riddleClue !== undefined) {
       const c = String(q.riddleClue).trim();
       if (c.length < 10) return jsonError(400, "Petunjuk misi minimal 10 karakter.");
-      target.quest.riddleClue = c;
+      draft.quest.riddleClue = c;
     }
-    if (q.loreNarrative !== undefined) target.quest.loreNarrative = String(q.loreNarrative).trim();
-    if (q.targetObjectPrompt !== undefined) target.quest.targetObjectPrompt = String(q.targetObjectPrompt).trim();
-    if (isAdmin && q.verifiedLoreSource !== undefined) target.quest.verifiedLoreSource = String(q.verifiedLoreSource).trim();
+    if (q.loreNarrative !== undefined) draft.quest.loreNarrative = String(q.loreNarrative).trim();
+    if (q.targetObjectPrompt !== undefined) draft.quest.targetObjectPrompt = String(q.targetObjectPrompt).trim();
+    if (isAdmin && q.verifiedLoreSource !== undefined) draft.quest.verifiedLoreSource = String(q.verifiedLoreSource).trim();
     if (isAdmin && q.rewardPoints !== undefined) {
-      target.quest.rewardPoints = Math.max(0, Math.min(1000, Number(q.rewardPoints) || 0));
+      draft.quest.rewardPoints = Math.max(0, Math.min(1000, Number(q.rewardPoints) || 0));
     }
   }
   // mitra ngubah nama atau lokasi: titik balik ditinjau ulang pengelola (sesuai BACKEND_INTEGRATION bagian 7B)
-  const moved = target.coordinates.lat !== before.lat || target.coordinates.lng !== before.lng;
-  if (!isAdmin && (target.name !== before.name || moved)) target.status = "PENDING_REVIEW";
+  const moved = draft.coordinates.lat !== before.lat || draft.coordinates.lng !== before.lng;
+  if (!isAdmin && (draft.name !== before.name || moved)) draft.status = "PENDING_REVIEW";
   if (isAdmin) {
-    if (body.spotType) target.spotType = body.spotType;
-    if (body.opkCategory) target.opkCategory = body.opkCategory;
-    if (body.vibe) target.vibe = body.vibe;
-    if (body.regionName) target.regionName = String(body.regionName);
+    // nilai enum dicek, dulu string apa aja diterima
+    if (body.spotType) {
+      if (!SPOT_TYPES.includes(body.spotType)) return jsonError(400, "Jenis titik tidak valid.");
+      draft.spotType = body.spotType;
+    }
+    if (body.opkCategory) {
+      if (!OPK_VALUES.includes(body.opkCategory)) return jsonError(400, "Kategori OPK tidak valid.");
+      draft.opkCategory = body.opkCategory;
+    }
+    if (body.vibe) {
+      if (!VIBES.includes(body.vibe)) return jsonError(400, "Kawasan tidak valid.");
+      draft.vibe = body.vibe;
+    }
+    if (body.regionName) draft.regionName = String(body.regionName).trim().slice(0, 80);
+    if (body.event !== undefined) {
+      if (body.event === null) delete draft.event;
+      else {
+        const ev = parseEvent(body.event);
+        if (typeof ev === "string") return jsonError(400, ev);
+        draft.event = ev;
+      }
+    }
   }
+  // cara masuk & jam buka boleh diatur mitra (lapaknya) maupun pengelola. null = hapus
+  if (body.entry !== undefined) {
+    if (body.entry === null) delete draft.entry;
+    else {
+      const en = parseEntry(body.entry);
+      if (typeof en === "string") return jsonError(400, en);
+      draft.entry = en;
+    }
+  }
+  if (body.openingHours !== undefined) {
+    if (body.openingHours === null) delete draft.openingHours;
+    else {
+      const h = parseHours(body.openingHours);
+      if (typeof h === "string") return jsonError(400, h);
+      draft.openingHours = h;
+    }
+  }
+  Object.assign(target, draft);
   return NextResponse.json({ spot: target, spots: visibleSpots(auth.user) });
 }
 

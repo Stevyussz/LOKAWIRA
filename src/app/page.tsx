@@ -14,6 +14,9 @@ import { anchorSpot } from "@/lib/geo";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import Loka from "@/components/brand/Loka";
 import { isExpired } from "@/lib/formatTime";
+import { ENTRY_LABEL, entryOf, hoursText, needsBooking, openState } from "@/lib/spotRules";
+
+const rupiahFmt = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 import VibeSwitcherBar from "@/components/layout/VibeSwitcherBar";
 import BottomNavConsole from "@/components/layout/BottomNavConsole";
 import StoryTellerDock from "@/components/ai/StoryTellerDock";
@@ -89,6 +92,9 @@ export default function LokawiraExplorerPage() {
   const [isBoardOpen, setIsBoardOpen] = useState<boolean>(false);
   const [isNeedsOpen, setIsNeedsOpen] = useState<boolean>(false);
   const [isAccountOpen, setIsAccountOpen] = useState<boolean>(false);
+  // panel info titik (jam buka, alamat, fasilitas) buat titik yg gak pake tiket
+  const [showSpotInfo, setShowSpotInfo] = useState<boolean>(false);
+  useEffect(() => setShowSpotInfo(false), [selectedSpot?.id]);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
   const [bannerIsError, setBannerIsError] = useState<boolean>(false);
   // kode kehadiran per titik, dr server - Ditunjukkan ke pemilik lapak utk hadiah misi
@@ -544,6 +550,25 @@ export default function LokawiraExplorerPage() {
             </button>
           </div>
 
+          {/* cara masuk & status buka */}
+          {!isSheetCompact && (() => {
+            const en = entryOf(selectedSpot);
+            const os = openState(selectedSpot);
+            return (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-2.5 py-1 rounded-full bg-obsidian text-[11px] font-extrabold text-alabaster inline-flex items-center gap-1">
+                  <Icon name={en.mode === "FREE" ? "users" : "ticket"} size={14} className="text-vibePrimary" />
+                  {en.mode === "TICKET" && en.priceIdr !== undefined ? (en.priceIdr === 0 ? "Tiket gratis" : `Tiket ${rupiahFmt(en.priceIdr)}`) : ENTRY_LABEL[en.mode]}
+                </span>
+                {os.label && (
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold ${os.status === "OPEN" ? "bg-obsidian text-quotaSafe" : "bg-obsidian text-quotaFull"}`}>
+                    {os.label}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Hadiah & kapasitas */}
           {!isSheetCompact && (
           <div className="flex items-center gap-3">
@@ -572,13 +597,16 @@ export default function LokawiraExplorerPage() {
           {isSelectedCrowded && !isSheetCompact && (
             <button
               type="button"
-              onClick={() => setIsQuotaModalOpen(true)}
+              // titik bebas masuk gak punya tiket: arahkan ke papan antrean buat cari yg lengang
+              onClick={() => (needsBooking(selectedSpot) ? setIsQuotaModalOpen(true) : setIsBoardOpen(true))}
               className="w-full min-h-[44px] px-3.5 rounded-xl bg-quotaFull/10 flex items-center justify-between gap-3 text-left"
             >
               <span className="flex items-center gap-2 min-w-0">
                 <Icon name="alert" size={16} className="text-quotaFull shrink-0" />
                 <span className="text-xs font-bold text-alabaster">
-                  Antrean sekitar {selectedSpot.quest ? selectedSpot.quota.estimatedWaitMinutes : 0} menit. Ambil tiket dan dapat voucer UMKM.
+                  {needsBooking(selectedSpot)
+                    ? `Antrean sekitar ${selectedSpot.quota.estimatedWaitMinutes} menit. Ambil tiket dan dapat voucer UMKM.`
+                    : "Sedang ramai. Lihat titik lain yang lebih lengang di sekitar sini."}
                 </span>
               </span>
               <Icon name="next" size={16} weight="bold" className="text-quotaFull shrink-0" />
@@ -615,15 +643,45 @@ export default function LokawiraExplorerPage() {
               <span>{isAlreadyCheckedIn ? "Sudah Check-In" : "Check-In"}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setIsQuotaModalOpen(true)}
-              className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
-            >
-              <Icon name="ticket" size={20} className="text-vibePrimary" motion="pop" />
-              <span>Tiket</span>
-            </button>
+            {needsBooking(selectedSpot) ? (
+              <button
+                type="button"
+                onClick={() => setIsQuotaModalOpen(true)}
+                className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
+              >
+                <Icon name="ticket" size={20} className="text-vibePrimary" motion="pop" />
+                <span>Tiket</span>
+              </button>
+            ) : (
+              // bebas masuk: gak ada tiket, gantinya info jam buka & fasilitas
+              <button
+                type="button"
+                onClick={() => setShowSpotInfo((v) => !v)}
+                aria-expanded={showSpotInfo}
+                className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
+              >
+                <Icon name="guide" size={20} className="text-vibePrimary" motion="pop" />
+                <span>Info</span>
+              </button>
+            )}
           </div>
+
+          {showSpotInfo && !needsBooking(selectedSpot) && (
+            <dl className="rounded-2xl bg-obsidian p-3.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+              <dt className="font-bold text-pebble">Masuk</dt>
+              <dd className="text-alabaster">Bebas, tanpa tiket</dd>
+              <dt className="font-bold text-pebble">Jam</dt>
+              <dd className="text-alabaster">{selectedSpot.event ? openState(selectedSpot).label : hoursText(selectedSpot)}</dd>
+              <dt className="font-bold text-pebble">Alamat</dt>
+              <dd className="text-alabaster">{selectedSpot.address}</dd>
+              {selectedSpot.facilities.length > 0 && (
+                <>
+                  <dt className="font-bold text-pebble">Fasilitas</dt>
+                  <dd className="text-alabaster">{selectedSpot.facilities.join(", ")}</dd>
+                </>
+              )}
+            </dl>
+          )}
 
           {checkInCodes[selectedSpot.id] && (
             <div className="rounded-2xl bg-obsidian p-3 space-y-1">
