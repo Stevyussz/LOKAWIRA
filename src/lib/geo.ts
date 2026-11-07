@@ -1,6 +1,10 @@
 import { CulturalSpot } from "@/types/lokawira";
 
 // Peta LOKAWIRA aalah ilustrasi bergaya (bkn ubin peta dunia)
+// batas geser peta: seluruh Indonesia (Sabang-Merauke, Miangas-Rote) + sedikit ruang laut.
+// Peta gak bisa digeser ke negara lain, jadi ubin luar negeri gak pernah diunduh
+export const INDONESIA_BOUNDS: [[number, number], [number, number]] = [[90.5, -14.5], [145.5, 9.5]];
+
 export const CANVAS_W = 2400;
 export const CANVAS_H = 1600;
 export const ORIGIN_ON_CANVAS = { x: 1180, y: 740 };

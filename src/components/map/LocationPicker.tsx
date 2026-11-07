@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { GeoJSONSource, Map as MLMap, Marker as MLMarker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { LatLng, ZONE_RADIUS_METERS, circlePolygon, distanceMeters, formatCoord, formatDistance, regionOrigin } from "@/lib/geo";
+import { LatLng, ZONE_RADIUS_METERS, circlePolygon, distanceMeters, formatCoord, formatDistance, regionOrigin, INDONESIA_BOUNDS } from "@/lib/geo";
 import { loadLontarStyle } from "@/lib/mapStyle";
 import { searchPlaces, PlaceResult } from "@/lib/geocode";
 import { LocationError, useLocation } from "@/components/layout/LocationProvider";
@@ -69,6 +69,8 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
           zoom: 16,
           minZoom: 10,
           maxZoom: 19.5,
+          maxBounds: INDONESIA_BOUNDS,
+          renderWorldCopies: false,
           attributionControl: false,
           dragRotate: false,
           pitchWithRotate: false,

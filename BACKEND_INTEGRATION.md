@@ -529,3 +529,5 @@ S. PWA dan tingkat animasi
 - yg dicache cuma aset build (/_next/static, berhash), ikon, dan salinan halaman terakhir yg dibuka. Kalo strategi cache diubah, naikin VERSION di public/sw.js biar cache lama dibuang
 - service worker cuma aktif di build produksi (next build), di dev gak
 - animasi sekarang 3 tingkat (src/lib/motionPref.ts): full, lite (HP RAM sekitar 3 GB ke bawah, prosesor 2 inti, hemat data, jaringan 2g, atau layar tersendat di bawah ~30 fps), dan reduce (pengaturan "kurangi animasi" di HP). Pengguna bisa milih sendiri di Akun: Otomatis, Penuh, atau Hemat. Ini murni frontend, gak ada endpoint
+- peta sekarang dikunci ke wilayah Indonesia (bujur 90,5 sampai 145,5, lintang -14,5 sampai 9,5), gak bisa digeser ke luar. Konsekuensinya: titik di luar kotak itu gak akan keliatan di peta. Saran: POST /api/spots dan PATCH /api/spots/{id} nolak coordinates di luar kotak itu (400) biar mitra gak salah naruh pin
+- saat peta diperkecil, pin otomatis mengecil dan yg bertumpuk digabung jadi lingkaran berangka. Ini dihitung di HP, gak butuh endpoint baru

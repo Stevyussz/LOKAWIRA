@@ -10,7 +10,7 @@ import Loka from "@/components/brand/Loka";
 import { CulturalSpot, CulturalVibe, SurfaceTheme } from "@/types/lokawira";
 import { VIBE_METADATA } from "@/lib/seedCulturalData";
 import { VIBE_HEX } from "@/lib/vibeColors";
-import { ZONE_RADIUS_METERS, LatLng, anchorSpot, bearingDegrees, circlePolygon, lookAheadBearing, curveBetween, distanceMeters, formatDistance, regionOrigin } from "@/lib/geo";
+import { ZONE_RADIUS_METERS, LatLng, anchorSpot, bearingDegrees, circlePolygon, lookAheadBearing, curveBetween, distanceMeters, formatDistance, regionOrigin, INDONESIA_BOUNDS } from "@/lib/geo";
 import { loadLontarStyle } from "@/lib/mapStyle";
 import type { WalkingRoute } from "@/lib/route";
 import { matchesSpotFilter, SpotFilter, SPOT_FILTER_OPTIONS } from "@/lib/spotFilter";
@@ -76,16 +76,71 @@ interface PinProps {
   isCompleted: boolean;
   isRedirectTarget: boolean;
   onSelect: (spot: CulturalSpot) => void;
+  // ukuran pin ngikutin zoom: full (dekat), compact (sedang), dot (jauh). Yg terpilih selalu full
+  size: PinSize;
 }
 
+type PinSize = "full" | "compact" | "dot";
+// batas zoom tiap ukuran, dan jarak (px layar) di mana pin yg berdekatan digabung jadi satu lingkaran berangka
+const zoomTier = (z: number): PinSize => (z >= 15.3 ? "full" : z >= 11 ? "compact" : "dot");
+const CLUSTER_PX: Record<PinSize, number> = { full: 0, compact: 54, dot: 30 };
+// marker ditambatkan di bawah; pin kecil digeser biar titik tengahnya pas di lokasi
+const PIN_OFFSET: Record<PinSize, number> = { full: 0, compact: 18, dot: 8 };
+
 // isi 1 pin (dirender ke elemen marker MapLibre lewat portal)
-function SpotPin({ spot, hex, isSelected, isCompleted, isRedirectTarget, onSelect }: PinProps) {
+function SpotPin({ spot, hex, isSelected, isCompleted, isRedirectTarget, onSelect, size }: PinProps) {
   const quotaRatio = spot.quota.currentVisitors / spot.quota.maxCapacity;
   const isCrowded = quotaRatio >= 0.85;
   const isPrimary = spot.spotType === "PRIMARY_DEST";
   const isSanggar = spot.spotType === "SANGGAR_SENI";
   const body = isCompleted ? "#2B8A4B" : isPrimary ? hex.primary : isSanggar ? hex.accent : hex.umkm;
   const iconName = isCompleted ? "check" : isPrimary ? "heritage" : isSanggar ? "sanggar" : spot.spotType === "UMKM_KULINER" ? "food" : "umkm";
+  const label = `Pilih titik ${spot.name}, ${typeLabel(spot.spotType)}`;
+
+  // zoom sedang: lingkaran ikon kecil tanpa label. Yg terpilih ikut ringkas (biar gak nutupin tetangganya),
+  // tapi terisi warna & tetep ada namanya
+  if (size === "compact" || (size === "dot" && isSelected)) {
+    return (
+      <div className="relative flex flex-col items-center">
+        <button
+          type="button"
+          onClick={() => onSelect(spot)}
+          aria-label={label}
+          aria-pressed={isSelected}
+          className={`relative rounded-full flex items-center justify-center shadow-md before:absolute before:-inset-1.5 before:content-[''] ${isSelected ? "w-11 h-11" : "w-9 h-9"}`}
+          style={{
+            backgroundColor: isSelected ? body : "var(--bg-basalt-card)",
+            border: `3px solid ${isSelected ? "var(--bg-basalt-card)" : body}`,
+            color: isSelected ? "#FFF8EC" : body,
+            boxShadow: isSelected ? `0 0 0 3px ${body}` : undefined,
+          }}
+        >
+          <Icon name={iconName} size={isSelected ? 22 : 18} />
+          {isPrimary && isCrowded && !isCompleted && (
+            <span aria-hidden="true" className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-quotaFull ring-2 ring-[var(--bg-basalt-card)]" />
+          )}
+        </button>
+        {isSelected && (
+          <span className="absolute top-full mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold max-w-[150px] truncate shadow-sm bg-vibePrimary text-[var(--vibe-on-primary)]">
+            {spot.name.split("&")[0].trim()}
+          </span>
+        )}
+      </div>
+    );
+  }
+  // zoom jauh: titik warna. Area sentuh tetap 28 px
+  if (size === "dot") {
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect(spot)}
+        aria-label={label}
+        aria-pressed={false}
+        className="relative block w-4 h-4 rounded-full shadow before:absolute before:-inset-1.5 before:content-['']"
+        style={{ backgroundColor: body, border: "2.5px solid var(--bg-basalt-card)" }}
+      />
+    );
+  }
 
   return (
     <div className={`relative origin-bottom ${isSelected ? "scale-[1.3]" : "hover:scale-110"}`} style={{ transition: "transform 200ms" }}>
@@ -100,7 +155,7 @@ function SpotPin({ spot, hex, isSelected, isCompleted, isRedirectTarget, onSelec
       <button
         type="button"
         onClick={() => onSelect(spot)}
-        aria-label={`Pilih titik ${spot.name}, ${typeLabel(spot.spotType)}`}
+        aria-label={label}
         aria-pressed={isSelected}
         className="relative block w-[56px] h-[68px] before:absolute before:-inset-3 before:content-['']"
       >
@@ -156,6 +211,25 @@ function SpotPin({ spot, hex, isSelected, isCompleted, isRedirectTarget, onSelec
         {spot.name.split("&")[0].trim()}
       </span>
     </div>
+  );
+}
+
+// beberapa titik yg bertumpuk saat peta diperkecil: satu lingkaran berangka, diketuk = perbesar ke kumpulan itu
+function ClusterPin({ count, names, hex, hasSelected, onZoom }: { count: number; names: string[]; hex: { primary: string }; hasSelected: boolean; onZoom: () => void }) {
+  const d = count >= 10 ? 52 : count >= 5 ? 46 : 40;
+  return (
+    <button
+      type="button"
+      onClick={onZoom}
+      aria-label={`${count} titik di sekitar sini${hasSelected ? ", termasuk titik pilihanmu" : ""}: ${names.slice(0, 3).join(", ")}${count > 3 ? ", dan lainnya" : ""}. Perbesar peta`}
+      className="relative rounded-full flex items-center justify-center font-num font-extrabold text-sm shadow-lg hover:scale-110"
+      style={{ width: d, height: d, backgroundColor: hex.primary, color: "var(--vibe-on-primary)", border: "3px solid var(--bg-basalt-card)", transition: "transform 200ms" }}
+    >
+      <span aria-hidden="true" className="absolute inset-[-7px] rounded-full opacity-30" style={{ backgroundColor: hex.primary }} />
+      {/* cincin tinta: titik yg sedang dipilih ada di dalam kelompok ini */}
+      {hasSelected && <span aria-hidden="true" className="absolute inset-[-11px] rounded-full border-[3px] border-alabaster" />}
+      <span className="relative">{count}</span>
+    </button>
   );
 }
 
@@ -252,6 +326,9 @@ export default function CulturalQuestMap({
           zoom: 16,
           minZoom: 3,
           maxZoom: 19.5,
+          // cuma Indonesia: gak bisa digeser ke luar, dan dunia gak digambar berulang
+          maxBounds: INDONESIA_BOUNDS,
+          renderWorldCopies: false,
           attributionControl: false,
           dragRotate: false,
           pitchWithRotate: false,
@@ -340,6 +417,116 @@ export default function CulturalQuestMap({
       store.clear();
     };
   }, [attempt]);
+
+  // ---- ukuran pin & pengelompokan saat peta diperkecil ----
+  // dihitung ulang tiap peta berhenti bergerak (bkn tiap frame), jadi ringan walau titiknya banyak
+  const [pinSize, setPinSize] = useState<PinSize>("full");
+  const [clusters, setClusters] = useState<{ key: string; ids: string[]; center: Pt; hasSelected: boolean }[]>([]);
+  const filteredRef = useRef(filteredSpots);
+  filteredRef.current = filteredSpots;
+  const recluster = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const size = zoomTier(map.getZoom());
+    setPinSize(size);
+    const r = CLUSTER_PX[size];
+    const selId = latest.current.selectedSpot?.id;
+    const groups: { ids: string[]; x: number; y: number; pts: Pt[] }[] = [];
+    if (r > 0) {
+      // titik terpilih & cagar utama duluan biar jadi pusat kelompok. Terpilih ikut digabung:
+      // kalo dibiarin besar sendiri, dia nutupin lingkaran kelompok di sebelahnya
+      const rank = (sp: CulturalSpot) => (sp.id === selId ? 2 : sp.spotType === "PRIMARY_DEST" ? 1 : 0);
+      const order = [...filteredRef.current].sort((a, b) => rank(b) - rank(a));
+      for (const sp of order) {
+        const pt = map.project(ll(sp.coordinates));
+        const g = groups.find((x) => Math.hypot(x.x - pt.x, x.y - pt.y) < r);
+        if (g) {
+          g.ids.push(sp.id);
+          g.pts.push(ll(sp.coordinates));
+        } else groups.push({ ids: [sp.id], x: pt.x, y: pt.y, pts: [ll(sp.coordinates)] });
+      }
+    }
+    const next = groups
+      .filter((g) => g.ids.length > 1)
+      .map((g) => ({
+        key: [...g.ids].sort().join("|"),
+        ids: g.ids,
+        hasSelected: !!selId && g.ids.includes(selId),
+        center: [g.pts.reduce((a, p) => a + p[0], 0) / g.pts.length, g.pts.reduce((a, p) => a + p[1], 0) / g.pts.length] as Pt,
+      }));
+    const sig = (l: { key: string; hasSelected: boolean }[]) => l.map((c) => c.key + (c.hasSelected ? "*" : "")).join(",");
+    setClusters((prev) => (sig(prev) === sig(next) ? prev : next));
+  }, []);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const onZoom = () => setPinSize(zoomTier(map.getZoom()));
+    map.on("zoom", onZoom);
+    map.on("moveend", recluster);
+    recluster();
+    return () => {
+      map.off("zoom", onZoom);
+      map.off("moveend", recluster);
+    };
+  }, [ready, recluster]);
+  useEffect(() => {
+    if (ready) recluster();
+  }, [ready, recluster, filteredSpots, selectedSpot?.id]);
+
+  // anggota kelompok disembunyiin (sekalian keluar dr pembaca layar), pin kecil digeser biar pas di lokasinya
+  useEffect(() => {
+    const hidden = new Set(clusters.flatMap((c) => c.ids));
+    markersRef.current.forEach((v, id) => {
+      v.el.style.display = hidden.has(id) ? "none" : "";
+      // terpilih di zoom dekat = pin besar (tambatan bawah); di zoom sedang/jauh lingkaran 44 px
+      const off = pinSize === "full" ? 0 : id === selectedSpot?.id ? 22 : PIN_OFFSET[pinSize];
+      v.marker.setOffset([0, off]);
+    });
+  }, [clusters, pinSize, selectedSpot?.id, pinEls]);
+
+  const clusterStore = useRef<Map<string, { marker: MLMarker; el: HTMLDivElement }>>(new Map());
+  const [clusterEls, setClusterEls] = useState<{ key: string; el: HTMLDivElement }[]>([]);
+  useEffect(() => {
+    const map = mapRef.current;
+    const ml = mlRef.current;
+    if (!ready || !map || !ml) return;
+    const store = clusterStore.current;
+    const keep = new Set(clusters.map((c) => c.key));
+    store.forEach((v, k) => {
+      if (!keep.has(k)) {
+        v.marker.remove();
+        store.delete(k);
+      }
+    });
+    for (const c of clusters) {
+      if (store.has(c.key)) continue;
+      const el = document.createElement("div");
+      el.style.zIndex = "32";
+      const marker = new ml.Marker({ element: el, anchor: "center" }).setLngLat(c.center).addTo(map);
+      plainMarkerEl(el);
+      store.set(c.key, { marker, el });
+    }
+    setClusterEls(Array.from(store, ([key, v]) => ({ key, el: v.el })));
+  }, [ready, clusters]);
+  useEffect(() => {
+    const store = clusterStore.current;
+    return () => {
+      store.forEach((v) => v.marker.remove());
+      store.clear();
+    };
+  }, [attempt]);
+
+  const zoomToCluster = (ids: string[]) => {
+    const map = mapRef.current;
+    const pts = filteredSpots.filter((sp) => ids.includes(sp.id)).map((sp) => ll(sp.coordinates));
+    if (!map || !pts.length) return;
+    const lngs = pts.map((p) => p[0]);
+    const lats = pts.map((p) => p[1]);
+    const b: [Pt, Pt] = [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]];
+    // titik2 yg sama persis: cukup perbesar 3 tingkat
+    if (b[0][0] === b[1][0] && b[0][1] === b[1][1]) map.easeTo({ center: b[0], zoom: map.getZoom() + 3, duration: prefersReducedMotion() ? 0 : 600 });
+    else map.fitBounds(b, { padding: cameraPadding(), maxZoom: 16, duration: prefersReducedMotion() ? 0 : 700 });
+  };
 
   // ---- Loka (posisi asli) + kerucut arah ----
   const playerRef = useRef<{ me: MLMarker; cone: MLMarker; meEl: HTMLDivElement; coneEl: HTMLDivElement } | null>(null);
@@ -588,10 +775,18 @@ export default function CulturalQuestMap({
             isCompleted={checkedInSpotIds.includes(spot.id)}
             isRedirectTarget={routesVisible && spot.spotType !== "PRIMARY_DEST"}
             onSelect={handleSelect}
+            size={pinSize}
           />,
           el,
           id
         );
+      })}
+
+      {clusterEls.map(({ key, el }) => {
+        const c = clusters.find((x) => x.key === key);
+        if (!c) return null;
+        const names = c.ids.map((id) => filteredSpots.find((sp) => sp.id === id)?.name.split("&")[0].trim() ?? "").filter(Boolean);
+        return createPortal(<ClusterPin count={c.ids.length} names={names} hex={hex} hasSelected={c.hasSelected} onZoom={() => zoomToCluster(c.ids)} />, el, key);
       })}
 
       {playerEls &&
