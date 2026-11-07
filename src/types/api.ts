@@ -11,6 +11,11 @@ import {
   ReservationPass,
   ReferenceImage,
   SpotEntry,
+  CulturalEvent,
+  EventOccurrence,
+  MetricType,
+  SpotImpact,
+  EventRepeat,
   Region,
   OpeningHours,
   SpotEvent,
@@ -73,6 +78,42 @@ export interface RegionsResponse {
   region?: Region;
   // jumlah lapak di luar kawasan yg otomatis masuk krn kawasan ini dibuat/diperluas
   adopted?: number;
+}
+
+// POST /api/metrics (anonim) & GET /api/metrics?days=&regionId= (mitra/admin)
+export interface ImpactTotals {
+  qrOpens: number;
+  reminders: number;
+  guides: number;
+  checkIns: number;
+  checkInsVerified: number;
+  vouchersIssued: number;
+  vouchersRedeemed: number;
+  redeemedValue: number;
+  upcomingEvents: number;
+  spotsWithEvents: number;
+  spots: number;
+}
+export interface ImpactResponse {
+  days: number;
+  totals: ImpactTotals;
+  spots: SpotImpact[];
+}
+
+// GET /api/events, POST /api/events, DELETE /api/events/{id}
+export interface EventsResponse {
+  occurrences?: EventOccurrence[];
+  // definisi acara yg boleh dikelola user ini (mitra/admin)
+  events?: CulturalEvent[];
+  event?: CulturalEvent;
+}
+export interface CreateEventRequest {
+  spotId: string;
+  title: string;
+  description?: string;
+  startsAt: string;
+  endsAt: string;
+  repeat: EventRepeat;
 }
 
 // POST /api/ai-notes
@@ -253,7 +294,8 @@ export interface UpdateSpotRequest {
     verifiedLoreSource?: string;
     rewardPoints?: number;
   };
-  // mitra & admin. null = hapus
+  // mitra & admin. null = hapus. highlight "" = hapus
+  highlight?: string;
   entry?: SpotEntry | null;
   openingHours?: OpeningHours | null;
   // field di bawah ini cuma diterima dari ADMIN

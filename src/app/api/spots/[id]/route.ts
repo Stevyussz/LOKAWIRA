@@ -106,6 +106,12 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       }
     }
   }
+  if (body.highlight !== undefined) {
+    const h = String(body.highlight ?? "").trim();
+    if (h.length > 100) return jsonError(400, "Kalimat \"kenapa layak mampir\" maksimal 100 karakter.");
+    if (h) draft.highlight = h;
+    else delete draft.highlight;
+  }
   // cara masuk & jam buka boleh diatur mitra (lapaknya) maupun pengelola. null = hapus
   if (body.entry !== undefined) {
     if (body.entry === null) delete draft.entry;

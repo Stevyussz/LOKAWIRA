@@ -7,6 +7,8 @@ import { useLokawira } from "@/components/layout/LokawiraProvider";
 import { useAuth } from "@/components/layout/AuthProvider";
 import RequireRole from "@/components/layout/RequireRole";
 import EditSpotSheet from "@/components/merchant/EditSpotSheet";
+import EventsPanel from "@/components/merchant/EventsPanel";
+import ImpactCard from "@/components/impact/ImpactCard";
 import CashierPanel from "@/components/merchant/CashierPanel";
 import GettingStarted, { MerchantMenu } from "@/components/merchant/GettingStarted";
 import RegisterSpotForm from "@/components/merchant/RegisterSpotForm";
@@ -126,6 +128,7 @@ function MerchantPosContent() {
         )}
 
         {!isAdmin && <GettingStarted spots={mySpots} go={setMenu} />}
+        {!isAdmin && !noLapak && <ImpactCard title="Dampak lapakmu" />}
 
         {/* Ringkasan */}
         <div tabIndex={0} role="group" aria-label="Ringkasan lapak (geser dengan panah keyboard)" className="flex sm:grid sm:grid-cols-3 gap-3 overflow-x-auto scroll-hide snap-x scroll-px-4 -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -206,10 +209,17 @@ function MerchantPosContent() {
                               <button type="button" onClick={() => setMenu("SCAN")} className="underline min-h-[44px] font-extrabold">Lengkapi</button>
                             </p>
                           )}
-                          <button type="button" disabled={accountBlocked} onClick={() => setEditingId(s.id)} aria-label={`Ubah ${s.name}`} className="mt-1.5 btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-60">
-                            <Icon name="craft" size={16} />
-                            <span>Ubah</span>
-                          </button>
+                          <div className="flex flex-wrap gap-2 mt-1.5">
+                            <button type="button" disabled={accountBlocked} onClick={() => setEditingId(s.id)} aria-label={`Ubah ${s.name}`} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5 disabled:opacity-60">
+                              <Icon name="craft" size={16} />
+                              <span>Ubah</span>
+                            </button>
+                            {/* poster QR buat dipasang di depan lapak: orang yg lewat jadi tau isinya */}
+                            <Link href={`/poster/${s.id}`} aria-label={`Poster QR ${s.name}`} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
+                              <Icon name="qr" size={16} />
+                              <span>Poster QR</span>
+                            </Link>
+                          </div>
                         </div>
                       </li>
                     );
@@ -225,6 +235,8 @@ function MerchantPosContent() {
               onClose={() => setEditingId(null)}
               onSpots={setSpots}
             />
+
+            <EventsPanel mySpots={mySpots} accountBlocked={accountBlocked} />
 
             <RegisterSpotForm userId={user?.id} isAdmin={isAdmin} accountBlocked={accountBlocked} activeVibe={activeVibe} spots={spots} setSpots={setSpots} />
           </div>

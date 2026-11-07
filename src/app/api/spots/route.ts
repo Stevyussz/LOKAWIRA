@@ -105,6 +105,8 @@ export async function POST(request: NextRequest) {
     if (typeof event === "string") return jsonError(400, event);
   }
   const isAdmin = auth.user.role === "ADMIN";
+  const highlight = String(input.highlight ?? "").trim();
+  if (highlight.length > 100) return jsonError(400, "Kalimat \"kenapa layak mampir\" maksimal 100 karakter.");
   const newSpot: CulturalSpot = {
     ...input,
     id: `spot-${Date.now().toString(36)}`,
@@ -116,6 +118,7 @@ export async function POST(request: NextRequest) {
     entry,
     openingHours,
     event,
+    highlight: highlight || undefined,
     vibe: nearest?.theme ?? "majapahit",
     regionName: region ? `${region.name}, ${region.label}` : "Di luar kawasan",
     regionId: region?.id,

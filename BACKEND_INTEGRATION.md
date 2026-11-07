@@ -597,3 +597,21 @@ X. Kawasan jadi DATA (dulu 5 kawasan ditulis mati di kode)
   - GET /api/spots sekarang juga ngirim regions (aturan lihat sama kayak GET /api/regions) dan nerima filter ?regionId=
 - frontend: pemilih kawasan di atas peta ngambil dr data ini (diinget di perangkat). Form lapak gak ada pilihan kawasan lagi, gantinya keterangan "Lapakmu masuk kawasan X" atau isian usulan kawasan. Dasbor pengelola punya tab Kawasan. Mitra pengalih antrean dicari di kawasan (regionId) yg sama, bkn palet yg sama
 - PATCH /api/spots/{id} gak nerima vibe & regionName lagi
+
+Y. Agenda acara, poster QR, dan pengukur dampak
+
+Latar: survei tim nemu tempat budaya JARANG antre. Masalah aslinya: sepi krn gak keliatan, gak ada info acara (DPRD Jember: belum ada kalender event), dan orang cuma lewat tanpa tau isinya. Jadi tab Antrean di navigasi bawah diganti Agenda. Info kepadatan tetep ada di kartu titik pas ramai (mis. JFC).
+
+- entitas baru CulturalEvent: { id, spotId, title (3 sampai 80), description? (maks 300), startsAt, endsAt (ISO, kemunculan pertama), repeat, createdAt? }. repeat: NONE (sekali), WEEKLY (tiap minggu hari & jam sama), MONTHLY_LAST (hari yg sama di minggu terakhir tiap bulan, mis. Pasar Lumpur Tanoker). Satu titik bisa punya banyak acara (maks 20). Satu kemunculan maks 12 jam
+- kemunculan dihitung server pake zona waktu titik (src/lib/eventRules.ts, occurrences). Tiru persis
+- GET /api/events?regionId=&spotId=&days= (days 1 sampai 90, bawaan 30): occurrences = kemunculan di titik yg keliatan buat user itu, urut waktu. Kalo yg minta mitra/admin, nambah events = definisi acara yg boleh dia kelola
+- POST /api/events (MERCHANT utk lapaknya, ADMIN semua): 201 { event, events }. 403 NOT_YOUR_SPOT, 400 validasi (selesai sebelum mulai, lebih dr 12 jam, acara sekali yg udah lewat, lebih dr setahun ke depan), 409 kalo udah 20 acara
+- DELETE /api/events/{id}: pemilik lapak atau admin. Ubah acara = hapus lalu tambah (sengaja sederhana)
+- CulturalSpot nambah highlight: satu kalimat "kenapa layak mampir", maks 100 karakter, diterima di POST & PATCH spots (mitra & admin, "" = hapus). Tampil di kartu titik & poster
+- poster QR: halaman /poster/{spotId} (frontend, bisa dicetak/PDF) berisi QR ke /?titik={spotId}. Buka tautan itu = aplikasi langsung milih titik tsb & pindah ke kawasannya. Gak butuh endpoint
+- "Ingatkan aku" di Agenda bikin file .ics di HP (kalender + pengingat 2 jam sebelumnya). Gak butuh endpoint
+- pengukur dampak:
+  - POST /api/metrics { type, spotId } tanpa login, 202. type: QR_OPEN (poster dibuka lewat ?titik=), REMINDER_SAVED, GUIDE_START (Pandu aku dimulai). Yg disimpen CUMA jenis, titik, waktu: gak ada user, IP, atau lokasi (UU PDP). Frontend ngirim sekali per sesi per titik per jenis. Backend asli sebaiknya kasih rate limit per IP
+  - GET /api/metrics?days=&regionId= (MERCHANT = lapaknya, ADMIN = semua): { days, totals, spots[] }. Per titik: qrOpens, reminders, guides, checkIns, checkInsVerified, vouchersIssued, vouchersRedeemed, redeemedValue (rupiah potongan yg beneran dipake), upcomingEvents (30 hari ke depan). totals nambah spotsWithEvents & spots
+  - IssuedVoucher nambah issuedAt (ISO) biar voucer terbit bisa dihitung per periode
+  - dasbor mitra & pengelola nampilin kartu Dampak + tombol Salin ringkasan (teks siap tempel buat laporan ke pemda/sponsor)

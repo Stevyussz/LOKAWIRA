@@ -15,6 +15,7 @@ import RewardsPanel from "@/components/admin/RewardsPanel";
 import { ReservationsPanel, VouchersPanel } from "@/components/admin/PagedLists";
 import RequireRole from "@/components/layout/RequireRole";
 import RegionsPanel from "@/components/admin/RegionsPanel";
+import ImpactCard from "@/components/impact/ImpactCard";
 
 function AdminContent() {
   const { user, logout } = useAuth();
@@ -96,6 +97,8 @@ function AdminContent() {
             { label: "Voucer belum dipakai", value: activeVouchers, hint: "Sudah terbit, belum ditukar di kasir.", icon: "umkm", go: "REWARDS" },
           ]}
         />
+
+        <ImpactCard title="Dampak LOKAWIRA" regions={regions} />
 
         <div role="tablist" aria-label="Menu pengelola" className="gamiz-card p-2 grid grid-cols-2 lg:grid-cols-6 gap-2">
           {tabs.map((t, i) => (

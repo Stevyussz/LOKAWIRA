@@ -56,6 +56,7 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
   // kawasan gak dipilih manual lagi: ditentukan dr lokasi pin (sama persis dgn hitungan server)
   const { regions, activeRegion } = useLokawira();
   const [proposal, setProposal] = useState("");
+  const [highlight, setHighlight] = useState("");
   const [address, setAddress] = useState("");
   const [story, setStory] = useState("");
   const [pin, setPin] = useState<LatLng | null>(null);
@@ -88,6 +89,7 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
     setSched(scheduleFrom(null, "UMKM_KRIYA"));
     setPin(null);
     setProposal("");
+    setHighlight("");
     setErrors({});
   };
 
@@ -121,6 +123,7 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
       coordinates: pin,
       address: address.trim(),
       facilities,
+      ...(highlight.trim() ? { highlight: highlight.trim() } : {}),
       ...(() => {
         const sp = schedulePayload(sched, false);
         return { entry: sp.entry, ...(sp.openingHours ? { openingHours: sp.openingHours } : {}) };
@@ -200,6 +203,10 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
             <option value="SANGGAR_SENI">Sanggar seni</option>
           </select>
         </div>
+      </div>
+      <div>
+        <label htmlFor="lapak-highlight" className={labelCls}>Kenapa layak mampir? (satu kalimat, boleh dikosongkan)</label>
+        <input id="lapak-highlight" type="text" maxLength={100} value={highlight} onChange={(e) => setHighlight(e.target.value)} placeholder="Contoh: Lihat langsung cara membatik motif daun tembakau" className={input} />
       </div>
       <div>
         <label htmlFor="lapak-story" className={labelCls}>Cerita singkat lapak (boleh dikosongkan)</label>

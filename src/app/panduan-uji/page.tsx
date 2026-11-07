@@ -29,6 +29,8 @@ const SECTIONS: Section[] = [
       "Tiket (hanya di titik yang perlu pesan atau bertiket): pesan jam masuk. Bila lokasi utama padat dan misi pengalihan diterima, voucer dari UMKM terdekat ikut terbit. Titik bebas masuk menampilkan tombol Info berisi jam buka dan fasilitas.",
       "Hadiah dibatasi agar adil: XP dan voucer hanya untuk akun, sekali per titik per hari. Tanpa akun, kisah tetap bisa dibaca.",
       "Kisah: tanyakan sesuatu kepada Loka. Jawaban menyebut rujukan yang dipakai.",
+      "Agenda: lihat acara budaya 30 hari ke depan di kawasan, lalu tekan Ingatkan aku untuk menyimpannya ke kalender HP. Kartu titik juga menampilkan acara berikutnya.",
+      "Poster QR: buka /?titik=spot-mjp-02 (alamat yang ada di poster). Aplikasi langsung membuka lapak itu, seperti orang yang memindai poster saat lewat.",
       "Akun: pasang LOKAWIRA ke layar utama dan atur tingkat animasi.",
     ],
   },
@@ -40,6 +42,8 @@ const SECTIONS: Section[] = [
       "Kasir: ketik kode LKW- untuk menukar voucer, atau KDR- untuk memverifikasi kehadiran pengunjung. Setiap kode hanya berlaku sekali.",
       "Lapak Saya: daftarkan lapak baru. Lokasi bisa dicari lewat alamat atau lokasimu sekarang, dan kawasannya terdeteksi otomatis dari lokasi pin. Atur juga cara masuk (bebas, pesan slot, atau bertiket) dan jam buka. Lapak baru menunggu review pengelola.",
       "Promo & Scan: tulis objek yang harus dipotret wisatawan, unggah foto contoh, dan atur nominal voucer.",
+      "Acara di lapakmu: tambah pentas, latihan terbuka, atau kelas (sekali, tiap minggu, atau Minggu terakhir tiap bulan). Acara langsung tampil di Agenda wisatawan.",
+      "Poster QR: cetak poster untuk dipasang di depan lapak. Kartu Dampak menunjukkan berapa kali poster dipindai, orang yang diarahkan ke lokasi, check-in, dan nilai voucer yang ditukar.",
     ],
   },
   {
@@ -47,6 +51,7 @@ const SECTIONS: Section[] = [
     title: "Pengelola",
     who: "Masuk dengan akun pengelola uji, lalu buka Dasbor Pengelola.",
     steps: [
+      "Dampak LOKAWIRA: lihat angka 30 hari per kawasan, lalu Salin ringkasan untuk laporan.",
       "Persetujuan: setujui atau tolak mitra baru dan lapak baru, atau nonaktifkan mitra (lapaknya ikut hilang dari peta publik).",
       "Kuota & Tiket: isi jumlah pengunjung. Di atas 85%, peta wisatawan menampilkan jalur pengalihan ke UMKM sekitar.",
       "Hadiah & Voucer: atur XP misi dan nominal voucer.",

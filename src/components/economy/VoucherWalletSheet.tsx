@@ -93,11 +93,12 @@ function VoucherTicket({
   const [showCode, setShowCode] = useState(false);
   return (
     <motion.li {...itemMotion(index)} className="ticket-shadow list-none">
-      <div className={`ticket-cut-v relative flex rounded-2xl overflow-hidden border border-stoneSubtle ${active ? "" : "opacity-80"}`}>
+      {/* voucer nonaktif dibedain lewat warna stub & label, bkn opacity (opacity bikin teks gagal kontras 4,5:1) */}
+      <div className="ticket-cut-v relative flex rounded-2xl overflow-hidden border border-stoneSubtle">
         {/* Stub: nilai potongan, sisi yg dilhiat pertama */}
         <div
           className={`w-[96px] shrink-0 flex flex-col items-center justify-center text-center px-1.5 py-3 ${
-            active ? "bg-vibePrimary text-[var(--vibe-on-primary)]" : "bg-pumice text-pebble"
+            active ? "bg-vibePrimary text-[var(--vibe-on-primary)]" : "bg-pumice text-alabaster"
           }`}
         >
           <span className="text-[10px] font-extrabold tracking-wide">POTONGAN</span>

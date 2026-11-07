@@ -7,7 +7,7 @@ test("beranda memuat peta tanpa galat dan sheet utama bisa dibuka", async ({ pag
   await page.goto("/");
   await expect(page.getByRole("button", { name: /^Pilih titik / }).first()).toBeVisible();
 
-  for (const nav of ["WALLET", "QUOTA"]) {
+  for (const nav of ["WALLET", "AGENDA"]) {
     await page.locator(`[data-nav-id="${nav}"]`).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.keyboard.press("Escape");

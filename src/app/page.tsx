@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVibeHex } from "@/lib/vibeColors";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
@@ -14,7 +14,9 @@ import { anchorSpot } from "@/lib/geo";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import Loka from "@/components/brand/Loka";
 import { isExpired } from "@/lib/formatTime";
-import { ENTRY_LABEL, entryOf, hoursText, needsBooking, openState } from "@/lib/spotRules";
+import { ENTRY_LABEL, entryOf, hoursText, needsBooking, openState, tzOf } from "@/lib/spotRules";
+import AgendaSheet from "@/components/agenda/AgendaSheet";
+import { trackOnce } from "@/lib/track";
 
 const rupiahFmt = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 import VibeSwitcherBar from "@/components/layout/VibeSwitcherBar";
@@ -34,6 +36,7 @@ import {
   LensVerificationResult,
   ReservationPass,
   UnlockedLoreCard,
+  EventOccurrence,
 } from "@/types/lokawira";
 import { useReducedMotionConfig } from "@/lib/motionPref";
 
@@ -94,6 +97,10 @@ export default function LokawiraExplorerPage() {
   const [isQuotaModalOpen, setIsQuotaModalOpen] = useState<boolean>(false);
   const [isWalletOpen, setIsWalletOpen] = useState<boolean>(false);
   const [isBoardOpen, setIsBoardOpen] = useState<boolean>(false);
+  // agenda acara budaya kawasan aktif (null = lagi dimuat)
+  const [isAgendaOpen, setIsAgendaOpen] = useState<boolean>(false);
+  const [agenda, setAgenda] = useState<EventOccurrence[] | null>(null);
+  const [agendaError, setAgendaError] = useState<string | null>(null);
   const [isNeedsOpen, setIsNeedsOpen] = useState<boolean>(false);
   const [isAccountOpen, setIsAccountOpen] = useState<boolean>(false);
   // panel info titik (jam buka, alamat, fasilitas) buat titik yg gak pake tiket
@@ -175,6 +182,51 @@ export default function LokawiraExplorerPage() {
     else setIsSpotCardVisible(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType]);
+
+  // agenda kawasan: dimuat tiap ganti kawasan
+  const loadAgenda = useCallback(() => {
+    if (!activeRegionId) return;
+    setAgendaError(null);
+    api
+      .listEvents({ regionId: activeRegionId, days: 30 })
+      .then((r) => setAgenda(r.occurrences ?? []))
+      .catch((e) => {
+        setAgenda([]);
+        setAgendaError(describeError(e, "Agenda belum bisa dimuat."));
+      });
+  }, [activeRegionId]);
+  useEffect(() => {
+    setAgenda(null);
+    loadAgenda();
+  }, [loadAgenda]);
+  const nextEvent = selectedSpot ? agenda?.find((o) => o.spotId === selectedSpot.id && new Date(o.endsAt) > new Date()) : undefined;
+  const todayEventCount = useMemo(() => {
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    return (agenda ?? []).filter((o) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date(o.startsAt)) === day).length;
+  }, [agenda]);
+
+  // tautan dr poster QR (?titik=id): buka titik itu & pindah ke kawasannya, sekali aja
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current || spots.length === 0) return;
+    const id = new URLSearchParams(window.location.search).get("titik");
+    if (!id) {
+      deepLinkDone.current = true;
+      return;
+    }
+    const target = spots.find((x) => x.id === id);
+    if (!target) return;
+    deepLinkDone.current = true;
+    trackOnce("QR_OPEN", target.id);
+    if (target.regionId && target.regionId !== activeRegionId) setActiveRegionId(target.regionId);
+    // tunggu efek ganti kawasan selesai milih titik pertama, baru timpa dgn titik tujuan
+    setTimeout(() => {
+      setFilterType("ALL");
+      setSelectedSpot(target);
+      setIsSpotCardVisible(true);
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spots]);
 
   const nearbyUmkmSpots = useMemo(
     () =>
@@ -333,12 +385,12 @@ export default function LokawiraExplorerPage() {
     }
   };
 
-  type NavSection = "MAP" | "STORY" | "QUOTA" | "WALLET";
-  // tab aktif diturunkan dr apa yg lg terbuka, jd otomatis kembali ke Peta begitu Tas, Antrean, atw Kisah dtiutup
+  type NavSection = "MAP" | "STORY" | "AGENDA" | "WALLET";
+  // tab aktif diturunkan dr apa yg lg terbuka, jd otomatis kembali ke Peta begitu Tas, Agenda, atw Kisah dtiutup
   const activeNav: NavSection = isWalletOpen
     ? "WALLET"
-    : isBoardOpen
-    ? "QUOTA"
+    : isAgendaOpen
+    ? "AGENDA"
     : isStoryExpanded
     ? "STORY"
     : "MAP";
@@ -347,12 +399,14 @@ export default function LokawiraExplorerPage() {
     if (section === "MAP") {
       setIsStoryExpanded(false);
       setIsBoardOpen(false);
+      setIsAgendaOpen(false);
       setIsWalletOpen(false);
       setIsSpotCardVisible(true);
     } else if (section === "STORY") {
       setIsStoryExpanded((prev) => !prev);
-    } else if (section === "QUOTA") {
-      setIsBoardOpen(true);
+    } else if (section === "AGENDA") {
+      setIsAgendaOpen(true);
+      if (agendaError) loadAgenda();
     } else if (section === "WALLET") {
       setIsWalletOpen(true);
     }
@@ -363,6 +417,7 @@ export default function LokawiraExplorerPage() {
     : 0;
   const isSelectedCrowded = activeQuotaRatio >= 0.85;
   const startGuide = async (spot: CulturalSpot) => {
+    trackOnce("GUIDE_START", spot.id);
     setGuideSpot(spot);
     const ok = await startWatching();
     if (!ok) {
@@ -537,12 +592,18 @@ export default function LokawiraExplorerPage() {
               <h3 className="text-base font-extrabold text-alabaster leading-snug">
                 {selectedSpot.name}
               </h3>
+              {!isSheetCompact && selectedSpot.highlight && (
+                <p className="text-xs font-bold text-vibePrimary mt-0.5">{selectedSpot.highlight}</p>
+              )}
               {!isSheetCompact && (
                 <p className="text-xs text-pebble mt-0.5 line-clamp-1">{selectedSpot.address}</p>
               )}
               {isSheetCompact && (
                 <p className="text-xs font-bold text-pebble mt-0.5">
-                  +{selectedSpot.quest.rewardPoints} XP · {isSelectedCrowded ? "Padat" : "Masih lega"}
+                  +{selectedSpot.quest.rewardPoints} XP ·{" "}
+                  {nextEvent && new Date(nextEvent.startsAt).getTime() - Date.now() < 7 * 86400000
+                    ? `Acara ${new Intl.DateTimeFormat("id-ID", { timeZone: tzOf(selectedSpot), weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(nextEvent.startsAt))}`
+                    : isSelectedCrowded ? "Padat" : "Masih lega"}
                 </p>
               )}
             </div>
@@ -556,6 +617,23 @@ export default function LokawiraExplorerPage() {
               <Icon name="close" size={16} weight="bold" />
             </button>
           </div>
+
+          {/* acara berikutnya di titik ini: jawaban buat "lewat doang, gak tau ada apa" */}
+          {!isSheetCompact && nextEvent && (
+            <button
+              type="button"
+              onClick={() => setIsAgendaOpen(true)}
+              className="w-full min-h-[44px] px-3.5 rounded-xl bg-obsidian flex items-center justify-between gap-3 text-left"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Icon name="calendar" size={16} className="text-vibePrimary shrink-0" />
+                <span className="text-xs text-alabaster min-w-0">
+                  <b>{nextEvent.title}</b> · {new Intl.DateTimeFormat("id-ID", { timeZone: tzOf(selectedSpot), weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(nextEvent.startsAt))}
+                </span>
+              </span>
+              <Icon name="next" size={16} weight="bold" className="text-vibePrimary shrink-0" />
+            </button>
+          )}
 
           {/* cara masuk & status buka */}
           {!isSheetCompact && (() => {
@@ -758,6 +836,22 @@ export default function LokawiraExplorerPage() {
 
       <RegionInkTransition activeVibe={activeVibe} />
 
+      <AgendaSheet
+        isOpen={isAgendaOpen}
+        onClose={() => setIsAgendaOpen(false)}
+        regionName={activeRegion ? `${activeRegion.name}, ${activeRegion.label}` : "kawasan ini"}
+        occurrences={agenda}
+        error={agendaError}
+        onRetry={loadAgenda}
+        spots={regionalSpots}
+        onShowOnMap={(spot) => {
+          if (!matchesSpotFilter(spot, filterType)) setFilterType("ALL");
+          setSelectedSpot(spot);
+          setIsSpotCardVisible(true);
+          setIsAgendaOpen(false);
+        }}
+      />
+
       <QuotaBoardSheet
         isOpen={isBoardOpen}
         onClose={() => setIsBoardOpen(false)}
@@ -781,7 +875,7 @@ export default function LokawiraExplorerPage() {
         onSelectSection={handleBottomSectionSelect}
         onOpenScanner={() => setIsScannerOpen(true)}
         activeVoucherCount={activeVouchers.length}
-        isPrimaryCrowded={isPrimaryCrowded}
+        todayEventCount={todayEventCount}
       />
     </main>
   );

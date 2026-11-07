@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
         minimumSpend: spot.quest.voucherReward.minimumSpend,
         // berlaku 7 hari (ISO, dicek kasir)
         expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+        issuedAt: new Date().toISOString(),
         status: "ACTIVE",
       };
       store.vouchers.unshift(issuedVoucher);

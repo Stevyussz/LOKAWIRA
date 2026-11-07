@@ -5,6 +5,8 @@ import {
   IssuedVoucher,
   ReservationPass,
   Region,
+  CulturalEvent,
+  MetricType,
   UnlockedLoreCard,
 } from "@/types/lokawira";
 
@@ -555,7 +557,29 @@ export const INITIAL_REGIONS: Region[] = [
   { id: "rgn-pandhalungan", name: "Pandhalungan", label: "Jember (rencana survei)", theme: "sogan", center: { lat: -8.1724, lng: 113.7005 }, radiusKm: 30, status: "DRAFT" },
 ];
 
+// acara contoh berulang di titik demo, dihitung dr minggu ini biar agenda selalu keisi
+function nextWeekday(day: number, hour: number, minute: number): string {
+  // jam WIB -> UTC (WIB = UTC+7)
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour - 7, minute));
+  while (d.getUTCDay() !== day || d.getTime() < now.getTime() - 7 * 86400000) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+}
+const plusHours = (iso: string, h: number) => new Date(new Date(iso).getTime() + h * 3600000).toISOString();
+const SAT_19 = nextWeekday(6, 19, 0);
+const SAT_09 = nextWeekday(6, 9, 0);
+const SUN_LAST_07 = nextWeekday(0, 7, 0);
+
+export const INITIAL_EVENTS: CulturalEvent[] = [
+  { id: "evt-babad-surya", spotId: "spot-mjp-01", title: "Pentas Babad Surya", description: "Pembacaan babad dan tari pendek di panggung terbuka depan gapura. Gratis, duduk lesehan.", startsAt: SAT_19, endsAt: plusHours(SAT_19, 2), repeat: "WEEKLY" },
+  { id: "evt-kelas-terakota", spotId: "spot-mjp-02", title: "Kelas membentuk tanah liat", description: "Belajar membentuk celengan terakota bersama perajin. Bahan disediakan.", startsAt: SAT_09, endsAt: plusHours(SAT_09, 2), repeat: "WEEKLY" },
+  { id: "evt-pasar-sendang", spotId: "spot-sgn-01", title: "Pasar tradisi Sendang Seliran", description: "Pasar jajanan dan kerajinan di Minggu terakhir tiap bulan.", startsAt: SUN_LAST_07, endsAt: plusHours(SUN_LAST_07, 4), repeat: "MONTHLY_LAST" },
+];
+
 interface LokawiraMemoryStore {
+  // jejak dampak anonim: cuma jenis, titik, & waktu
+  metrics: { type: MetricType; spotId: string; at: string }[];
+  events: CulturalEvent[];
   regions: Region[];
   spots: CulturalSpot[];
   vouchers: IssuedVoucher[];
@@ -568,6 +592,8 @@ const globalForStore = globalThis as unknown as { lokawiraStore?: LokawiraMemory
 export function getLokawiraStore(): LokawiraMemoryStore {
   if (!globalForStore.lokawiraStore) {
     globalForStore.lokawiraStore = {
+      metrics: [],
+      events: structuredClone(INITIAL_EVENTS),
       regions: structuredClone(INITIAL_REGIONS),
       spots: structuredClone(INITIAL_CULTURAL_SPOTS),
       vouchers: structuredClone(INITIAL_VOUCHERS),

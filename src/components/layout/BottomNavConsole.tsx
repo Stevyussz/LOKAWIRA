@@ -5,21 +5,23 @@ import { MotionConfig, motion } from "motion/react";
 import Icon, { IconName } from "@/components/ui/Icon";
 import { useReducedMotionConfig } from "@/lib/motionPref";
 
-type Section = "MAP" | "STORY" | "QUOTA" | "WALLET";
+type Section = "MAP" | "STORY" | "AGENDA" | "WALLET";
 
 interface BottomNavConsoleProps {
   activeSection: Section;
   onSelectSection: (section: Section) => void;
   onOpenScanner: () => void;
   activeVoucherCount: number;
-  isPrimaryCrowded: boolean;
+  // jumlah acara hari ini di kawasan (titik kecil di tab Agenda)
+  todayEventCount: number;
 }
 
 // Peta: kmebali ke jelajah - Kisah: cerita Loka
 const ITEMS: { id: Section; label: string; icon: IconName }[] = [
   { id: "MAP", label: "Peta", icon: "compass" },
   { id: "STORY", label: "Kisah", icon: "story" },
-  { id: "QUOTA", label: "Antrean", icon: "users" },
+  // tempat budaya jarang antre; yg kurang justru info "ada acara apa". Antrean pindah ke kartu titik saat ramai
+  { id: "AGENDA", label: "Agenda", icon: "calendar" },
   { id: "WALLET", label: "Tas", icon: "bag" },
 ];
 
@@ -27,7 +29,7 @@ export default function BottomNavConsole({
   activeSection,
   onSelectSection,
   activeVoucherCount,
-  isPrimaryCrowded,
+  todayEventCount,
 }: BottomNavConsoleProps) {
   const reducedMotion = useReducedMotionConfig();
   return (
@@ -69,12 +71,13 @@ export default function BottomNavConsole({
                 </motion.span>
                 <span className="relative">{item.label}</span>
 
-                {item.id === "QUOTA" && isPrimaryCrowded && (
+                {item.id === "AGENDA" && todayEventCount > 0 && (
                   <span
-                    title="Antrean lokasi utama padat"
-                    className="absolute top-2 right-[22%] w-2.5 h-2.5 rounded-full bg-quotaFull ring-2 ring-[var(--bg-basalt-card)]"
+                    aria-hidden="true"
+                    className="absolute top-2 right-[22%] w-2.5 h-2.5 rounded-full bg-vibePrimary ring-2 ring-[var(--bg-basalt-card)]"
                   />
                 )}
+                {item.id === "AGENDA" && todayEventCount > 0 && <span className="sr-only">, ada acara hari ini</span>}
                 {item.id === "WALLET" && activeVoucherCount > 0 && (
                   <motion.span
                     key={activeVoucherCount}

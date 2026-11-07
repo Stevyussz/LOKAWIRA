@@ -31,6 +31,49 @@ export interface Region {
   createdAt?: string;
 }
 
+// jejak dampak anonim (tanpa data pribadi): poster QR dibuka, pengingat acara disimpan, pandu ke titik dimulai
+export type MetricType = "QR_OPEN" | "REMINDER_SAVED" | "GUIDE_START";
+export interface SpotImpact {
+  spotId: string;
+  spotName: string;
+  regionId?: string;
+  qrOpens: number;
+  reminders: number;
+  guides: number;
+  checkIns: number;
+  checkInsVerified: number;
+  vouchersIssued: number;
+  vouchersRedeemed: number;
+  redeemedValue: number; // rupiah potongan yg beneran dipakai di kasir
+  upcomingEvents: number;
+}
+
+// acara budaya di sebuah titik (pentas, latihan terbuka, kelas, pasar). Satu titik bisa punya banyak acara.
+// repeat: NONE = sekali, WEEKLY = tiap minggu di hari & jam yg sama, MONTHLY_LAST = hari yg sama di minggu terakhir tiap bulan
+export type EventRepeat = "NONE" | "WEEKLY" | "MONTHLY_LAST";
+export interface CulturalEvent {
+  id: string;
+  spotId: string;
+  title: string;
+  description?: string;
+  startsAt: string; // ISO, kemunculan pertama
+  endsAt: string; // ISO, selesai kemunculan pertama
+  repeat: EventRepeat;
+  createdAt?: string;
+}
+// satu kemunculan acara di tanggal tertentu (hasil hitungan server dr pola berulang)
+export interface EventOccurrence {
+  eventId: string;
+  spotId: string;
+  spotName: string;
+  regionId?: string;
+  title: string;
+  description?: string;
+  startsAt: string;
+  endsAt: string;
+  repeat: EventRepeat;
+}
+
 // cara masuk titik: FREE = bebas masuk tanpa tiket (acara publik, warung), RESERVATION = gratis tapi pesan slot
 // (kapasitas terbatas), TICKET = berbayar (harga & cara beli). Kosong = data lama (cagar utama RESERVATION, lainnya FREE)
 export type EntryMode = "FREE" | "RESERVATION" | "TICKET";
@@ -100,6 +143,8 @@ export interface CulturalSpot {
   };
   address: string;
   facilities: string[];
+  // satu kalimat "kenapa layak mampir", diisi mitra/pengelola, maks 100 karakter
+  highlight?: string;
   entry?: SpotEntry;
   openingHours?: OpeningHours;
   event?: SpotEvent;
@@ -148,6 +193,8 @@ export interface IssuedVoucher {
   expiresAt: string | null;
   status: "ACTIVE" | "REDEEMED";
   redeemedAt?: string;
+  // ISO, kapan voucer terbit (buat hitung dampak)
+  issuedAt?: string;
 }
 
 export interface ReservationPass {

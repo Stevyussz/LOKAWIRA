@@ -1,8 +1,11 @@
-import { CulturalSpot } from "@/types/lokawira";
+import type { CulturalSpot, MetricType } from "@/types/lokawira";
 import type {
   AddAiNoteRequest,
   UpdateAiNoteRequest,
   RegionInput,
+  EventsResponse,
+  ImpactResponse,
+  CreateEventRequest,
   RegionsResponse,
   AdminListQuery,
   AdminReservationsResponse,
@@ -208,6 +211,16 @@ export const api = {
 
   deleteAiNote: (id: string) =>
     request<AddAiNoteResponse>(`/api/ai-notes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  // jejak dampak anonim; gagal = diem aja (gak boleh ganggu pengguna)
+  track: (type: MetricType, spotId: string) =>
+    request<{ ok: boolean }>("/api/metrics", { method: "POST", body: { type, spotId }, timeoutMs: 5000 }).catch(() => undefined),
+  impact: (q: { days?: number; regionId?: string } = {}) => request<ImpactResponse>(`/api/metrics${toQuery(q)}`),
+
+  listEvents: (q: { regionId?: string; spotId?: string; days?: number } = {}) =>
+    request<EventsResponse>(`/api/events${toQuery(q)}`),
+  createEvent: (r: CreateEventRequest) => request<EventsResponse>("/api/events", { method: "POST", body: r }),
+  deleteEvent: (id: string) => request<EventsResponse>(`/api/events/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   listRegions: () => request<RegionsResponse>("/api/regions"),
   createRegion: (r: RegionInput) => request<RegionsResponse>("/api/regions", { method: "POST", body: r }),

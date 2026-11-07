@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
           minimumSpend: partner.quest.voucherReward.minimumSpend,
           // berlaku sampai akhir hari ini (WIB), dicek kasir
           expiresAt: endOfWibDay(),
+        issuedAt: new Date().toISOString(),
           status: "ACTIVE",
         };
         store.vouchers.unshift(bonusVoucher);

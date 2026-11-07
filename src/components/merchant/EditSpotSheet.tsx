@@ -32,6 +32,7 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
   const [facilities, setFacilities] = useState<string[]>([]);
   const [capacity, setCapacity] = useState(30);
   const [sched, setSched] = useState<ScheduleValue>(() => scheduleFrom(null));
+  const [highlight, setHighlight] = useState("");
   const [pin, setPin] = useState<LatLng | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<"save" | "archive" | null>(null);
@@ -48,6 +49,7 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
     setCapacity(spot.quota.maxCapacity);
     setPin(spot.coordinates);
     setSched(scheduleFrom(spot));
+    setHighlight(spot.highlight ?? "");
     setErrors({});
     setMsg(null);
     setConfirming(false);
@@ -87,6 +89,7 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
         coordinates: pin,
         quota: { maxCapacity: capacity },
         quest: { riddleClue: clue.trim(), loreNarrative: story.trim() },
+        highlight: highlight.trim(),
         // jadwal acara cuma dikirim pengelola
         ...schedulePayload(sched, isAdmin),
       });
@@ -188,6 +191,12 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
           <label htmlFor="edit-cap" className={labelCls}>Kapasitas sekaligus</label>
           <input id="edit-cap" type="number" inputMode="numeric" min={1} max={isAdmin ? 5000 : 500} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} aria-invalid={!!errors.capacity} aria-describedby={errors.capacity ? "edit-err-cap" : undefined} className={`${input} font-num`} />
           {errors.capacity && <p id="edit-err-cap" role="alert" className="mt-1 text-xs font-bold text-quotaFull">{errors.capacity}</p>}
+        </div>
+
+        <div>
+          <label htmlFor="edit-highlight" className={labelCls}>Kenapa layak mampir? (satu kalimat)</label>
+          <input id="edit-highlight" type="text" maxLength={100} value={highlight} onChange={(e) => setHighlight(e.target.value)} placeholder="Contoh: Boleh nonton latihan tari tiap Jumat malam, gratis" className={input} />
+          <p className="mt-1 text-[11px] text-pebble">Tampil di kartu lapak dan poster QR. Tulis hal yang membuat orang yang lewat ingin berhenti.</p>
         </div>
 
         <div className="space-y-2">
