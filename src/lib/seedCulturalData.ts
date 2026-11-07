@@ -549,6 +549,10 @@ export const INITIAL_REGIONS: Region[] = [
   { id: "rgn-bahari", name: "Bahari", label: "Lasem, Rembang", theme: "bahari", center: { lat: -6.6953, lng: 111.4521 }, radiusKm: 15, status: "ACTIVE" },
   { id: "rgn-tridatu", name: "Tridatu", label: "Kamasan, Bali", theme: "tridatu", center: { lat: -8.5441, lng: 115.4052 }, radiusKm: 15, status: "ACTIVE" },
   { id: "rgn-ukiran", name: "Toraja", label: "Kete Kesu, Toraja", theme: "ukiran", center: { lat: -2.9992, lng: 119.9087 }, radiusKm: 15, status: "ACTIVE" },
+  // kawasan rencana survei tim (DRAFT: belum tampil ke wisatawan, belum ada titik). Pusat di alun-alun Jember,
+  // radius 30 km nyakup kota, Arjasa (Situs Duplang), Ledokombo (Tanoker), & Sumberjambe (batik labako).
+  // Palet sogan: cokelat daun tembakau. Aktifkan dr tab Kawasan stlh titik hasil survei diisi
+  { id: "rgn-pandhalungan", name: "Pandhalungan", label: "Jember (rencana survei)", theme: "sogan", center: { lat: -8.1724, lng: 113.7005 }, radiusKm: 30, status: "DRAFT" },
 ];
 
 interface LokawiraMemoryStore {
