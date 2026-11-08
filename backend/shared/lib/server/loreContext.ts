@@ -9,8 +9,8 @@ export interface LoreNote {
 }
 
 // pilih rujukan Pengetahuan Loka yg paling nyambung sama titik & pertanyaan (pencocokan kata dasar).
-// Kata dr pertanyaan bobotnya lebih besar dr kata nama titik. OPK sama dapat nilai tambah. Maks 3 biar prompt pendek
-export function pickNotes(spot: CulturalSpot, notes: LoreNote[], question?: string, max = 3): LoreNote[] {
+// Kata dr pertanyaan bobotnya lebih besar dr kata nama titik. OPK sama dapat nilai tambah. Maks 4 biar prompt pendek
+export function pickNotes(spot: CulturalSpot, notes: LoreNote[], question?: string, max = 4): LoreNote[] {
   const spotWords = new Set([...keywords(spot.name), ...keywords(spot.regionName ?? ""), ...keywords(spot.quest.targetObjectPrompt ?? "")]);
   const qWords = new Set(keywords(question ?? ""));
   return notes
@@ -21,7 +21,7 @@ export function pickNotes(spot: CulturalSpot, notes: LoreNote[], question?: stri
         if (hay.has(w)) score += 2;
       });
       qWords.forEach((w) => {
-        if (hay.has(w)) score += 3;
+        if (hay.has(w)) score += 4;
       });
       if (n.opkCategory === spot.opkCategory) score += 1;
       return { n, score };

@@ -169,24 +169,53 @@ export interface OfflineAnswer {
 }
 export const PRACTICAL_SOURCE = "Data lapak di LOKAWIRA (diisi pemilik)";
 
+// ambil kalimat rujukan yg nyambung sama pertanyaan (maks 3, urutan asli), biar jawaban offline gak kepanjangan
+export function relevantSentences(text: string, qWords: Set<string>, max = 3): string {
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z'"])/);
+  const scored = sentences.map((t, i) => ({ t, i, hit: new Set(keywords(t).filter((w) => qWords.has(w))).size }));
+  const keep = scored.filter((x) => x.hit > 0).sort((a, b) => b.hit - a.hit || a.i - b.i).slice(0, max).sort((a, b) => a.i - b.i);
+  return (keep.length ? keep : scored.slice(0, 2)).map((x) => x.t).join(" ");
+}
+
 export function offlineAnswer(spot: CulturalSpot, question: string, notes: LokaNoteLite[], world: LokaWorld = {}): OfflineAnswer {
   const intents = detectIntents(question);
-  if (intents.length) {
-    const facts = practicalFacts(spot, world);
-    const parts = intents.slice(0, 2).map((i) => facts[i]);
-    // aturan, keramaian: tambahin rekomendasi kalo lagi ramai
-    if (intents.includes("CROWD") && isCrowded(spot) && !intents.includes("NEARBY")) parts.push(`Kalau ingin yang lebih lengang: ${facts.NEARBY.replace(/^Titik terdekat: /, "")}`);
-    return { answer: parts.join(" "), answered: true, references: [PRACTICAL_SOURCE] };
-  }
   const qWords = new Set(keywords(question));
   // dianggap nyambung kalo minimal separuh kata kunci pertanyaan ada di rujukan (satu kata umum kayak "gapura" belum cukup)
   const need = Math.max(1, Math.ceil(qWords.size / 2));
   const overlap = (t: string) => new Set(keywords(t).filter((w) => qWords.has(w))).size;
-  const hit = notes
-    .map((n) => ({ n, score: overlap(`${n.summary} ${n.maestroSource}`) }))
-    .filter((x) => x.score >= need)
-    .sort((a, b) => b.score - a.score)[0];
-  if (hit) return { answer: `Menurut ${hit.n.maestroSource}: ${hit.n.summary}`, answered: true, references: [hit.n.maestroSource] };
+  // kata yg jarang muncul di rujukan lain lebih menentukan (mis. "segaran" vs "trowulan")
+  const df = new Map<string, number>();
+  for (const n of notes) for (const w of new Set(keywords(n.summary))) if (qWords.has(w)) df.set(w, (df.get(w) ?? 0) + 1);
+  const weight = (t: string) => [...new Set(keywords(t).filter((w) => qWords.has(w)))].reduce((a, w) => a + 1 / (df.get(w) ?? 1), 0);
+  const ranked = notes
+    .map((n) => ({ n, hits: overlap(`${n.summary} ${n.maestroSource}`), w: weight(n.summary) }))
+    .filter((x) => x.hits >= need)
+    .sort((a, b) => b.w - a.w || b.hits - a.hits);
+  const fromNotes = (): OfflineAnswer | null => {
+    if (!ranked.length) return null;
+    // dua rujukan sama kuat: tampilkan dua-duanya daripada menebak salah satu
+    const top = ranked.filter((x, i) => i === 0 || (i === 1 && Math.abs(x.w - ranked[0].w) < 0.01));
+    return {
+      answer: top.map((x) => `${relevantSentences(x.n.summary, qWords)} (Sumber: ${x.n.maestroSource})`).join("\n\n"),
+      answered: true,
+      references: top.map((x) => x.n.maestroSource),
+    };
+  };
+
+  if (intents.length) {
+    // aturan yg gak dicatat pemilik tapi ada di rujukan budaya (mis. busana adat ke makam)
+    if (intents[0] === "RULES" && !spot.rules?.length) {
+      const n = fromNotes();
+      if (n) return n;
+    }
+    const facts = practicalFacts(spot, world);
+    const parts = intents.slice(0, 2).map((i) => facts[i]);
+    // lagi ramai: tambahin rekomendasi titik terdekat
+    if (intents.includes("CROWD") && isCrowded(spot) && !intents.includes("NEARBY")) parts.push(`Kalau ingin yang lebih lengang: ${facts.NEARBY.replace(/^Titik terdekat: /, "")}`);
+    return { answer: parts.join(" "), answered: true, references: [PRACTICAL_SOURCE] };
+  }
+  const n = fromNotes();
+  if (n) return n;
   if (qWords.size && overlap(`${spot.quest.loreNarrative} ${spot.description ?? ""}`) >= need)
     return { answer: spot.quest.loreNarrative, answered: true, references: [spot.quest.verifiedLoreSource] };
   return {
