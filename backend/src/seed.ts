@@ -13,7 +13,7 @@ async function upsertUser(id: string, name: string, email: string, role: string,
   const salt = crypto.randomBytes(16).toString("hex");
   await pool.query(
     "INSERT INTO users(id,email,name,role,status,password_salt,password_hash,email_verified) VALUES($1,$2,$3,$4,$5,$6,$7,true) ON CONFLICT DO NOTHING",
-    [id, email.toLowerCase(), name, role, status, salt, hashPassword(password, salt)]
+    [id, email.toLowerCase(), name, role, status, salt, await hashPassword(password, salt)]
   );
   await pool.query("INSERT INTO profiles(user_id) SELECT id FROM users WHERE email=$1 ON CONFLICT DO NOTHING", [email.toLowerCase()]);
 }

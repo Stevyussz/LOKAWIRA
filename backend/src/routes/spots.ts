@@ -1,7 +1,7 @@
-import type { FastifyInstance } from "fastify";
-import type { AuthUser, CulturalSpot, IssuedVoucher, ReservationPass } from "../../../src/types/lokawira";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import type { AuthUser, CulturalSpot, GalleryImage, IssuedVoucher, ReservationPass } from "../../../src/types/lokawira";
 import { inIndonesia } from "../../../src/lib/geo";
-import { parseEntry, parseEvent, parseHours } from "../../../src/lib/spotRules";
+import { applyInfo, INFO_LIMITS, parseEntry, parseEvent, parseHours, parseInfo, storyChanged } from "../../../src/lib/spotRules";
 import { OPK_VALUES, SPOT_TYPES } from "../../../src/lib/enums";
 import { distanceMeters } from "../../../src/lib/geo";
 import { pool, tx } from "../db.js";
@@ -151,6 +151,7 @@ export default async function spotRoutes(app: FastifyInstance) {
         referenceImages: [],
       },
     };
+    applyInfo(spot, parsedOr(parseInfo(b)));
     for (const k of Object.keys(spot) as (keyof CulturalSpot)[]) if (spot[k] === undefined) delete spot[k];
     await saveEntity(pool, "spot", spot.id, spot, spot.ownerId ?? null);
     return reply.code(201).send({ spot, spots: await visibleSpots(pool, user) });
@@ -218,6 +219,8 @@ export default async function spotRoutes(app: FastifyInstance) {
         if (h) draft.highlight = h;
         else delete draft.highlight;
       }
+      // info tempat (deskripsi, peraturan, kontak): urusan usaha mitra sendiri, langsung tampil
+      applyInfo(draft, parsedOr(parseInfo(b)));
       if (b.entry !== undefined) {
         if (b.entry === null) delete draft.entry;
         else draft.entry = parsedOr(parseEntry(b.entry));
@@ -240,9 +243,10 @@ export default async function spotRoutes(app: FastifyInstance) {
           else draft.event = parsedOr(parseEvent(b.event));
         }
       }
-      // mitra ngubah nama/lokasi: balik ditinjau pengelola
+      // mitra ngubah nama/lokasi atau teks budaya (cerita, petunjuk, objek misi): balik ditinjau pengelola.
+      // Dulu cerita bisa diganti bebas stlh terbit, padahal itu yg dibacakan Loka
       const moved = draft.coordinates.lat !== before.lat || draft.coordinates.lng !== before.lng;
-      if (!isAdmin && (draft.name !== before.name || moved)) draft.status = "PENDING_REVIEW";
+      if (!isAdmin && (draft.name !== before.name || moved || storyChanged(row.payload, draft))) draft.status = "PENDING_REVIEW";
       await saveEntity(c, "spot", row.id, draft, row.owner_id);
       return draft;
     });
@@ -333,11 +337,7 @@ export default async function spotRoutes(app: FastifyInstance) {
     return { referenceImages };
   });
 
-  app.get<{ Params: { id: string; imageId: string } }>("/api/spots/:id/reference-images/:imageId", async (request, reply) => {
-    const r = await pool.query<{ file_data: Buffer; mime_type: string }>("SELECT file_data,mime_type FROM entities WHERE kind='reference-image' AND id=$1 AND owner_id=$2", [request.params.imageId, request.params.id]);
-    if (!r.rows[0]) fail(404, "Foto contoh tidak ditemukan.");
-    return reply.type(r.rows[0].mime_type).header("Cache-Control", "public, max-age=86400").header("X-Content-Type-Options", "nosniff").send(r.rows[0].file_data);
-  });
+  app.get<{ Params: { id: string; imageId: string } }>("/api/spots/:id/reference-images/:imageId", async (request, reply) => sendImage(reply, "reference-image", request.params.id, request.params.imageId));
 
   app.delete<{ Params: { id: string; imageId: string } }>("/api/spots/:id/reference-images/:imageId", async (request) => {
     const user = requireRoles(request, ["MERCHANT", "ADMIN"]);
@@ -351,4 +351,70 @@ export default async function spotRoutes(app: FastifyInstance) {
     });
     return { referenceImages };
   });
+
+  // ---- galeri foto suasana tempat (sheet Info). Maks 6, disimpan bytea, keterangan opsional
+  app.post<{ Params: { id: string } }>("/api/spots/:id/gallery", async (request) => {
+    const user = requireRoles(request, ["MERCHANT", "ADMIN"]);
+    const pre = await getEntity<CulturalSpot>(pool, "spot", request.params.id);
+    if (!pre || pre.payload.status === "ARCHIVED") fail(404, "Titik lokasi tidak ditemukan.");
+    if (user.role !== "ADMIN" && pre.owner_id !== user.id) fail(403, "Ini bukan lapak Anda.", "NOT_YOUR_SPOT");
+    if (!request.isMultipart()) bad("Kirim foto sebagai multipart/form-data (field image).");
+    let image: { type: string; data: Buffer } | null = null;
+    let caption = "";
+    try {
+      for await (const part of request.parts()) {
+        if (part.type === "file") {
+          const data = await part.toBuffer();
+          if (part.fieldname === "image" && !image) image = { type: part.mimetype, data };
+        } else if (part.fieldname === "caption") caption = str(part.value, INFO_LIMITS.caption);
+      }
+    } catch {
+      fail(413, "Foto lebih dari 5 MB.", "IMAGE_TOO_LARGE");
+    }
+    if (!image) bad("Kirim foto pada field image.");
+    if (!IMAGE_TYPES.has(image.type)) fail(415, "Format foto harus JPEG, PNG, atau WebP.", "IMAGE_TYPE_UNSUPPORTED");
+    if (image.data.length > MAX_IMAGE_BYTES) fail(413, "Foto lebih dari 5 MB.", "IMAGE_TOO_LARGE");
+    if (!imageSignatureMatches(image.type, image.data)) fail(415, "Isi foto tidak sesuai dengan format berkasnya.", "IMAGE_TYPE_UNSUPPORTED");
+    const img = image;
+    const gallery = await tx(async (c) => {
+      const row = await lockOwnedSpot(c, user, request.params.id);
+      const list = row.payload.gallery ?? [];
+      if (list.length >= INFO_LIMITS.gallery) fail(409, `Maksimal ${INFO_LIMITS.gallery} foto galeri per tempat. Hapus satu dulu.`, "TOO_MANY_IMAGES");
+      const imageId = newId("gal");
+      const item: GalleryImage = { id: imageId, url: `/api/spots/${encodeURIComponent(row.id)}/gallery/${encodeURIComponent(imageId)}`, ...(caption ? { caption } : {}) };
+      list.push(item);
+      row.payload.gallery = list;
+      await c.query("INSERT INTO entities(id,kind,owner_id,payload,file_data,mime_type) VALUES($1,'gallery-image',$2,$3,$4,$5)", [imageId, row.id, JSON.stringify({ spotId: row.id }), img.data, img.type]);
+      await saveEntity(c, "spot", row.id, row.payload, row.owner_id);
+      return list;
+    });
+    return { gallery };
+  });
+
+  app.get<{ Params: { id: string; imageId: string } }>("/api/spots/:id/gallery/:imageId", async (request, reply) => sendImage(reply, "gallery-image", request.params.id, request.params.imageId));
+
+  app.delete<{ Params: { id: string; imageId: string } }>("/api/spots/:id/gallery/:imageId", async (request) => {
+    const user = requireRoles(request, ["MERCHANT", "ADMIN"]);
+    const gallery = await tx(async (c) => {
+      const row = await lockOwnedSpot(c, user, request.params.id);
+      const del = await c.query("DELETE FROM entities WHERE kind='gallery-image' AND id=$1 AND owner_id=$2", [request.params.imageId, row.id]);
+      if (!del.rowCount) fail(404, "Foto galeri tidak ditemukan.");
+      row.payload.gallery = (row.payload.gallery ?? []).filter((i) => i.id !== request.params.imageId);
+      if (!row.payload.gallery.length) delete row.payload.gallery;
+      await saveEntity(c, "spot", row.id, row.payload, row.owner_id);
+      return row.payload.gallery ?? [];
+    });
+    return { gallery };
+  });
+}
+
+// kirim foto (contoh objek / galeri). Titik yg diarsip atau ditolak: fotonya ikut gak bisa dibuka
+async function sendImage(reply: FastifyReply, kind: "reference-image" | "gallery-image", spotId: string, imageId: string) {
+  const r = await pool.query<{ file_data: Buffer; mime_type: string; status: string | null }>(
+    "SELECT i.file_data,i.mime_type,s.payload->>'status' AS status FROM entities i JOIN entities s ON s.kind='spot' AND s.id=i.owner_id WHERE i.kind=$1 AND i.id=$2 AND i.owner_id=$3",
+    [kind, imageId, spotId]
+  );
+  const row = r.rows[0];
+  if (!row || row.status === "ARCHIVED" || row.status === "REJECTED") fail(404, "Foto tidak ditemukan.");
+  return reply.type(row.mime_type).header("Cache-Control", "public, max-age=86400").header("X-Content-Type-Options", "nosniff").send(row.file_data);
 }

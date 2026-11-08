@@ -4,24 +4,48 @@ import React, { useRef, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import { API_BASE, api, describeError } from "@/lib/api";
 import { fileToJpeg } from "@/lib/image";
-import type { ReferenceImage } from "@/types/lokawira";
+import { INFO_LIMITS } from "@/lib/spotRules";
+import type { GalleryImage } from "@/types/lokawira";
 
 export const MAX_REFERENCE_PHOTOS = 5;
 
+type Kind = "reference" | "gallery";
 interface Props {
   spotId: string;
-  images: ReferenceImage[];
+  images: GalleryImage[];
   // dipanggil dgn daftar foto terbaru stlh unggah/hapus berhasil
-  onImages: (images: ReferenceImage[]) => void;
+  onImages: (images: GalleryImage[]) => void;
   disabled?: boolean;
+  // reference = foto contoh objek scan (kunci jawaban AI), gallery = foto suasana tempat di sheet Info
+  kind?: Kind;
 }
 
-// foto contoh objek yg dipindai wisatawan. AI membandingkan foto wisatawan dgn foto-foto ini
-export default function ReferencePhotos({ spotId, images, onImages, disabled }: Props) {
+const COPY: Record<Kind, { max: number; noun: string; empty: string; add: string; tips: string }> = {
+  reference: {
+    max: MAX_REFERENCE_PHOTOS,
+    noun: "foto contoh",
+    empty: "Belum ada foto contoh. Tambahkan 1 sampai 5 foto objeknya supaya aplikasi bisa mengenali saat wisatawan memotret.",
+    add: "Tambah foto contoh",
+    tips: "Tips: foto satu objek saja, dari dekat, di tempat terang, dan dari 2 sampai 3 sisi.",
+  },
+  gallery: {
+    max: INFO_LIMITS.gallery,
+    noun: "foto galeri",
+    empty: "Belum ada foto galeri. Foto suasana, ruang, atau karya di tempatmu tampil di halaman Info untuk wisatawan.",
+    add: "Tambah foto galeri",
+    tips: "Pakai foto asli tempatmu. Jangan pakai foto objek misi di sini, supaya teka-tekinya tidak bocor.",
+  },
+};
+
+// foto contoh objek yg dipindai wisatawan (AI membandingkan foto wisatawan dgn ini), atau galeri tempat utk sheet Info
+export default function ReferencePhotos({ spotId, images, onImages, disabled, kind = "reference" }: Props) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const room = MAX_REFERENCE_PHOTOS - images.length;
+  const [caption, setCaption] = useState("");
+  const copy = COPY[kind];
+  const room = copy.max - images.length;
+  const inputId = `${kind}-${spotId}`;
 
   const pick = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -32,12 +56,12 @@ export default function ReferencePhotos({ spotId, images, onImages, disabled }: 
     try {
       for (const f of Array.from(files).slice(0, room)) {
         const blob = await fileToJpeg(f);
-        const res = await api.uploadReferenceImage(spotId, blob);
-        latest = res.referenceImages;
+        latest = kind === "gallery" ? (await api.uploadGalleryImage(spotId, blob, caption.trim() || undefined)).gallery : (await api.uploadReferenceImage(spotId, blob)).referenceImages;
         sent++;
       }
       onImages(latest);
-      if (files.length > room) setMsg({ ok: false, text: `Hanya ${room} foto yang muat. Maksimal ${MAX_REFERENCE_PHOTOS} foto per lapak.` });
+      setCaption("");
+      if (files.length > room) setMsg({ ok: false, text: `Hanya ${room} foto yang muat. Maksimal ${copy.max} ${copy.noun} per tempat.` });
       else setMsg({ ok: true, text: `${sent} foto tersimpan.` });
     } catch (err) {
       if (sent > 0) onImages(latest);
@@ -48,12 +72,11 @@ export default function ReferencePhotos({ spotId, images, onImages, disabled }: 
     }
   };
 
-  const remove = async (img: ReferenceImage, n: number) => {
+  const remove = async (img: GalleryImage, n: number) => {
     setBusy(true);
     setMsg(null);
     try {
-      const res = await api.deleteReferenceImage(spotId, img.id);
-      onImages(res.referenceImages);
+      onImages(kind === "gallery" ? (await api.deleteGalleryImage(spotId, img.id)).gallery : (await api.deleteReferenceImage(spotId, img.id)).referenceImages);
       setMsg({ ok: true, text: `Foto ${n} dihapus.` });
     } catch (err) {
       setMsg({ ok: false, text: describeError(err, "Foto gagal dihapus.") });
@@ -65,20 +88,18 @@ export default function ReferencePhotos({ spotId, images, onImages, disabled }: 
   return (
     <div className="space-y-3">
       {images.length === 0 ? (
-        <p className="text-xs text-pebble rounded-xl bg-obsidian p-3 leading-relaxed">
-          Belum ada foto contoh. Tambahkan 1 sampai 5 foto objeknya supaya aplikasi bisa mengenali saat wisatawan memotret.
-        </p>
+        <p className="text-xs text-pebble rounded-xl bg-obsidian p-3 leading-relaxed">{copy.empty}</p>
       ) : (
         <ul className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
           {images.map((img, i) => (
             <li key={img.id} className="list-none relative aspect-square rounded-xl overflow-hidden border border-stoneSubtle bg-obsidian">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`${API_BASE}${img.url}`} alt={`Foto contoh ${i + 1}`} className="w-full h-full object-cover" />
+              <img src={`${API_BASE}${img.url}`} alt={img.caption || `${copy.noun[0].toUpperCase()}${copy.noun.slice(1)} ${i + 1}`} className="w-full h-full object-cover" />
               <button
                 type="button"
                 onClick={() => remove(img, i + 1)}
                 disabled={busy || disabled}
-                aria-label={`Hapus foto contoh ${i + 1}`}
+                aria-label={`Hapus ${copy.noun} ${i + 1}`}
                 className="absolute top-1 right-1 min-w-[44px] min-h-[44px] -m-1.5 rounded-full flex items-center justify-center"
               >
                 <span className="w-7 h-7 rounded-full bg-basalt text-quotaFull flex items-center justify-center shadow-sm"><Icon name="close" size={14} weight="bold" /></span>
@@ -88,16 +109,29 @@ export default function ReferencePhotos({ spotId, images, onImages, disabled }: 
         </ul>
       )}
 
-      <input ref={fileRef} id={`ref-${spotId}`} type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(e) => pick(e.target.files)} disabled={busy || disabled || room <= 0} />
+      {kind === "gallery" && room > 0 && (
+        <div>
+          <label htmlFor={`${inputId}-caption`} className="block text-xs font-bold text-pebble mb-1.5">Keterangan foto berikutnya (opsional)</label>
+          <input
+            id={`${inputId}-caption`}
+            value={caption}
+            maxLength={INFO_LIMITS.caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="Contoh: Ruang latihan gamelan"
+            className="w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted"
+          />
+        </div>
+      )}
+      <input ref={fileRef} id={inputId} type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(e) => pick(e.target.files)} disabled={busy || disabled || room <= 0} />
       <label
-        htmlFor={`ref-${spotId}`}
+        htmlFor={inputId}
         className={`btn-tactile-secondary min-h-[48px] px-4 text-sm inline-flex items-center justify-center gap-2 cursor-pointer ${busy || disabled || room <= 0 ? "opacity-60 pointer-events-none" : ""}`}
       >
         {busy ? <Icon name="loader" size={18} weight="bold" motion="spin" /> : <Icon name="camera" size={18} className="text-vibePrimary" />}
-        <span>{busy ? "Mengunggah" : room <= 0 ? "Foto sudah penuh" : "Tambah foto contoh"}</span>
+        <span>{busy ? "Mengunggah" : room <= 0 ? "Foto sudah penuh" : copy.add}</span>
       </label>
       <p className="text-[11px] text-pebble leading-snug">
-        Tips: foto satu objek saja, dari dekat, di tempat terang, dan dari 2 sampai 3 sisi. Maksimal {MAX_REFERENCE_PHOTOS} foto, tiap foto di bawah 5 MB (otomatis dikecilkan).
+        {copy.tips} Maksimal {copy.max} foto, tiap foto di bawah 5 MB (otomatis dikecilkan).
       </p>
       {msg && <p role={msg.ok ? "status" : "alert"} className={`text-xs font-bold ${msg.ok ? "text-quotaSafe" : "text-quotaFull"}`}>{msg.text}</p>}
     </div>

@@ -19,9 +19,12 @@ export function bad(message = "Data yang dikirim belum valid."): never {
 
 export const newId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 export const sha = (v: string) => crypto.createHash("sha256").update(v).digest("hex");
-export const hashPassword = (password: string, salt: string) => crypto.scryptSync(password, salt, 64).toString("hex");
-export function passwordMatches(password: string, salt: string, hash: string) {
-  const a = Buffer.from(hashPassword(password, salt), "hex");
+// scrypt async (thread pool libuv): dulu scryptSync, 20 login barengan bikin server macet ~3 detik
+const scryptAsync = (password: string, salt: string) =>
+  new Promise<Buffer>((ok, no) => crypto.scrypt(password, salt, 64, (e, key) => (e ? no(e) : ok(key))));
+export const hashPassword = async (password: string, salt: string) => (await scryptAsync(password, salt)).toString("hex");
+export async function passwordMatches(password: string, salt: string, hash: string) {
+  const a = await scryptAsync(password, salt);
   const b = Buffer.from(hash, "hex");
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }

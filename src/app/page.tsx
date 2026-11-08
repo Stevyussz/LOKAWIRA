@@ -14,7 +14,7 @@ import { anchorSpot } from "@/lib/geo";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import Loka from "@/components/brand/Loka";
 import { isExpired } from "@/lib/formatTime";
-import { ENTRY_LABEL, entryOf, hoursText, needsBooking, openState, tzOf } from "@/lib/spotRules";
+import { ENTRY_LABEL, entryOf, needsBooking, openState, tzOf } from "@/lib/spotRules";
 import AgendaSheet from "@/components/agenda/AgendaSheet";
 import { trackOnce } from "@/lib/track";
 
@@ -25,6 +25,7 @@ import StoryTellerDock from "@/components/ai/StoryTellerDock";
 import CulturalQuestMap from "@/components/map/CulturalQuestMap";
 import ObjectLensScanner from "@/components/ai/ObjectLensScanner";
 import SmartQuotaModal from "@/components/quota/SmartQuotaModal";
+import SpotInfoSheet from "@/components/map/SpotInfoSheet";
 import VoucherWalletSheet from "@/components/economy/VoucherWalletSheet";
 import QuotaBoardSheet from "@/components/quota/QuotaBoardSheet";
 import NeedsSearchSheet from "@/components/quota/NeedsSearchSheet";
@@ -699,11 +700,16 @@ export default function LokawiraExplorerPage() {
           )}
 
           
-          <div className="grid grid-cols-2 gap-2">
+          {(() => {
+            // baris 2: 3 tombol kalo titiknya perlu pesan, 2 kalo bebas masuk. Tinggi kartu tetap 2 baris biar peta gak makin sempit
+            const booking = needsBooking(selectedSpot);
+            const third = booking ? "col-span-2 px-2 gap-1.5 leading-tight" : "col-span-3 px-4 gap-2";
+            return (
+          <div className="grid grid-cols-6 gap-2">
             <button
               type="button"
               onClick={() => startGuide(selectedSpot)}
-              className="btn-tactile-primary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
+              className="col-span-3 btn-tactile-primary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
             >
               <Icon name="compass" size={20} motion="pop" />
               <span>Pandu aku</span>
@@ -712,7 +718,7 @@ export default function LokawiraExplorerPage() {
             <button
               type="button"
               onClick={() => setIsScannerOpen(true)}
-              className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
+              className="col-span-3 btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
             >
               <Icon name="camera" size={20} className="text-vibePrimary" motion="pop" />
               <span>Scan Objek</span>
@@ -722,51 +728,38 @@ export default function LokawiraExplorerPage() {
               type="button"
               onClick={() => handleCheckInQuest(selectedSpot)}
               disabled={isAlreadyCheckedIn}
-              className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2 disabled:opacity-70"
+              aria-label={isAlreadyCheckedIn ? "Sudah Check-In" : undefined}
+              className={`${third} btn-tactile-secondary min-h-[48px] text-sm flex items-center justify-center disabled:opacity-70`}
             >
-              <Icon name={isAlreadyCheckedIn ? "check" : "pin"} size={20} motion="pop" />
-              <span>{isAlreadyCheckedIn ? "Sudah Check-In" : "Check-In"}</span>
+              <Icon name={isAlreadyCheckedIn ? "check" : "pin"} size={booking ? 18 : 20} className="shrink-0" motion="pop" />
+              <span>{isAlreadyCheckedIn ? (booking ? "Sudah" : "Sudah Check-In") : "Check-In"}</span>
             </button>
 
-            {needsBooking(selectedSpot) ? (
+            <button
+              type="button"
+              onClick={() => setShowSpotInfo(true)}
+              aria-haspopup="dialog"
+              className={`${third} btn-tactile-secondary min-h-[48px] text-sm flex items-center justify-center`}
+            >
+              <Icon name="guide" size={booking ? 18 : 20} className="text-vibePrimary shrink-0" motion="pop" />
+              <span>Info</span>
+            </button>
+
+            {booking && (
               <button
                 type="button"
                 onClick={() => setIsQuotaModalOpen(true)}
-                className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
+                aria-label={entryOf(selectedSpot).mode === "RESERVATION" ? "Pesan slot" : "Pesan tiket"}
+                className={`${third} btn-tactile-secondary min-h-[48px] text-sm flex items-center justify-center`}
               >
-                <Icon name="ticket" size={20} className="text-vibePrimary" motion="pop" />
-                <span>Tiket</span>
-              </button>
-            ) : (
-              // bebas masuk: gak ada tiket, gantinya info jam buka & fasilitas
-              <button
-                type="button"
-                onClick={() => setShowSpotInfo((v) => !v)}
-                aria-expanded={showSpotInfo}
-                className="btn-tactile-secondary min-h-[48px] px-4 text-sm flex items-center justify-center gap-2"
-              >
-                <Icon name="guide" size={20} className="text-vibePrimary" motion="pop" />
-                <span>Info</span>
+                <Icon name="ticket" size={18} className="text-vibePrimary shrink-0" motion="pop" />
+                {/* label pendek biar muat 1 baris di HP 360px; nama lengkap lewat aria-label */}
+                <span>{entryOf(selectedSpot).mode === "RESERVATION" ? "Pesan" : "Tiket"}</span>
               </button>
             )}
           </div>
-
-          {showSpotInfo && !needsBooking(selectedSpot) && (
-            <dl className="rounded-2xl bg-obsidian p-3.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
-              <dt className="font-bold text-pebble">Masuk</dt>
-              <dd className="text-alabaster">Bebas, tanpa tiket</dd>
-              <dt className="font-bold text-pebble">Jam</dt>
-              <dd className="text-alabaster">{selectedSpot.event ? openState(selectedSpot).label : hoursText(selectedSpot)}</dd>
-              <dt className="font-bold text-pebble">Alamat</dt>
-              <dd className="text-alabaster">{selectedSpot.address}</dd>
-              {selectedSpot.facilities.length > 0 && (
-                <>
-                  <dt className="font-bold text-pebble">Fasilitas</dt>
-                  <dd className="text-alabaster">{selectedSpot.facilities.join(", ")}</dd>
-                </>
-              )}
-            </dl>
-          )}
+            );
+          })()}
 
           {checkInCodes[selectedSpot.id] && (
             <div className="rounded-2xl bg-obsidian p-3 space-y-1">
@@ -794,6 +787,25 @@ export default function LokawiraExplorerPage() {
         onClose={() => setIsScannerOpen(false)}
         activeSpot={selectedSpot}
         onScanVerified={handleScanVerified}
+      />
+
+      <SpotInfoSheet
+        spot={selectedSpot}
+        isOpen={showSpotInfo && !!selectedSpot}
+        onClose={() => setShowSpotInfo(false)}
+        nextEvent={nextEvent}
+        onGuide={(spot) => {
+          setShowSpotInfo(false);
+          startGuide(spot);
+        }}
+        onTicket={() => {
+          setShowSpotInfo(false);
+          setIsQuotaModalOpen(true);
+        }}
+        onAgenda={() => {
+          setShowSpotInfo(false);
+          setIsAgendaOpen(true);
+        }}
       />
 
       <SmartQuotaModal

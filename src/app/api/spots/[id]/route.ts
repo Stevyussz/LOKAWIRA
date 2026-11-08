@@ -3,7 +3,7 @@ import { inIndonesia } from "@/lib/geo";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { jsonError, merchantBlocked, mockDisabled, ownsSpot, requireRole, visibleSpots } from "@/lib/server/mockBackend";
 import type { UpdateSpotRequest } from "@/types/api";
-import { parseEntry, parseEvent, parseHours } from "@/lib/spotRules";
+import { applyInfo, parseEntry, parseEvent, parseHours, parseInfo, storyChanged } from "@/lib/spotRules";
 import { OPK_VALUES, SPOT_TYPES } from "@/lib/enums";
 import { applyRegion, regionFor } from "@/lib/server/regions";
 
@@ -83,9 +83,9 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       draft.quest.rewardPoints = Math.max(0, Math.min(1000, Number(q.rewardPoints) || 0));
     }
   }
-  // mitra ngubah nama atau lokasi: titik balik ditinjau ulang pengelola (sesuai BACKEND_INTEGRATION bagian 7B)
+  // mitra ngubah nama, lokasi, atau teks budaya (cerita/petunjuk/objek misi): titik balik ditinjau ulang pengelola
   const moved = draft.coordinates.lat !== before.lat || draft.coordinates.lng !== before.lng;
-  if (!isAdmin && (draft.name !== before.name || moved)) draft.status = "PENDING_REVIEW";
+  if (!isAdmin && (draft.name !== before.name || moved || storyChanged(target, draft))) draft.status = "PENDING_REVIEW";
   if (isAdmin) {
     // nilai enum dicek, dulu string apa aja diterima
     if (body.spotType) {
@@ -112,6 +112,10 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     if (h) draft.highlight = h;
     else delete draft.highlight;
   }
+  // info tempat (deskripsi, peraturan, kontak): langsung tampil
+  const info = parseInfo(body);
+  if (typeof info === "string") return jsonError(400, info);
+  applyInfo(draft, info);
   // cara masuk & jam buka boleh diatur mitra (lapaknya) maupun pengelola. null = hapus
   if (body.entry !== undefined) {
     if (body.entry === null) delete draft.entry;
@@ -129,6 +133,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       draft.openingHours = h;
     }
   }
+  for (const k of Object.keys(target) as (keyof typeof target)[]) if (!(k in draft)) delete target[k];
   Object.assign(target, draft);
   return NextResponse.json({ spot: target, spots: visibleSpots(auth.user) });
 }

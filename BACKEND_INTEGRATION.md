@@ -627,3 +627,28 @@ Latar: survei tim nemu tempat budaya JARANG antre. Masalah aslinya: sepi krn gak
   - GET /api/metrics?days=&regionId= (MERCHANT = lapaknya, ADMIN = semua): { days, totals, spots[] }. Per titik: qrOpens, reminders, guides, checkIns, checkInsVerified, vouchersIssued, vouchersRedeemed, redeemedValue (rupiah potongan yg beneran dipake), upcomingEvents (30 hari ke depan). totals nambah spotsWithEvents & spots
   - IssuedVoucher nambah issuedAt (ISO) biar voucer terbit bisa dihitung per periode
   - dasbor mitra & pengelola nampilin kartu Dampak + tombol Salin ringkasan (teks siap tempel buat laporan ke pemda/sponsor)
+
+Z. Info tempat, galeri, dan perbaikan hasil audit (November 2026)
+
+- CulturalSpot nambah field opsional buat sheet Info (tombol Info sekarang ada di SEMUA titik, bkn cuma yg bebas masuk):
+  - description: deskripsi singkat, maks 400 karakter
+  - rules: peraturan pengunjung, array string, maks 8 butir x 120 karakter. Butir kosong dibuang, spasi dirapikan
+  - contact: teks bebas (WA / Instagram), maks 80 karakter
+  - gallery: [{ id, url, caption? }] foto suasana tempat, maks 6. BEDA dgn quest.referenceImages (itu kunci jawaban scan, jangan ditampilin ke wisatawan)
+  - POST & PATCH /api/spots nerima description/rules/contact (mitra pemilik & admin). "" atau [] = hapus. Validasi bareng ada di src/lib/spotRules.ts (parseInfo, INFO_LIMITS). gallery dr body diabaikan
+  - info tempat langsung tampil, gak bikin lapak ditinjau ulang
+- endpoint galeri baru (aturan sama dgn reference-images):
+  - POST /api/spots/{id}/gallery (MERCHANT pemilik / ADMIN), multipart: image (JPEG/PNG/WebP asli, maks 5 MB) + caption opsional (maks 80). Respons { gallery }. Lewat 6 foto: 409 TOO_MANY_IMAGES
+  - DELETE /api/spots/{id}/gallery/{imageId}: respons { gallery }
+  - GET /api/spots/{id}/gallery/{imageId}: file gambarnya (publik, buat tag img)
+  - hapus akun mitra: foto galeri ikut dihapus
+- GET foto (reference-images & gallery): titik yg ARCHIVED atau REJECTED = 404. Titik PENDING_REVIEW tetep bisa (pemiliknya perlu liat, id-nya UUID)
+- mitra ngubah quest.loreNarrative, quest.riddleClue, atau quest.riddleTitle = titik balik PENDING_REVIEW (sama kayak ganti nama/lokasi). Nama objek scan (targetObjectPrompt) gak termasuk. Pembanding pake src/lib/spotRules.ts storyChanged
+- reservasi:
+  - voucer pengalih antrean cuma terbit kalo tempat lagi padat (currentVisitors/maxCapacity >= 0.85, isCrowded di spotRules). Di bawah itu rewardNote NOT_CROWDED dan circularQuestAccepted false
+  - lapak pengalih gak boleh tempat yg dipesan itu sendiri
+  - kapasitas per slot: total partySize di satu scheduledSlot pada hari yg sama (WIB) gak boleh lewat maxCapacity. Lewat = 409 code SLOT_FULL, details { remaining }. Dikunci per titik (advisory lock) biar aman dr pesan serentak
+- check-in tamu: klien ngirim deviceId (id acak di localStorage, 16 sampai 64 karakter A-Z a-z 0-9 _ -). Batas 1x/titik/hari tamu dihitung per perangkat, bkn per IP (dulu 2 HP di 1 WiFi dianggap 1 orang). Tamu tetap gak dapet XP; batas per IP dinaikin jadi 60/jam biar angka kehadiran gak digelembungkan
+- login: tambah batas 60 percobaan per IP per 10 menit (429 RATE_LIMITED), selain batas 5x per email. Hash sandi pindah ke scrypt async (dulu sinkron, 20 login barengan bikin server macet ~3 detik). Format hash gak berubah
+- server nulis peringatan sekali di log kalo ada X-Forwarded-For dari proxy yg gak dipercaya: tanda TRUST_PROXY salah isi
+- nodemailer naik ke 10.x (audit keamanan). API createTransport/sendMail yg dipake gak berubah

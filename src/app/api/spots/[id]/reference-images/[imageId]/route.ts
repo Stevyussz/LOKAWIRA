@@ -11,7 +11,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   const { id, imageId } = await ctx.params;
   const spot = getLokawiraStore().spots.find((s) => s.id === id);
   const img = refImages().get(imageId);
-  if (!spot || !img || !spot.quest.referenceImages?.some((r) => r.id === imageId)) return jsonError(404, "Foto tidak ditemukan.");
+  // titik diarsip / ditolak: fotonya ikut gak bisa dibuka
+  if (!spot || spot.status === "ARCHIVED" || spot.status === "REJECTED" || !img || !spot.quest.referenceImages?.some((r) => r.id === imageId)) return jsonError(404, "Foto tidak ditemukan.");
   return new NextResponse(new Uint8Array(img.data), { headers: { "Content-Type": img.type, "Cache-Control": "public, max-age=3600" } });
 }
 

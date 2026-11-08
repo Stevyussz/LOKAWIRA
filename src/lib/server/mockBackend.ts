@@ -76,6 +76,11 @@ const gi = globalThis as unknown as { lokawiraRefImages?: Map<string, { type: st
 export function refImages() {
   return (gi.lokawiraRefImages ??= new Map());
 }
+// foto galeri tempat (sheet Info), in-memory juga
+const gg = globalThis as unknown as { lokawiraGallery?: Map<string, { type: string; data: Buffer }> };
+export function galleryImages() {
+  return (gg.lokawiraGallery ??= new Map());
+}
 
 export function getMock(): MockState {
   if (!g.lokawiraMock) {

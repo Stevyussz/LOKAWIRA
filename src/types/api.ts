@@ -10,6 +10,7 @@ import {
   LensVerificationResult,
   ReservationPass,
   ReferenceImage,
+  GalleryImage,
   SpotEntry,
   CulturalEvent,
   EventOccurrence,
@@ -127,6 +128,8 @@ export interface AddAiNoteResponse {
 }
 
 // POST /api/reservations
+export type RedirectNote = "LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY" | "NO_PARTNER" | "NOT_CROWDED";
+// slot dianggap penuh kalo total orang di slot itu (hari ini, WIB) melebihi kapasitas: galat 409 SLOT_FULL, details { remaining }
 export interface CreateReservationRequest {
   spotId: string;
   visitorName: string;
@@ -139,8 +142,9 @@ export interface CreateReservationResponse {
   bonusVoucher?: IssuedVoucher;
   // XP yg beneran ditambah server (0 kalo udah pesan di titik ini hari ini atau tamu)
   awardedPoints?: number;
-  // alasan voucer pengalih gak terbit: tamu, udah klaim hari ini, atau gak ada mitra di kawasan
-  rewardNote?: "LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY" | "NO_PARTNER";
+  // alasan voucer pengalih gak terbit: tamu, udah klaim hari ini, gak ada mitra lain di kawasan,
+  // atau tempatnya belum padat (pengalihan cuma aktif saat terisi >= 85%)
+  rewardNote?: RedirectNote;
   reservations: ReservationPass[];
   vouchers: IssuedVoucher[];
 }
@@ -230,6 +234,8 @@ export interface UpdatePromoResponse {
 // POST /api/checkins: pengunjung check-in - XP ditentukan serer
 export interface CheckInRequest {
   spotId: string;
+  // id acak per perangkat (localStorage). Dipakai server buat bedain tamu di balik WiFi/IP yg sama
+  deviceId?: string;
   // usulan geofence: wajib kalo server nyalain cek jarak
   lat?: number;
   lng?: number;
@@ -296,6 +302,10 @@ export interface UpdateSpotRequest {
   };
   // mitra & admin. null = hapus. highlight "" = hapus
   highlight?: string;
+  // info tempat. "" / [] = hapus. Maks: deskripsi 400, 8 aturan x 120, kontak 80 karakter
+  description?: string;
+  rules?: string[];
+  contact?: string;
   entry?: SpotEntry | null;
   openingHours?: OpeningHours | null;
   // field di bawah ini cuma diterima dari ADMIN
@@ -389,6 +399,11 @@ export interface AdminVouchersResponse {
 // POST /api/spots/{id}/reference-images (multipart, field "image") dan DELETE /api/spots/{id}/reference-images/{imageId}
 export interface ReferenceImagesResponse {
   referenceImages: ReferenceImage[];
+}
+
+// POST /api/spots/{id}/gallery (multipart: image, caption opsional), DELETE /api/spots/{id}/gallery/{imageId}
+export interface GalleryResponse {
+  gallery: GalleryImage[];
 }
 
 // GET /api/health

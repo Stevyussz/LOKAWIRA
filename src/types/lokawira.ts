@@ -145,6 +145,12 @@ export interface CulturalSpot {
   facilities: string[];
   // satu kalimat "kenapa layak mampir", diisi mitra/pengelola, maks 100 karakter
   highlight?: string;
+  // info tempat (sheet Info): deskripsi singkat, peraturan pengunjung, kontak. Semua opsional
+  description?: string;
+  rules?: string[];
+  contact?: string;
+  // foto suasana tempat utk wisatawan (beda dgn referenceImages yg jadi kunci jawaban scan)
+  gallery?: GalleryImage[];
   entry?: SpotEntry;
   openingHours?: OpeningHours;
   event?: SpotEvent;
@@ -179,6 +185,13 @@ export interface CulturalSpot {
 export interface ReferenceImage {
   id: string;
   url: string;
+}
+
+export interface GalleryImage {
+  id: string;
+  url: string;
+  // keterangan singkat foto, maks 80 karakter
+  caption?: string;
 }
 
 export interface IssuedVoucher {

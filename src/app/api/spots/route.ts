@@ -1,7 +1,7 @@
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { inIndonesia } from "@/lib/geo";
-import { parseEntry, parseEvent, parseHours } from "@/lib/spotRules";
+import { applyInfo, parseEntry, parseEvent, parseHours, parseInfo } from "@/lib/spotRules";
 import { OPK_VALUES, SPOT_TYPES } from "@/lib/enums";
 import { distanceMeters } from "@/lib/geo";
 import { regionFor, visibleRegions } from "@/lib/server/regions";
@@ -107,6 +107,8 @@ export async function POST(request: NextRequest) {
   const isAdmin = auth.user.role === "ADMIN";
   const highlight = String(input.highlight ?? "").trim();
   if (highlight.length > 100) return jsonError(400, "Kalimat \"kenapa layak mampir\" maksimal 100 karakter.");
+  const info = parseInfo(input);
+  if (typeof info === "string") return jsonError(400, info);
   const newSpot: CulturalSpot = {
     ...input,
     id: `spot-${Date.now().toString(36)}`,
@@ -129,6 +131,9 @@ export async function POST(request: NextRequest) {
   // XP misi cuma boleh diatur pengelola: mitra dpt nilai bawaan 100
   const xp = Number(input.quest?.rewardPoints);
   newSpot.quest = { ...newSpot.quest, rewardPoints: isAdmin && Number.isFinite(xp) ? Math.max(0, Math.min(1000, Math.round(xp))) : 100, referenceImages: [] };
+  // galeri cuma lewat unggah foto, bkn dr body; info tempat lewat validasi yg sama dgn PATCH
+  delete newSpot.gallery;
+  applyInfo(newSpot, info);
   store.spots.unshift(newSpot);
   return NextResponse.json({ spot: newSpot, spots: visibleSpots(auth.user) }, { status: 201 });
 }

@@ -2,9 +2,10 @@ import crypto from "node:crypto";
 import { distanceMeters } from "@/lib/geo";
 import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
-import { awardXp, claimOnce, currentUser, endOfWibDay, ownerInactive, profileOf, visibleSpots } from "@/lib/server/mockBackend";
+import { awardXp, claimOnce, currentUser, endOfWibDay, ownerInactive, profileOf, visibleSpots, wibDay } from "@/lib/server/mockBackend";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
-import { needsBooking } from "@/lib/spotRules";
+import { isCrowded, needsBooking } from "@/lib/spotRules";
+import type { RedirectNote } from "@/types/api";
 import { IssuedVoucher, ReservationPass } from "@/types/lokawira";
 
 export async function POST(request: NextRequest) {
@@ -36,6 +37,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `${spot.name} bebas masuk, tidak perlu tiket.`, code: "NO_BOOKING_NEEDED" }, { status: 400 });
     }
 
+    // kapasitas per slot per hari WIB: total orang di slot ini gak boleh lewat kapasitas tempat
+    const slotName = slot || spot.quota.nextAvailableSlot;
+    const today = wibDay();
+    const booked = store.reservations
+      .filter((r) => r.spotId === spot.id && r.scheduledSlot === slotName && wibDay(new Date(r.createdAt)) === today)
+      .reduce((a, r) => a + r.partySize, 0);
+    const remaining = spot.quota.maxCapacity - booked;
+    if (size > remaining) {
+      return NextResponse.json(
+        { error: remaining > 0 ? `Slot ${slotName} tinggal ${remaining} orang. Kurangi jumlah orang atau pilih jam lain.` : `Slot ${slotName} sudah penuh. Pilih jam lain.`, code: "SLOT_FULL", details: { remaining: Math.max(0, remaining) } },
+        { status: 409 }
+      );
+    }
+    // pengalihan cuma saat tempat padat (>= 85%)
+    const crowded = isCrowded(spot);
+    const accept = Boolean(acceptCircularQuest);
+
     // kode tiket harus unik (tabrakan bikin tiket orang lain ketuker): acak 6 digit, ulang kalo sudah ada
     let ticketCode = "";
     do {
@@ -47,9 +65,9 @@ export async function POST(request: NextRequest) {
       spotName: spot.name,
       visitorName: visitorName.trim(),
       partySize: size,
-      scheduledSlot: slot || spot.quota.nextAvailableSlot,
+      scheduledSlot: slotName,
       status: "CONFIRMED",
-      circularQuestAccepted: Boolean(acceptCircularQuest),
+      circularQuestAccepted: accept && crowded,
       createdAt: new Date().toISOString(),
     };
 
@@ -65,11 +83,13 @@ export async function POST(request: NextRequest) {
     // voucer pengalih antrean = voucer milik UMKM mitra terdekat di kawasan yg sama (bkn milik cagar), biar mitra itu yg bisa nebus di kasirnya
     let bonusVoucher: IssuedVoucher | undefined;
     // voucer pengalih: perlu akun & sekali per hari per lapak mitra, biar gak dipanen
-    let rewardNote: "LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY" | "NO_PARTNER" | undefined;
-    if (acceptCircularQuest && !user) rewardNote = "LOGIN_FOR_REWARD";
-    if (acceptCircularQuest && user) {
+    let rewardNote: RedirectNote | undefined;
+    if (accept && !crowded) rewardNote = "NOT_CROWDED";
+    else if (accept && !user) rewardNote = "LOGIN_FOR_REWARD";
+    else if (accept && user) {
+      // mitra pengalih = lapak lain (bkn tempat yg lagi padat ini)
       const partner = store.spots
-        .filter((x) => !!x.regionId && x.regionId === spot.regionId && x.spotType !== "PRIMARY_DEST" && (x.status ?? "PUBLISHED") === "PUBLISHED" && !ownerInactive(x))
+        .filter((x) => x.id !== spot.id && !!x.regionId && x.regionId === spot.regionId && x.spotType !== "PRIMARY_DEST" && (x.status ?? "PUBLISHED") === "PUBLISHED" && !ownerInactive(x))
         .sort((p, q) => distanceMeters(p.coordinates, spot.coordinates) - distanceMeters(q.coordinates, spot.coordinates))[0];
       if (!partner) rewardNote = "NO_PARTNER";
       else if (!claimOnce(user.id, partner.id, "REDIRECT")) rewardNote = "ALREADY_CLAIMED_TODAY";

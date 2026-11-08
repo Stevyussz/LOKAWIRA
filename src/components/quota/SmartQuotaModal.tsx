@@ -7,7 +7,8 @@ import { useAuth } from "@/components/layout/AuthProvider";
 import { motion } from "motion/react";
 import Sheet from "@/components/ui/Sheet";
 import { CulturalSpot, IssuedVoucher, ReservationPass } from "@/types/lokawira";
-import { entryOf } from "@/lib/spotRules";
+import { entryOf, isCrowded as crowdedNow } from "@/lib/spotRules";
+import type { RedirectNote } from "@/types/api";
 
 interface SmartQuotaModalProps {
   isOpen: boolean;
@@ -43,7 +44,7 @@ export default function SmartQuotaModal({
   const [formError, setFormError] = useState<string | null>(null);
   const [createdPass, setCreatedPass] = useState<ReservationPass | null>(null);
   // alasan voucer pengalih gak terbit walau misinya diterima
-  const [rewardNote, setRewardNote] = useState<"LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY" | "NO_PARTNER" | undefined>(undefined);
+  const [rewardNote, setRewardNote] = useState<RedirectNote | undefined>(undefined);
   const [createdVoucher, setCreatedVoucher] = useState<IssuedVoucher | undefined>(
     undefined
   );
@@ -60,9 +61,12 @@ export default function SmartQuotaModal({
   if (!spot) return null;
 
   const quotaRatio = spot.quota.currentVisitors / spot.quota.maxCapacity;
-  const isCrowded = quotaRatio >= 0.85;
+  // pengalihan ke UMKM cuma ditawarkan saat tempat terisi >= 85% (server juga ngecek)
+  const isCrowded = crowdedNow(spot);
+  // lapak pengalih selalu tempat lain, bkn tempat yg sedang dipesan
+  const partners = nearbyUmkmSpots.filter((x) => x.id !== spot.id);
   // hadiah voucer dari UMKM sekitar (angka asli dari data mitra, bkn tulisan tetap)
-  const bestReward = nearbyUmkmSpots.reduce((m, x) => Math.max(m, x.quest.voucherReward.discountAmount), 0);
+  const bestReward = partners.reduce((m, x) => Math.max(m, x.quest.voucherReward.discountAmount), 0);
   const rewardText = bestReward > 0 ? `Rp${bestReward.toLocaleString("id-ID")}` : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,7 +85,7 @@ export default function SmartQuotaModal({
         visitorName: visitorName.trim(),
         partySize,
         scheduledSlot,
-        acceptCircularQuest,
+        acceptCircularQuest: isCrowded && acceptCircularQuest && partners.length > 0,
       });
 
       setCreatedPass(data.reservation);
@@ -153,13 +157,13 @@ export default function SmartQuotaModal({
         </div>
 
         {/* Nearby Circular UMKM Cards */}
-        {nearbyUmkmSpots.length > 0 && (
+        {isCrowded && partners.length > 0 && (
           <div className="space-y-2">
             <span className="text-xs font-bold text-pebble block">
               Rekomendasi Lapak UMKM Sekitar (Bebas Antre):
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {nearbyUmkmSpots.map((umkm) => (
+              {partners.map((umkm) => (
                 <div
                   key={umkm.id}
                   className="bg-obsidian p-3.5 rounded-2xl flex flex-col justify-between gap-2.5"
@@ -270,18 +274,20 @@ export default function SmartQuotaModal({
               </div>
             </div>
 
-            <label className="flex items-start gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={acceptCircularQuest}
-                onChange={(e) => setAcceptCircularQuest(e.target.checked)}
-                className="mt-1 w-4 h-4 accent-[var(--vibe-primary)]"
-              />
-              <span className="text-xs text-alabaster leading-relaxed">
-                Ikuti <strong>Misi Sirkular UMKM</strong> sambil menunggu jam masuk (otomatis
-                dapat voucer dari UMKM terdekat{rewardText ? ` hingga ${rewardText}` : ""} + 75 XP).
-              </span>
-            </label>
+            {isCrowded && partners.length > 0 && (
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptCircularQuest}
+                  onChange={(e) => setAcceptCircularQuest(e.target.checked)}
+                  className="mt-1 w-4 h-4 accent-[var(--vibe-primary)]"
+                />
+                <span className="text-xs text-alabaster leading-relaxed">
+                  Ikuti <strong>Misi Sirkular UMKM</strong> sambil menunggu jam masuk (otomatis
+                  dapat voucer dari UMKM terdekat{rewardText ? ` hingga ${rewardText}` : ""}).
+                </span>
+              </label>
+            )}
 
             {formError && (
               <p role="alert" className="text-xs text-quotaFull font-bold">
@@ -358,6 +364,8 @@ export default function SmartQuotaModal({
                   ? "Voucer pengalih antrean hanya untuk pengguna yang masuk. Masuk atau daftar, lalu pesan lagi untuk mendapatkannya."
                   : rewardNote === "ALREADY_CLAIMED_TODAY"
                   ? "Voucer pengalih antrean dari lapak ini sudah kamu terima hari ini."
+                  : rewardNote === "NOT_CROWDED"
+                  ? "Tempat ini sedang tidak padat, jadi tidak perlu dialihkan. Voucer pengalih hanya terbit saat tempat terisi 85% atau lebih."
                   : "Belum ada lapak mitra di kawasan ini, jadi voucer pengalih antrean belum tersedia."}
               </p>
             )}

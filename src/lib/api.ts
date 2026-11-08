@@ -34,6 +34,7 @@ import type {
   HealthResponse,
   OkResponse,
   ReferenceImagesResponse,
+  GalleryResponse,
   ResetPasswordRequest,
   ListMerchantsResponse,
   MerchantDecisionResponse,
@@ -151,6 +152,21 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return payload as T;
 }
 
+// id acak per perangkat, disimpan di localStorage. Bkn data pribadi: cuma pembeda tamu buat batas check-in harian
+const DEVICE_KEY = "lokawira.device";
+function deviceId(): string | undefined {
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) {
+      id = crypto.randomUUID().replace(/-/g, "");
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  } catch {
+    return undefined;
+  }
+}
+
 // ?a=1&b=2 dari objek, field kosong dilewati
 function toQuery(q: object): string {
   const p = new URLSearchParams();
@@ -183,6 +199,17 @@ export const api = {
 
   deleteReferenceImage: (spotId: string, imageId: string) =>
     request<ReferenceImagesResponse>(`/api/spots/${encodeURIComponent(spotId)}/reference-images/${encodeURIComponent(imageId)}`, { method: "DELETE" }),
+
+  // foto galeri tempat utk sheet Info (maks 6 per tempat)
+  uploadGalleryImage: (spotId: string, image: Blob, caption?: string) => {
+    const form = new FormData();
+    form.append("image", image, "galeri.jpg");
+    if (caption) form.append("caption", caption);
+    return request<GalleryResponse>(`/api/spots/${encodeURIComponent(spotId)}/gallery`, { method: "POST", body: form, timeoutMs: 45000 });
+  },
+
+  deleteGalleryImage: (spotId: string, imageId: string) =>
+    request<GalleryResponse>(`/api/spots/${encodeURIComponent(spotId)}/gallery/${encodeURIComponent(imageId)}`, { method: "DELETE" }),
 
   deleteSpot: (id: string) =>
     request<DeleteSpotResponse>(`/api/spots/${encodeURIComponent(id)}`, { method: "DELETE" }),
@@ -236,7 +263,8 @@ export const api = {
       body: { discountTitle: r.discountTitle, discountAmount: r.discountAmount, minimumSpend: r.minimumSpend, rewardPoints: r.rewardPoints },
     }),
 
-  checkIn: (r: CheckInRequest) => request<CheckInResponse>("/api/checkins", { method: "POST", body: r }),
+  // deviceId ikut dikirim biar tamu di WiFi yg sama gak dianggap satu orang
+  checkIn: (r: CheckInRequest) => request<CheckInResponse>("/api/checkins", { method: "POST", body: { deviceId: deviceId(), ...r } }),
 
   verifyCheckIn: (r: VerifyCheckInRequest) =>
     request<VerifyCheckInResponse>("/api/checkins/verify", { method: "POST", body: r }),

@@ -75,6 +75,22 @@ const kdr = await call("POST", "/api/checkins/verify", { token: M, body: { code:
 ok("KDR pemilik: XP misi = 100 (bukan 1 juta)", kdr.s === 200 && kdr.j.awardedPoints === 100 && kdr.j.visitorHasAccount === true, JSON.stringify(kdr.j).slice(0, 80));
 ok("KDR sekali pakai", (await call("POST", "/api/checkins/verify", { token: M, body: { code: ci.j.checkIn.code } })).s === 409);
 
+// ---- tamu dibedakan per perangkat (bkn per IP)
+const devA = `devA${rnd}${"x".repeat(16)}`, devB = `devB${rnd}${"y".repeat(16)}`;
+const gw = { spotId: prim.id, lat: prim.coordinates.lat, lng: prim.coordinates.lng, accuracyMeters: 10 };
+const gA = await call("POST", "/api/checkins", { body: { ...gw, deviceId: devA } });
+const gB = await call("POST", "/api/checkins", { body: { ...gw, deviceId: devB } });
+const gA2 = await call("POST", "/api/checkins", { body: { ...gw, deviceId: devA } });
+ok("2 tamu beda HP di 1 WiFi bisa check-in; HP yg sama tetap 1x/hari", gA.s === 200 && gB.s === 200 && gA2.s === 409, `${gA.s},${gB.s},${gA2.s}`);
+
+// ---- pengalihan antrean cuma saat padat (>= 85%) & ke lapak lain
+const primQ = prim.quota;
+await call("PATCH", `/api/spots/${prim.id}/quota`, { token: A, body: { currentVisitors: 0 } });
+const V2 = (await reg("Wisata Dua", "VISITOR")).token;
+const calm = await call("POST", "/api/reservations", { token: V2, body: { spotId: prim.id, visitorName: "Wis", partySize: 1, acceptCircularQuest: true } });
+ok("tidak padat: tidak ada voucer pengalih (NOT_CROWDED)", calm.s === 200 && !calm.j.bonusVoucher && calm.j.rewardNote === "NOT_CROWDED", calm.j.rewardNote);
+await call("PATCH", `/api/spots/${prim.id}/quota`, { token: A, body: { currentVisitors: primQ.maxCapacity } });
+
 // ---- celah 2: reservasi XP tanpa batas & di titik bebas masuk
 const xp0 = (await call("GET", "/api/me/profile", { token: V })).j.xp;
 const rs = [];
@@ -83,12 +99,26 @@ const xp1 = (await call("GET", "/api/me/profile", { token: V })).j.xp;
 ok("[celah] 3 reservasi = XP +75 sekali saja", xp1 - xp0 === 75, `+${xp1 - xp0}`);
 ok("[celah] voucer pengalih sekali per lapak per hari", rs.filter((r) => r.j.bonusVoucher).length === 1 && rs[1].j.rewardNote === "ALREADY_CLAIMED_TODAY", rs.map((r) => r.j.rewardNote ?? (r.j.bonusVoucher ? "VOUCER" : "-")).join(","));
 const bv = rs[0].j.bonusVoucher;
+ok("voucer pengalih dari lapak lain, bukan tempat yg padat", bv && bv.spotId !== prim.id, bv?.spotId);
 ok("[celah] voucer pengalih punya masa berlaku (akhir hari WIB)", bv && bv.expiresAt && new Date(bv.expiresAt) > new Date() && new Date(bv.expiresAt) - Date.now() < 86400000, bv?.expiresAt);
 ok("[celah] reservasi di titik bebas masuk ditolak", (await call("POST", "/api/reservations", { token: V, body: { spotId: sp.id, visitorName: "Wis", partySize: 1 } })).j.code === "NO_BOOKING_NEEDED");
 // ---- celah 3: tamu panen voucer pengalih
 let g = 0, gn = "";
 for (let i = 0; i < 4; i++) { const x = await call("POST", "/api/reservations", { body: { spotId: prim.id, visitorName: "Tamu", partySize: 1, acceptCircularQuest: true } }); if (x.j.bonusVoucher) g++; gn = x.j.rewardNote; }
 ok("[celah] tamu tidak dapat voucer pengalih", g === 0 && gn === "LOGIN_FOR_REWARD", `${g} voucer, note=${gn}`);
+await call("PATCH", `/api/spots/${prim.id}/quota`, { token: A, body: { currentVisitors: primQ.currentVisitors } });
+
+// ---- kapasitas per slot: total orang di 1 slot gak boleh lewat kapasitas
+await call("PATCH", `/api/spots/${prim.id}`, { token: A, body: { quota: { maxCapacity: 5 } } });
+const slotName = `QA-${rnd}`;
+const s1 = await call("POST", "/api/reservations", { token: V, body: { spotId: prim.id, visitorName: "Wis", partySize: 3, scheduledSlot: slotName } });
+const s2 = await call("POST", "/api/reservations", { token: V, body: { spotId: prim.id, visitorName: "Wis", partySize: 3, scheduledSlot: slotName } });
+const s3 = await call("POST", "/api/reservations", { token: V, body: { spotId: prim.id, visitorName: "Wis", partySize: 2, scheduledSlot: slotName } });
+ok("slot penuh ditolak SLOT_FULL + sisa kursi", s1.s === 200 && s2.s === 409 && s2.j.code === "SLOT_FULL" && s2.j.details?.remaining === 2 && s3.s === 200, `${s1.s},${s2.s} sisa=${s2.j.details?.remaining},${s3.s}`);
+const race = await Promise.all(Array.from({ length: 5 }, () => call("POST", "/api/reservations", { token: V, body: { spotId: prim.id, visitorName: "Wis", partySize: 2, scheduledSlot: `${slotName}-r` } })));
+ok("5 pesan serentak (2 org) di kapasitas 5: tepat 2 sukses", race.filter((r) => r.s === 200).length === 2, race.map((r) => r.s).join(","));
+await call("PATCH", `/api/spots/${prim.id}`, { token: A, body: { quota: { maxCapacity: primQ.maxCapacity } } });
+await call("PATCH", `/api/spots/${prim.id}/quota`, { token: A, body: { currentVisitors: primQ.currentVisitors } });
 
 // ---- kasir
 if (bv) {
@@ -105,6 +135,31 @@ const exp = await call("POST", "/api/vouchers/redeem", { token: MD, body: { code
 ok("voucer kedaluwarsa ditolak 410", exp.s === 410 && exp.j.code === "VOUCHER_EXPIRED", exp.s);
 const seedV = await call("POST", "/api/vouchers/redeem", { token: MD, body: { code: "849201" } });
 ok("voucer contoh demo bisa ditebus mitra demo (atau sudah ditebus run sebelumnya)", seedV.s === 200 || seedV.j.code === "VOUCHER_ALREADY_REDEEMED", `${seedV.s} ${seedV.ms}ms`);
+
+// ---- info tempat + galeri (sheet Info)
+const { deflateSync } = await import("node:zlib");
+const crc = (buf) => { let c = ~0; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); } return ~c >>> 0; };
+const chunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t), d]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+const mkPng = (w, h) => { const ih = Buffer.alloc(13); ih.writeUInt32BE(w, 0); ih.writeUInt32BE(h, 4); ih[8] = 8; ih[9] = 2; const raw = Buffer.alloc((w * 3 + 1) * h, 180); for (let y = 0; y < h; y++) raw[y * (w * 3 + 1)] = 0; return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ih), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]); };
+const galForm = (caption) => { const f = new FormData(); if (caption) f.append("caption", caption); f.append("image", new Blob([mkPng(40, 30)], { type: "image/png" }), "a.png"); return f; };
+ok("info: 9 peraturan ditolak", (await call("PATCH", `/api/spots/${sp.id}`, { token: M, body: { rules: Array.from({ length: 9 }, (_, i) => `aturan ${i}`) } })).s === 400);
+const inf = await call("PATCH", `/api/spots/${sp.id}`, { token: M, body: { description: "Lapak cobek batu.", rules: [" Antre ", ""], contact: "WA 0812" } });
+ok("info: deskripsi/peraturan/kontak tersimpan & dirapikan", inf.s === 200 && inf.j.spot.description === "Lapak cobek batu." && inf.j.spot.rules.length === 1 && inf.j.spot.rules[0] === "Antre", inf.j.error ?? "");
+ok("galeri: lapak orang lain 403", (await call("POST", `/api/spots/${prim.id}/gallery`, { token: M, form: galForm() })).s === 403);
+const gal = []; for (let i = 0; i < 6; i++) gal.push(await call("POST", `/api/spots/${sp.id}/gallery`, { token: M, form: galForm(`Sudut ${i}`) }));
+const gal7 = await call("POST", `/api/spots/${sp.id}/gallery`, { token: M, form: galForm() });
+ok("galeri: 6 foto masuk, ke-7 ditolak 409", gal.every((x) => x.s === 200) && gal7.s === 409 && gal[5].j.gallery.length === 6 && gal[0].j.gallery[0].caption === "Sudut 0", gal.map((x) => x.s).join(","));
+const gurl = gal[5].j.gallery[0].url;
+const gimg = await fetch(B + gurl);
+ok("galeri: foto bisa dibuka publik (image/png)", gimg.status === 200 && gimg.headers.get("content-type") === "image/png");
+const gdel = await call("DELETE", `/api/spots/${sp.id}/gallery/${gal[5].j.gallery[1].id}`, { token: M });
+ok("galeri: hapus foto", gdel.s === 200 && gdel.j.gallery.length === 5);
+const story = await call("PATCH", `/api/spots/${sp.id}`, { token: M, body: { quest: { loreNarrative: "Cerita diganti mitra setelah terbit." } } });
+ok("mitra ganti cerita = ditinjau ulang (PENDING_REVIEW)", story.s === 200 && story.j.spot.status === "PENDING_REVIEW", story.j.spot?.status);
+await call("POST", `/api/admin/spots/${sp.id}/review`, { token: A, body: { decision: "REJECT", reason: "uji" } });
+ok("foto galeri lapak ditolak tidak bisa dibuka", (await fetch(B + gurl)).status === 404);
+// terbitkan lagi: lapak ini masih dipakai tes agenda & dampak di bawah
+await call("POST", `/api/admin/spots/${sp.id}/review`, { token: A, body: { decision: "PUBLISH" } });
 
 // ---- kawasan
 const rg = await call("POST", "/api/regions", { token: A, body: { name: `Banjar ${rnd}`, label: "Banjarmasin, Kalsel", theme: "bahari", center: far, radiusKm: 1, status: "DRAFT" } });
@@ -154,6 +209,11 @@ const t = [];
 for (let i = 0; i < 15; i++) t.push((await call("GET", "/api/spots")).ms);
 t.sort((a, b) => a - b);
 ok("latensi GET /api/spots", true, `median ${t[7]}ms, p90 ${t[13]}ms`);
+
+// ---- batas login per IP (paling akhir: stlh ini IP uji kena jeda 10 menit)
+const lg = [];
+for (let i = 0; i < 65; i++) lg.push((await call("POST", "/api/auth/login", { body: { email: `nebak${i}${rnd}@t.id`, password: "salahsalah" } })).s);
+ok("login: 60+ percobaan email beda dr 1 IP diblok 429", lg.includes(429) && lg.indexOf(429) <= 61, `429 mulai ke-${lg.indexOf(429) + 1}`);
 
 for (const r of R) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.info !== "" ? `  [${r.info}]` : ""}`);
 const failed = R.filter((r) => !r.pass).length;

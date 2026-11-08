@@ -60,13 +60,16 @@ test("tutup: check-in ditolak; acara yg sudah selesai hilang dari peta publik", 
   for (const id of [closed.id, ended.id, upcoming.id]) await request.delete(`/api/spots/${id}`, { headers: bearer(admin) });
 });
 
-test("UI: titik bebas masuk menampilkan Info (bukan Tiket), cagar utama tetap Tiket", async ({ page }) => {
+test("UI: semua titik punya Info; titik bebas masuk tanpa tombol pesan, cagar utama bisa pesan slot", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: /^Pilih titik / }).first()).toBeVisible({ timeout: 20000 });
-  // titik pertama = cagar utama
-  await expect(page.getByRole("button", { name: "Tiket", exact: true })).toBeVisible();
+  // titik pertama = cagar utama (pesan slot)
+  await expect(page.getByRole("button", { name: "Pesan slot", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Info", exact: true })).toBeVisible();
   await page.getByRole("button", { name: /^Pilih titik Sanggar/ }).first().click();
-  await expect(page.getByRole("button", { name: "Tiket", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Pesan (slot|tiket)$/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Info", exact: true }).click();
-  await expect(page.getByText("Bebas, tanpa tiket")).toBeVisible();
+  const info = page.getByRole("dialog");
+  await expect(info.getByText("Bebas masuk, tanpa tiket")).toBeVisible();
+  await expect(info.getByRole("button", { name: /^Pesan/ })).toHaveCount(0);
 });
