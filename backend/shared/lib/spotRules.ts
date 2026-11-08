@@ -126,3 +126,49 @@ export function parseEvent(v: unknown): SpotEvent | string {
   if (t - s > 31 * 24 * 3600 * 1000) return "Acara maksimal 31 hari. Untuk tempat tetap, pakai jam buka.";
   return { startsAt: new Date(s).toISOString(), endsAt: new Date(t).toISOString() };
 }
+
+// pengalihan antrean (voucer UMKM) cuma aktif kalo tempat terisi >= 85%
+export const CROWDED_RATIO = 0.85;
+export const isCrowded = (spot: Pick<CulturalSpot, "quota">) =>
+  spot.quota.maxCapacity > 0 && spot.quota.currentVisitors / spot.quota.maxCapacity >= CROWDED_RATIO;
+
+// batas isian sheet Info
+export const INFO_LIMITS = { description: 400, rules: 8, ruleLength: 120, contact: 80, gallery: 6, caption: 80 } as const;
+export type SpotInfo = { description?: string; rules?: string[]; contact?: string };
+
+// info tempat dr body PATCH/POST. Field yg gak dikirim = gak diubah; "" / [] = hapus (jadi undefined)
+export function parseInfo(b: { description?: unknown; rules?: unknown; contact?: unknown }): Partial<Record<keyof SpotInfo, unknown>> | string {
+  const out: Partial<Record<keyof SpotInfo, unknown>> = {};
+  if (b.description !== undefined) {
+    const d = String(b.description ?? "").trim();
+    if (d.length > INFO_LIMITS.description) return `Deskripsi maksimal ${INFO_LIMITS.description} karakter.`;
+    out.description = d || undefined;
+  }
+  if (b.rules !== undefined) {
+    if (b.rules !== null && (!Array.isArray(b.rules) || b.rules.some((x) => typeof x !== "string"))) return "Daftar peraturan tidak valid.";
+    const list = ((b.rules ?? []) as string[]).map((x) => x.trim()).filter(Boolean);
+    if (list.length > INFO_LIMITS.rules) return `Peraturan maksimal ${INFO_LIMITS.rules} butir.`;
+    if (list.some((x) => x.length > INFO_LIMITS.ruleLength)) return `Satu butir peraturan maksimal ${INFO_LIMITS.ruleLength} karakter.`;
+    out.rules = list.length ? list : undefined;
+  }
+  if (b.contact !== undefined) {
+    const c = String(b.contact ?? "").trim();
+    if (c.length > INFO_LIMITS.contact) return `Kontak maksimal ${INFO_LIMITS.contact} karakter.`;
+    out.contact = c || undefined;
+  }
+  return out;
+}
+
+// pasang hasil parseInfo ke titik: undefined = hapus field-nya
+export function applyInfo(spot: CulturalSpot, info: Partial<Record<keyof SpotInfo, unknown>>) {
+  for (const k of Object.keys(info) as (keyof SpotInfo)[]) {
+    if (info[k] === undefined) delete spot[k];
+    else (spot as unknown as Record<string, unknown>)[k] = info[k];
+  }
+}
+
+// teks budaya yg dibacakan Loka & dibaca wisatawan (cerita, petunjuk, judul misi). Mitra ngubah ini = ditinjau ulang pengelola.
+// Nama objek scan gak termasuk: itu cuma patokan foto, dan mitra perlu bebas ngaturnya saat menyiapkan misi
+export function storyChanged(a: CulturalSpot, b: CulturalSpot) {
+  return a.quest.loreNarrative !== b.quest.loreNarrative || a.quest.riddleClue !== b.quest.riddleClue || a.quest.riddleTitle !== b.quest.riddleTitle;
+}

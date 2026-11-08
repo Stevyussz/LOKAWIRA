@@ -1,17 +1,19 @@
 import type { FastifyInstance } from "fastify";
 import type { CulturalSpot, IssuedVoucher, ReservationPass } from "@/types/lokawira";
 import { distanceMeters } from "@/lib/geo";
-import { needsBooking, openState } from "@/lib/spotRules";
+import { isCrowded, needsBooking, openState } from "@/lib/spotRules";
 import { pool, tx } from "../db.js";
 import {
   addXp, bad, claimOnce, endOfWibDay, fail, findVisibleSpot, getEntity, isExpiredIso, listEntities, newId, ownedSpotIds, rateLimit, sha,
   uniqueCode, voucherSignature, wibDay,
 } from "../core.js";
+import type { RedirectNote } from "@/types/api";
 import { bodyOf, currentUser, requireRoles } from "../http.js";
 import { geofence, GEOFENCE_ON } from "../geofence.js";
 import { myRecords } from "./auth.js";
 
 const MAX_SPEED_MS = 40; // ~144 km/j, perpindahan antar titik yg mustahil
+const DEVICE_ID = /^[A-Za-z0-9_-]{16,64}$/;
 
 // tutup / acara belum mulai / selesai: hadiah & bukti hadir gak sah
 export function assertOpen(spot: CulturalSpot) {
@@ -29,8 +31,11 @@ export default async function economyRoutes(app: FastifyInstance) {
     const spot = row.payload;
     geofence(b, spot, "check-in");
     assertOpen(spot);
-    const visitorKey = user?.id ?? `guest:${sha(request.ip)}`;
-    if (!user) await rateLimit(pool, `checkin:${visitorKey}`, 30, 3600, "Terlalu banyak check-in dari jaringan ini. Coba lagi nanti.");
+    // tamu dibedain per perangkat (id acak dr localStorage), bkn per IP: dulu 2 HP di WiFi/CGNAT yg sama dianggap 1 orang.
+    // Id bisa dikarang, jadi tamu tetep gak dapet XP & tetap dibatasi per IP biar angka kehadiran gak digelembungkan
+    const deviceId = typeof b.deviceId === "string" && DEVICE_ID.test(b.deviceId) ? b.deviceId : null;
+    const visitorKey = user?.id ?? `guest:${sha(deviceId ? `dev:${deviceId}` : request.ip)}`;
+    if (!user) await rateLimit(pool, `checkin-ip:${sha(request.ip)}`, 60, 3600, "Terlalu banyak check-in dari jaringan ini. Coba lagi nanti.");
     const out = await tx(async (c) => {
       await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`checkin:${visitorKey}`]);
       const recent = await c.query<{ payload: { spotId: string; createdAt: string } }>(
@@ -102,15 +107,28 @@ export default async function economyRoutes(app: FastifyInstance) {
     const spot = row.payload;
     if (!needsBooking(spot)) fail(400, `${spot.name} bebas masuk, tidak perlu tiket.`, "NO_BOOKING_NEEDED");
     const accept = b.acceptCircularQuest === true;
+    // pengalihan cuma saat tempat padat (>= 85%), sesuai proposal. Di bawah itu misinya diabaikan
+    const crowded = isCrowded(spot);
+    const slot = String(b.scheduledSlot ?? "").trim().slice(0, 40) || spot.quota.nextAvailableSlot;
 
-    // calon lapak pengalih: UMKM/sanggar terbit terdekat di kawasan yg sama, pemiliknya aktif
+    // calon lapak pengalih: UMKM/sanggar terbit terdekat di kawasan yg sama, pemiliknya aktif, BUKAN tempat ini sendiri
     let partner: CulturalSpot | undefined;
-    if (accept && user) {
-      const candidates = (await findPartners(spot)).sort((p, q) => distanceMeters(p.coordinates, spot.coordinates) - distanceMeters(q.coordinates, spot.coordinates));
+    if (accept && crowded && user) {
+      const candidates = (await findPartners(spot)).filter((p) => p.id !== spot.id).sort((p, q) => distanceMeters(p.coordinates, spot.coordinates) - distanceMeters(q.coordinates, spot.coordinates));
       partner = candidates[0];
     }
 
     return tx(async (c) => {
+      // kapasitas per slot per hari WIB: total orang di slot ini gak boleh lewat kapasitas tempat
+      await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`slot:${spot.id}`]);
+      const booked = await c.query<{ n: string | null }>(
+        "SELECT sum((payload->>'partySize')::int) AS n FROM entities WHERE kind='reservation' AND payload->>'spotId'=$1 AND payload->>'scheduledSlot'=$2 AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = $3::date",
+        [spot.id, slot, wibDay()]
+      );
+      const remaining = spot.quota.maxCapacity - Number(booked.rows[0]?.n ?? 0);
+      if (size > remaining) {
+        fail(409, remaining > 0 ? `Slot ${slot} tinggal ${remaining} orang. Kurangi jumlah orang atau pilih jam lain.` : `Slot ${slot} sudah penuh. Pilih jam lain.`, "SLOT_FULL", { remaining: Math.max(0, remaining) });
+      }
       const ticketId = await uniqueCode(c, "reservation", `PASS-${spot.vibe.slice(0, 3).toUpperCase()}`, "ticketId");
       const reservation: ReservationPass = {
         ticketId,
@@ -118,9 +136,9 @@ export default async function economyRoutes(app: FastifyInstance) {
         spotName: spot.name,
         visitorName,
         partySize: size,
-        scheduledSlot: String(b.scheduledSlot ?? "").trim().slice(0, 40) || spot.quota.nextAvailableSlot,
+        scheduledSlot: slot,
         status: "CONFIRMED",
-        circularQuestAccepted: accept,
+        circularQuestAccepted: accept && crowded,
         createdAt: new Date().toISOString(),
       };
       await c.query("INSERT INTO entities(id,kind,owner_id,payload) VALUES($1,'reservation',$2,$3)", [ticketId, user?.id ?? null, JSON.stringify(reservation)]);
@@ -130,8 +148,9 @@ export default async function economyRoutes(app: FastifyInstance) {
         await addXp(c, user.id, awardedPoints);
       }
       let bonusVoucher: IssuedVoucher | undefined;
-      let rewardNote: "LOGIN_FOR_REWARD" | "ALREADY_CLAIMED_TODAY" | "NO_PARTNER" | undefined;
-      if (accept && !user) rewardNote = "LOGIN_FOR_REWARD";
+      let rewardNote: RedirectNote | undefined;
+      if (accept && !crowded) rewardNote = "NOT_CROWDED";
+      else if (accept && !user) rewardNote = "LOGIN_FOR_REWARD";
       else if (accept && user) {
         if (!partner) rewardNote = "NO_PARTNER";
         else if (!(await claimOnce(c, user.id, partner.id, "REDIRECT"))) rewardNote = "ALREADY_CLAIMED_TODAY";

@@ -48,7 +48,7 @@ export default async function authRoutes(app: FastifyInstance) {
     try {
       const r = await pool.query<UserRow>(
         `INSERT INTO users(id,email,name,role,status,password_salt,password_hash) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING ${USER_COLS}`,
-        [userId, email.toLowerCase(), name, role, role === "MERCHANT" ? "PENDING" : null, salt, hashPassword(password, salt)]
+        [userId, email.toLowerCase(), name, role, role === "MERCHANT" ? "PENDING" : null, salt, await hashPassword(password, salt)]
       );
       await pool.query("INSERT INTO profiles(user_id) VALUES($1) ON CONFLICT DO NOTHING", [userId]);
       return reply.code(201).send({ ...(await issueSession(reply, userId)), user: safeUser(r.rows[0]) });
@@ -62,13 +62,15 @@ export default async function authRoutes(app: FastifyInstance) {
     const parsed = loginSchema.safeParse(request.body);
     if (!parsed.success) bad("Email dan kata sandi wajib diisi dengan benar.");
     const email = parsed.data.email.toLowerCase();
+    // batas per IP: nebak sandi pakai banyak email beda dr satu jaringan. Longgar biar 1 WiFi uji lapangan tetap aman
+    await rateLimit(pool, `login-ip:${request.ip}`, 60, 600, "Terlalu banyak percobaan masuk dari jaringan ini. Coba lagi beberapa menit lagi.");
     const key = `login:${email}`;
     const lim = await pool.query<{ count: number; reset_at: Date }>("SELECT count,reset_at FROM rate_limits WHERE key=$1", [key]);
     if (lim.rows[0] && lim.rows[0].count >= 5 && lim.rows[0].reset_at > new Date()) fail(429, "Terlalu banyak percobaan. Coba lagi sebentar lagi.", "RATE_LIMITED");
     const r = await pool.query<UserRow>(`SELECT ${USER_COLS} FROM users WHERE email=$1`, [email]);
     const user = r.rows[0];
     // hash tetap dihitung walau email gak ada: waktunya sama, gak bocorin email mana yg terdaftar
-    const ok = user ? passwordMatches(parsed.data.password, user.password_salt, user.password_hash) : (hashPassword(parsed.data.password, "x".repeat(32)), false);
+    const ok = user ? await passwordMatches(parsed.data.password, user.password_salt, user.password_hash) : (await hashPassword(parsed.data.password, "x".repeat(32)), false);
     if (!ok) {
       await pool.query(
         "INSERT INTO rate_limits(key,count,reset_at) VALUES($1,1,now()+interval '60 seconds') ON CONFLICT(key) DO UPDATE SET count=CASE WHEN rate_limits.reset_at<now() THEN 1 ELSE rate_limits.count+1 END,reset_at=CASE WHEN rate_limits.reset_at<now() THEN now()+interval '60 seconds' ELSE rate_limits.reset_at END",
@@ -106,10 +108,11 @@ export default async function authRoutes(app: FastifyInstance) {
     if (typeof b.currentPassword !== "string" || !passwordSchema.safeParse(b.newPassword).success) bad("Kata sandi baru minimal 8 karakter.");
     const r = await pool.query<UserRow>(`SELECT ${USER_COLS} FROM users WHERE id=$1`, [user.id]);
     const row = r.rows[0];
-    if (!row || !passwordMatches(b.currentPassword as string, row.password_salt, row.password_hash)) fail(401, "Kata sandi saat ini salah.", "BAD_CREDENTIALS");
+    if (!row || !(await passwordMatches(b.currentPassword as string, row.password_salt, row.password_hash))) fail(401, "Kata sandi saat ini salah.", "BAD_CREDENTIALS");
     const salt = crypto.randomBytes(16).toString("hex");
+    const hash = await hashPassword(b.newPassword as string, salt);
     await tx(async (c) => {
-      await c.query("UPDATE users SET password_salt=$1,password_hash=$2 WHERE id=$3", [salt, hashPassword(b.newPassword as string, salt), user.id]);
+      await c.query("UPDATE users SET password_salt=$1,password_hash=$2 WHERE id=$3", [salt, hash, user.id]);
       // sandi berubah: semua sesi lama dicabut
       await c.query("DELETE FROM sessions WHERE user_id=$1", [user.id]);
     });
@@ -123,7 +126,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const password = bodyOf(request).password;
     if (typeof password !== "string" || !password) bad("Masukkan kata sandi untuk mengonfirmasi.");
     const r = await pool.query<UserRow>(`SELECT ${USER_COLS} FROM users WHERE id=$1`, [user.id]);
-    if (!r.rows[0] || !passwordMatches(password as string, r.rows[0].password_salt, r.rows[0].password_hash)) fail(401, "Kata sandi salah.", "BAD_CREDENTIALS");
+    if (!r.rows[0] || !(await passwordMatches(password as string, r.rows[0].password_salt, r.rows[0].password_hash))) fail(401, "Kata sandi salah.", "BAD_CREDENTIALS");
     if (user.role === "ADMIN") {
       const admins = await pool.query("SELECT 1 FROM users WHERE role='ADMIN' AND id<>$1", [user.id]);
       if (!admins.rowCount) fail(409, "Ini satu-satunya akun pengelola. Buat pengelola lain dulu sebelum menghapus akun ini.", "LAST_ADMIN");
@@ -132,11 +135,11 @@ export default async function authRoutes(app: FastifyInstance) {
       const spots = await c.query<{ id: string }>("SELECT id FROM entities WHERE kind='spot' AND owner_id=$1", [user.id]);
       const ids = spots.rows.map((x) => x.id);
       if (ids.length) {
-        await c.query("DELETE FROM entities WHERE kind='reference-image' AND owner_id = ANY($1)", [ids]);
+        await c.query("DELETE FROM entities WHERE kind IN ('reference-image','gallery-image') AND owner_id = ANY($1)", [ids]);
         await c.query("DELETE FROM entities WHERE kind='event' AND payload->>'spotId' = ANY($1)", [ids]);
       }
       await c.query(
-        "UPDATE entities SET owner_id=NULL, payload=jsonb_set(jsonb_set(payload - 'ownerId','{status}','\"ARCHIVED\"'::jsonb),'{quest,referenceImages}','[]'::jsonb) WHERE kind='spot' AND owner_id=$1",
+        "UPDATE entities SET owner_id=NULL, payload=jsonb_set(jsonb_set(payload - 'ownerId' - 'gallery','{status}','\"ARCHIVED\"'::jsonb),'{quest,referenceImages}','[]'::jsonb) WHERE kind='spot' AND owner_id=$1",
         [user.id]
       );
       await c.query("UPDATE entities SET owner_id=NULL,payload=jsonb_set(payload,'{visitorName}','\"Pengunjung\"'::jsonb) WHERE kind='reservation' AND owner_id=$1", [user.id]);
@@ -169,8 +172,9 @@ export default async function authRoutes(app: FastifyInstance) {
     const r = await pool.query<{ user_id: string }>("DELETE FROM one_time_tokens WHERE token_hash=$1 AND purpose='RESET_PASSWORD' AND expires_at>now() RETURNING user_id", [sha(b.token as string)]);
     if (!r.rows[0]) fail(400, "Tautan atur ulang tidak valid atau sudah kedaluwarsa.", "TOKEN_INVALID_OR_EXPIRED");
     const salt = crypto.randomBytes(16).toString("hex");
+    const hash = await hashPassword(b.password as string, salt);
     await tx(async (c) => {
-      await c.query("UPDATE users SET password_salt=$1,password_hash=$2 WHERE id=$3", [salt, hashPassword(b.password as string, salt), r.rows[0].user_id]);
+      await c.query("UPDATE users SET password_salt=$1,password_hash=$2 WHERE id=$3", [salt, hash, r.rows[0].user_id]);
       await c.query("DELETE FROM sessions WHERE user_id=$1", [r.rows[0].user_id]);
     });
     return { ok: true };

@@ -33,6 +33,15 @@ export function buildApp() {
     maxAge: 600,
   });
   app.register(multipart, { limits: { fileSize: MAX_IMAGE_BYTES, files: 1, fields: 10 } });
+  // ada X-Forwarded-For tapi IP-nya gak dipake = proxy di depan server belum dipercaya (TRUST_PROXY salah).
+  // Akibatnya semua pengunjung kebaca 1 IP & batas daftar/login/check-in tamu jadi dipakai bareng. Diingetin sekali di log
+  let proxyWarned = false;
+  app.addHook("onRequest", async (request) => {
+    if (!proxyWarned && request.headers["x-forwarded-for"] && request.ip === request.socket.remoteAddress) {
+      proxyWarned = true;
+      request.log.warn({ proxy: request.ip }, `Permintaan lewat proxy ${request.ip} yang tidak dipercaya. Isi TRUST_PROXY dengan IP proxy itu supaya IP asli pengunjung terbaca.`);
+    }
+  });
   app.addHook("onRequest", authHook);
   app.addHook("onSend", async (_req, reply) => {
     reply.header("X-Content-Type-Options", "nosniff");
