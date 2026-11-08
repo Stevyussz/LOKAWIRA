@@ -9,7 +9,8 @@ import type { CulturalSpot } from "@/types/lokawira";
 const input = "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted";
 const labelCls = "block text-xs font-bold text-pebble mb-1.5";
 // teks bawaan saat lapak didaftarkan tanpa nama objek. Dianggap "belum diatur"
-export const DEFAULT_TARGET = "Produk atau karya di lapak ini";
+import { DEFAULT_TARGET } from "@/lib/loka";
+export { DEFAULT_TARGET };
 
 interface Props {
   spot: CulturalSpot;

@@ -91,6 +91,8 @@ async function start() {
       pool.query("DELETE FROM rate_limits WHERE reset_at < now() - interval '1 hour'"),
       pool.query("DELETE FROM sessions WHERE expires_at < now()"),
       pool.query("DELETE FROM one_time_tokens WHERE expires_at < now()"),
+      // catatan pertanyaan Loka yg belum terjawab cukup 90 hari
+      pool.query("DELETE FROM entities WHERE kind='loka-gap' AND created_at < now() - interval '90 days'"),
     ]).catch((e) => app.log.warn({ err: e }, "Pembersihan gagal"));
   await sweep();
   const timer = setInterval(sweep, 3600_000);

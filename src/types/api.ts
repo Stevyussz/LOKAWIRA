@@ -167,23 +167,72 @@ export interface LensVerifyRequest {
 }
 export type LensVerifyResponse = LensVerificationResult;
 
-// POST /api/ai/storyteller
+// POST /api/ai/storyteller - tanya Loka. Tanpa customQuestion = narasi kurasi titik
 export interface StorytellerRequest {
   spotId: string;
   customQuestion?: string;
+  // maks 3 giliran terakhir biar Loka nyambung sama pertanyaan sebelumnya
+  history?: { q: string; a: string }[];
 }
+// AI = jawaban model dr rujukan, OFFLINE = AI gak tersedia, dijawab dr data tercatat, CURATED = narasi kurasi
+export type LokaMode = "AI" | "OFFLINE" | "CURATED";
 export interface StorytellerResponse {
   spotId: string;
   spotName: string;
   opkCategory: string;
   verifiedSource: string;
-  // semua sumber yg dipakai Loka buat jawaban ini (narasi titik + rujukan Pengetahuan Loka)
+  // sumber yg benar2 dipakai jawaban ini
   references?: string[];
   riddleTitle: string;
   isVerified: boolean;
-  sourceMode: string;
+  sourceMode: LokaMode;
   story: string;
+  // petunjuk misi tetap tulisan kurasi, gak diganti AI
   riddle: string;
+  answer: string;
+  // false = rujukannya belum ada (pertanyaan dicatat buat pengelola)
+  answered: boolean;
+  followUps: string[];
+}
+
+// GET /api/ai/gaps (pengelola): pertanyaan wisatawan yg belum bisa dijawab, per titik. DELETE /api/ai/gaps/{spotId} = tandai beres
+export interface LokaGapGroup {
+  spotId: string;
+  spotName: string;
+  opkCategory: string;
+  count: number;
+  samples: string[];
+  lastAt: string;
+}
+export interface LokaGapsResponse {
+  gaps: LokaGapGroup[];
+}
+
+// POST /api/ai/assist (mitra/pengelola): bantu tulis
+export type AssistRequest =
+  | { task: "polish-info"; spotId?: string; notes: string }
+  | { task: "suggest-clue"; spotId: string; target?: string; story?: string };
+export interface AssistResponse {
+  mode: LokaMode;
+  description?: string;
+  rules?: string[];
+  clues?: string[];
+}
+
+// POST /api/ai/extract-notes (pengelola): pecah teks sumber jadi draf rujukan (belum disimpan)
+export interface ExtractNotesRequest {
+  text: string;
+  opkCategory: string;
+}
+export interface ExtractNotesResponse {
+  mode: LokaMode;
+  drafts: { opkCategory: string; summary: string }[];
+}
+
+// POST /api/ai/review/{spotId} (pengelola): cek kelengkapan + pemeriksaan AI (teks & foto contoh)
+export interface ReviewSpotResponse {
+  mode: LokaMode;
+  checks: { level: "BLOCK" | "WARN" | "INFO"; text: string }[];
 }
 
 // bentuk galat yg diharapkan dr smua endpoint (status 4xx/5xx)

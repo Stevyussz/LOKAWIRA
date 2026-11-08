@@ -1,13 +1,24 @@
 "use client";
 
 import Loka from "@/components/brand/Loka";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { useVibeHex } from "@/lib/vibeColors";
 import Icon from "@/components/ui/Icon";
 import { api, describeError } from "@/lib/api";
 import { CulturalSpot } from "@/types/lokawira";
+import type { LokaMode } from "@/types/api";
+import { suggestQuestions } from "@/lib/loka";
 import { useReducedMotionConfig } from "@/lib/motionPref";
+
+// satu tanya-jawab di percakapan dgn Loka
+interface Turn {
+  q: string;
+  a: string;
+  mode: LokaMode;
+  refs: string[];
+  answered: boolean;
+}
 
 interface StoryTellerDockProps {
   selectedSpot: CulturalSpot | null;
@@ -28,21 +39,23 @@ export default function StoryTellerDock({
   const vh = useVibeHex();
   const [narrative, setNarrative] = useState<string>("");
   const [displayedText, setDisplayedText] = useState<string>("");
-  const [riddleText, setRiddleText] = useState<string>("");
   const [showRiddle, setShowRiddle] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [customQuery, setCustomQuery] = useState<string>("");
   const [showAskInput, setShowAskInput] = useState<boolean>(false);
   const [askError, setAskError] = useState<string | null>(null);
-  // sumber yg dipakai jawaban terakhir; kosong = sumber bawaan titik
-  const [refs, setRefs] = useState<string[]>([]);
+  // percakapan di titik ini (hilang kalo pindah titik) & saran pertanyaan berikutnya
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [followUps, setFollowUps] = useState<string[]>([]);
+  const lastRef = useRef<HTMLLIElement | null>(null);
 
   useEffect(() => {
     if (!selectedSpot) return;
     setNarrative(selectedSpot.quest.loreNarrative);
-    setRiddleText(selectedSpot.quest.riddleClue);
-    setRefs([]);
+    setTurns([]);
+    setFollowUps(suggestQuestions(selectedSpot));
+    setAskError(null);
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
@@ -69,6 +82,10 @@ export default function StoryTellerDock({
     return () => clearInterval(timer);
   }, [narrative]);
 
+  useEffect(() => {
+    if (turns.length) lastRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion === "always" ? "auto" : "smooth" });
+  }, [turns.length, reducedMotion]);
+
   if (!selectedSpot) return null;
 
   const handleToggleTts = () => {
@@ -84,9 +101,9 @@ export default function StoryTellerDock({
     }
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(
-      `${selectedSpot.name}. ${narrative}. Petunjuk misi: ${riddleText}`
-    );
+    // jawaban terakhir kalo lagi ngobrol, selain itu kisah + petunjuk misi
+    const last = turns[turns.length - 1];
+    const utterance = new SpeechSynthesisUtterance(last ? last.a : `${selectedSpot.name}. ${narrative}. Petunjuk misi: ${selectedSpot.quest.riddleClue}`);
     utterance.lang = "id-ID";
     utterance.rate = 1.0;
     utterance.onend = () => setIsSpeaking(false);
@@ -95,27 +112,29 @@ export default function StoryTellerDock({
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleAskStoryteller = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customQuery.trim()) return;
-
+  const ask = async (question: string) => {
+    const q = question.trim();
+    if (!q || isLoadingAi) return;
     setIsLoadingAi(true);
     setAskError(null);
     try {
       const data = await api.askStoryteller({
         spotId: selectedSpot.id,
-        customQuestion: customQuery.trim(),
+        customQuestion: q,
+        history: turns.slice(-3).map((t) => ({ q: t.q, a: t.a })),
       });
-      setNarrative(data.story);
-      setRiddleText(data.riddle);
-      setRefs(data.references ?? []);
+      setTurns((prev) => [...prev, { q, a: data.answer ?? data.story, mode: data.sourceMode, refs: data.references ?? [], answered: data.answered !== false }].slice(-8));
+      setFollowUps(data.followUps?.length ? data.followUps : []);
       setCustomQuery("");
-      setShowAskInput(false);
     } catch (err) {
       setAskError(describeError(err, "Loka belum bisa dihubungi. Periksa koneksi lalu coba lagi."));
     } finally {
       setIsLoadingAi(false);
     }
+  };
+  const handleAskStoryteller = (e: React.FormEvent) => {
+    e.preventDefault();
+    ask(customQuery);
   };
 
   return (
@@ -200,28 +219,19 @@ export default function StoryTellerDock({
         {isExpanded && (
           <div className="mt-3.5 space-y-3">
             <div className="bg-obsidian/80 rounded-2xl p-3.5">
-              {isLoadingAi ? (
-                <div className="flex items-center gap-2 text-xs text-pebble py-2">
-                  <Icon name="loader" size={16} weight="bold" motion="spin" className="text-vibePrimary" />
-                  <span>Merangkai kisah tradisi lisan...</span>
-                </div>
-              ) : (
-                <motion.p
-                  key={narrative}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.25 }}
-                  className="font-serif text-xs sm:text-sm text-alabaster leading-relaxed"
-                >
-                  &ldquo;{displayedText}&rdquo;
-                </motion.p>
-              )}
+              <motion.p
+                key={narrative}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.25 }}
+                className="font-serif text-xs sm:text-sm text-alabaster leading-relaxed"
+              >
+                &ldquo;{displayedText}&rdquo;
+              </motion.p>
 
               <p className="mt-2 pt-2 border-t border-stoneSubtle text-[11px] text-pebble flex items-center gap-1.5">
                 <Icon name="story" size={16} className="text-vibePrimary" motion="pop" />
-                <span className={refs.length > 1 ? "" : "truncate"}>
-                  {refs.length > 1 ? `Rujukan: ${refs.join("; ")}` : selectedSpot.quest.verifiedLoreSource}
-                </span>
+                <span className="truncate">{selectedSpot.quest.verifiedLoreSource}</span>
               </p>
             </div>
 
@@ -245,7 +255,7 @@ export default function StoryTellerDock({
                   </span>
                 </div>
                 <p className="text-xs text-alabaster leading-relaxed">
-                  {riddleText}
+                  {selectedSpot.quest.riddleClue}
                 </p>
                 <div className="pt-1 flex flex-wrap gap-2">
                   <button
@@ -269,6 +279,34 @@ export default function StoryTellerDock({
               )}
             </AnimatePresence>
 
+            {turns.length > 0 && (
+              <ol aria-label="Percakapan dengan Loka" aria-live="polite" className="space-y-2.5">
+                {turns.map((t, i) => (
+                  <li key={i} ref={i === turns.length - 1 ? lastRef : undefined} className="list-none space-y-1.5">
+                    <p className="ml-8 rounded-2xl rounded-br-md bg-slateElev px-3 py-2 text-xs text-alabaster">
+                      <span className="sr-only">Kamu: </span>
+                      {t.q}
+                    </p>
+                    <div className="mr-4 rounded-2xl rounded-bl-md bg-obsidian/80 px-3 py-2.5 space-y-1.5">
+                      <p className="text-xs sm:text-sm text-alabaster leading-relaxed">
+                        <span className="sr-only">Loka: </span>
+                        {t.a}
+                      </p>
+                      <p className="text-[11px] text-pebble leading-snug">
+                        <span className={`font-extrabold ${t.mode === "AI" ? "text-vibePrimary" : "text-alabaster"}`}>
+                          {t.mode === "AI" ? "Dirangkum Loka" : "Dari catatan tersimpan"}
+                        </span>
+                        {t.refs.length > 0 && <> · {t.refs.join("; ")}</>}
+                      </p>
+                      {!t.answered && (
+                        <p className="text-[11px] text-pebble leading-snug">Pertanyaanmu dicatat untuk pengelola, supaya Loka bisa menjawabnya nanti.</p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+
             <AnimatePresence initial={false}>
               {showAskInput && (
                 <motion.div
@@ -277,21 +315,39 @@ export default function StoryTellerDock({
                   animate={{ height: "auto", opacity: 1, marginTop: 12 }}
                   exit={{ height: 0, opacity: 0, marginTop: 0 }}
                   transition={{ type: "spring", stiffness: 380, damping: 34 }}
-                  className="overflow-hidden"
+                  className="overflow-hidden -mx-1 px-1 pb-1"
                 >
+                  {followUps.length > 0 && (
+                    <ul aria-label="Saran pertanyaan" className="flex flex-wrap gap-1.5 mb-2">
+                      {followUps.map((f) => (
+                        <li key={f} className="list-none">
+                          <button
+                            type="button"
+                            disabled={isLoadingAi}
+                            onClick={() => ask(f)}
+                            className="min-h-[36px] px-3 py-1.5 rounded-full border border-stoneStrong bg-basalt text-[11px] font-bold text-alabaster text-left hover:border-vibePrimary disabled:opacity-60"
+                          >
+                            {f}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <form onSubmit={handleAskStoryteller} className="flex gap-2">
                     <input
                       type="text"
                       autoFocus
+                      maxLength={300}
                       value={customQuery}
                       onChange={(e) => setCustomQuery(e.target.value)}
                       aria-label="Pertanyaan untuk Loka"
-                      placeholder="Tanya makna simbol atau sejarah..."
-                      className="flex-1 min-h-[44px] px-3 py-1.5 rounded-xl bg-obsidian border border-stoneStrong text-xs text-alabaster placeholder:text-ashMuted"
+                      placeholder="Tanya sejarah, jam buka, aturan..."
+                      className="flex-1 min-w-0 min-h-[44px] px-3 py-1.5 rounded-xl bg-obsidian border border-stoneStrong text-xs text-alabaster placeholder:text-ashMuted"
                     />
                     <button
                       type="submit"
                       disabled={isLoadingAi}
+                      aria-label={isLoadingAi ? "Loka sedang menjawab" : "Kirim pertanyaan"}
                       className="btn-tactile-primary min-h-[44px] min-w-[72px] px-3.5 py-1.5 text-xs inline-flex items-center justify-center gap-1.5 disabled:opacity-70"
                     >
                       {isLoadingAi ? (
@@ -301,6 +357,9 @@ export default function StoryTellerDock({
                       )}
                     </button>
                   </form>
+                  {isLoadingAi && (
+                    <p role="status" className="mt-2 text-[11px] text-pebble">Loka sedang mencari di catatan…</p>
+                  )}
                   {askError && (
                     <p role="alert" className="mt-2 text-xs font-bold text-quotaFull">
                       {askError}

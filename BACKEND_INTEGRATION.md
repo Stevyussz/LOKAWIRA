@@ -652,3 +652,26 @@ Z. Info tempat, galeri, dan perbaikan hasil audit (November 2026)
 - login: tambah batas 60 percobaan per IP per 10 menit (429 RATE_LIMITED), selain batas 5x per email. Hash sandi pindah ke scrypt async (dulu sinkron, 20 login barengan bikin server macet ~3 detik). Format hash gak berubah
 - server nulis peringatan sekali di log kalo ada X-Forwarded-For dari proxy yg gak dipercaya: tanda TRUST_PROXY salah isi
 - nodemailer naik ke 10.x (audit keamanan). API createTransport/sendMail yg dipake gak berubah
+
+ZA. Loka lebih pintar: tanya-jawab bersumber, bantu mitra, alat pengelola (November 2026)
+
+Logika bareng ada di src/lib/loka.ts (tanpa AI: fakta praktis, jawaban offline, saran pertanyaan, cek kelengkapan, saran mitra) dan src/lib/server/loka.ts (tugas AI + pengecek jawaban). Backend tinggal manggil fungsi itu.
+
+- panggilan 9router (src/lib/nineRouterClient.ts chatJson):
+  - model dijalankan bertahap: kalo model pertama belum jawab dlm NINE_ROUTER_HEDGE_MS (2500), model berikutnya ikut jalan, jawaban valid pertama dipakai, sisanya dibatalkan. Model gagal = langsung coba berikutnya
+  - server nyatet rata2 waktu jawab & kegagalan tiap model (di memori), model cepat & sehat dicoba duluan. NINE_ROUTER_PER_MODEL_MS dihapus, NINE_ROUTER_TIMEOUT_MS default 15000
+  - opsi validate: jawaban yg formatnya salah dianggap gagal (model berikutnya dipakai)
+- POST /api/ai/storyteller { spotId, customQuestion?, history? }
+  - history: maks 3 giliran { q, a } biar Loka nyambung. Titik gak ketemu sekarang 404 (dulu diem2 pake titik pertama)
+  - respons nambah: answer, answered (false = rujukan belum ada), followUps (2-4 saran pertanyaan), sourceMode jadi "AI" | "OFFLINE" | "CURATED", references cuma sumber yg beneran dipakai. riddle SELALU petunjuk misi kurasi (dulu diganti teka-teki buatan AI)
+  - konteks ke model: [R0..] rujukan budaya + [P] data lapak (jam buka & status sekarang, cara masuk, peraturan, keramaian, acara 30 hari, 3 titik terdekat di kawasan, fasilitas, kontak, misi). Jadi wisatawan bisa nanya "buka sampai jam berapa", "lagi ramai nggak", "habis ini ke mana"
+  - jawaban AI dicek ulang: salam pembuka dibuang, kalo nyebut angka yg gak ada di konteks (tahun, abad, harga) = dibuang & pake jawaban offline
+  - offline (tanpa kunci / AI putus): pertanyaan praktis dijawab dr data lapak, pertanyaan budaya dr rujukan yg separuh kata kuncinya cocok, sisanya jujur "belum ada"
+  - pertanyaan yg answered=false dicatat sbg entitas kind 'loka-gap' { spotId, question, at } TANPA user/IP. Nomor telepon & email di pertanyaan disamarkan. Dihapus otomatis stlh 90 hari
+- GET /api/ai/gaps (ADMIN): { gaps: [{ spotId, spotName, opkCategory, count, samples (maks 3), lastAt }] }. DELETE /api/ai/gaps/{spotId} (ADMIN) = tandai beres, balikin daftar baru
+- POST /api/ai/assist (MERCHANT aktif pemilik / ADMIN), batas 30/10 menit per akun:
+  - { task: "polish-info", spotId?, notes } -> { mode, description, rules[] }. Cuma dr tulisan mitra; angka yg gak ada di catatan = hasil AI dibuang, pake perapian tanpa AI. notes < 15 huruf = 400
+  - { task: "suggest-clue", spotId, target?, story? } -> { mode, clues[] }. Petunjuk yg nyebut kata kunci objek dibuang. Objek scan belum diisi = 400
+- POST /api/ai/extract-notes (ADMIN) { text (40-8000), opkCategory } -> { mode, drafts: [{ opkCategory, summary }] }. Belum disimpan; pengelola milih lalu simpan lewat POST /api/ai-notes. Draf AI wajib "didukung" teks sumber (angka ada & >= 60% kata dasarnya muncul)
+- POST /api/ai/review/{spotId} (ADMIN) -> { mode, checks: [{ level: BLOCK|WARN|INFO, text }] }. Cek kelengkapan (spotChecks) + AI baca teks & maks 3 foto contoh. Keputusan tetap di pengelola
+- semua tugas AI tetap jalan tanpa kunci (mode OFFLINE), jadi demo tanpa 9router gak kosong

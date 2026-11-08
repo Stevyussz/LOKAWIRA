@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import { API_BASE, api, describeError } from "@/lib/api";
 import { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
+import LokaReview from "@/components/admin/LokaReview";
 import { formatCoord } from "@/lib/geo";
 import type { MerchantSummary } from "@/types/api";
 import type { CulturalSpot } from "@/types/lokawira";
@@ -172,6 +173,7 @@ export default function ApprovalQueue({ spots, onSpots, onToast, onCount }: Prop
                     <p className="text-[11px] font-bold text-quotaWarning mt-1">Mitra belum mengunggah foto contoh. AI belum bisa mengenali objek ini.</p>
                   )}
                 </div>
+                <LokaReview spot={s} />
                                 {rejectingId === s.id && (
                   <div className="space-y-2">
                     <label htmlFor={`rj-${s.id}`} className="block text-xs font-bold text-pebble">Alasan penolakan (opsional, dilihat mitra)</label>

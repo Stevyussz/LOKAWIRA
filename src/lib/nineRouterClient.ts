@@ -1,9 +1,10 @@
 const NINE_ROUTER_BASE_URL = (process.env.NINE_ROUTER_BASE_URL || "https://api.9router.local/v1").replace(/\/$/, "");
 const NINE_ROUTER_API_KEY = process.env.NINE_ROUTER_API_KEY || "";
-// batas waktu total cerita Loka; lewat itu pakai narasi kurasi
-const NINE_ROUTER_TIMEOUT_MS = Number(process.env.NINE_ROUTER_TIMEOUT_MS) || 12000;
-const PER_MODEL_MS = Number(process.env.NINE_ROUTER_PER_MODEL_MS) || 6000;
-// daftar model dipisah koma: kalo penyedia pertama putus/error, langsung coba berikutnya
+// batas waktu total satu jawaban Loka; lewat itu Loka jawab dr data tercatat (offline)
+export const TEXT_TIMEOUT_MS = Number(process.env.NINE_ROUTER_TIMEOUT_MS) || 15000;
+// kalo model pertama belum jawab sekian ms, model berikutnya ikut dijalankan barengan (yg duluan jawab dipakai)
+const HEDGE_MS = Number(process.env.NINE_ROUTER_HEDGE_MS) || 2500;
+// daftar model dipisah koma
 const modelList = (v?: string) => (v || "gemini-2.5-flash").split(",").map((m) => m.trim()).filter(Boolean);
 export const TEXT_MODELS = modelList(process.env.NINE_ROUTER_MODEL);
 export const VISION_MODELS = modelList(process.env.NINE_ROUTER_VISION_MODEL || process.env.NINE_ROUTER_MODEL);
@@ -18,104 +19,92 @@ export function parseModelJson(content: unknown): Record<string, unknown> {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-// satu panggilan chat ke 9router (non-streaming; 9router defaultnya SSE). Coba model satu2 sampai tenggat total habis.
-// Balikin objek JSON dr model + nama model yg berhasil
-export async function chatJson(messages: unknown[], opts: { models?: string[]; timeoutMs?: number; perModelMs?: number } = {}): Promise<{ json: Record<string, unknown>; model: string }> {
+// catatan kesehatan model (di memori proses): rata2 waktu jawab & kapan terakhir gagal.
+// Model yg cepat & sehat dicoba duluan, yg baru gagal ditaruh paling belakang
+const stats = new Map<string, { ms: number; failedAt: number }>();
+function remember(model: string, ms: number | null) {
+  const s = stats.get(model) ?? { ms: 0, failedAt: 0 };
+  if (ms === null) s.failedAt = Date.now();
+  else s.ms = s.ms ? Math.round(s.ms * 0.6 + ms * 0.4) : ms;
+  stats.set(model, s);
+}
+export function orderModels(models: string[], now = Date.now()): string[] {
+  const score = (m: string, i: number) => {
+    const s = stats.get(m);
+    const recentFail = s && now - s.failedAt < 60_000 ? 1e9 : 0;
+    // yg belum pernah dipakai: pertahankan urutan di konfigurasi
+    return recentFail + (s?.ms || 4000 + i);
+  };
+  return models.map((m, i) => ({ m, v: score(m, i) })).sort((a, b) => a.v - b.v).map((x) => x.m);
+}
+export const modelHealth = () => Object.fromEntries(stats);
+
+// panggilan chat ke 9router (non-streaming). Model dijalankan bertahap: tiap HEDGE_MS model berikutnya ikut jalan,
+// atau langsung kalo yg sebelumnya gagal. Jawaban valid pertama dipakai, sisanya dibatalkan.
+export async function chatJson(
+  messages: unknown[],
+  opts: { models?: string[]; timeoutMs?: number; hedgeMs?: number; validate?: (j: Record<string, unknown>) => boolean } = {}
+): Promise<{ json: Record<string, unknown>; model: string; ms: number }> {
   if (!NINE_ROUTER_API_KEY) throw new Error("NINE_ROUTER_API_KEY kosong");
-  const deadline = Date.now() + (opts.timeoutMs ?? NINE_ROUTER_TIMEOUT_MS);
-  let last: unknown = new Error("tanpa model");
-  for (const model of opts.models ?? TEXT_MODELS) {
-    const left = deadline - Date.now();
-    if (left < 500) break;
-    const controller = new AbortController();
-    // tiap model dibatasi sendiri biar satu model lambat gak ngabisin jatah model cadangan
-    const timer = setTimeout(() => controller.abort(), Math.min(left, opts.perModelMs ?? PER_MODEL_MS));
-    try {
-      const res = await fetch(`${NINE_ROUTER_BASE_URL}/chat/completions`, {
+  const models = orderModels(opts.models ?? TEXT_MODELS);
+  const hedge = opts.hedgeMs ?? HEDGE_MS;
+  const t0 = Date.now();
+  const controllers: AbortController[] = [];
+  return new Promise((resolve, reject) => {
+    let next = 0;
+    let running = 0;
+    let done = false;
+    let last: unknown = new Error("tanpa model");
+    let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
+    const finish = () => {
+      done = true;
+      clearTimeout(deadline);
+      clearTimeout(hedgeTimer);
+      controllers.forEach((c) => c.abort());
+    };
+    const deadline = setTimeout(() => {
+      if (done) return;
+      finish();
+      reject(new Error(`tenggat ${opts.timeoutMs ?? TEXT_TIMEOUT_MS}ms habis`));
+    }, opts.timeoutMs ?? TEXT_TIMEOUT_MS);
+    const launch = () => {
+      if (done || next >= models.length) return;
+      const model = models[next++];
+      const controller = new AbortController();
+      controllers.push(controller);
+      running++;
+      const started = Date.now();
+      clearTimeout(hedgeTimer);
+      hedgeTimer = setTimeout(launch, hedge);
+      fetch(`${NINE_ROUTER_BASE_URL}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${NINE_ROUTER_API_KEY}` },
         signal: controller.signal,
         body: JSON.stringify({ model, stream: false, response_format: { type: "json_object" }, messages }),
-      });
-      if (!res.ok) throw new Error(`${model}: HTTP ${res.status}`);
-      const data = (await res.json()) as { choices?: { message?: { content?: unknown } }[] };
-      return { json: parseModelJson(data.choices?.[0]?.message?.content), model };
-    } catch (cause) {
-      last = cause;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  throw last;
-}
-
-export async function generateCulturalStoryAndValidation(params: {
-  spotName: string;
-  opkCategory: string;
-  verifiedLoreSource: string;
-  riddleClue?: string;
-  loreNarrative?: string;
-  // rujukan terkurasi [R0], [R1].. : satu2nya bahan fakta yg boleh dipakai model
-  context?: string;
-  userQueryOrImageBase64?: string;
-  mode: "STORYTELLER" | "LENS_SCAN";
-}) {
-  const systemPrompt = `Anda adalah LOKAWIRA Cultural AI Guardian.
-Tugas Anda adalah menyampaikan kisah Tradisi Lisan dan memvalidasi objek budaya Indonesia secara akurat.
-ATURAN MUTLAK BEBAS HALUSINASI:
-1. Fakta budaya HANYA boleh diambil dari RUJUKAN di bawah. Jangan menambah nama, tahun, angka, tokoh, atau peristiwa yang tidak tertulis di rujukan.
-2. Jika pertanyaan wisatawan tidak terjawab oleh rujukan, katakan terus terang bahwa rujukannya belum tersedia, lalu ceritakan yang ada di rujukan.
-3. Kategori budaya: ${params.opkCategory}. Sumber utama: ${params.verifiedLoreSource}.
-4. Gaya bahasa memikat untuk generasi muda, tetap menghormati pakem adat. Bahasa Indonesia, maksimal 90 kata untuk story.
-5. Kembalikan JSON murni: {"story": string, "riddle": string}. riddle = teka-teki singkat menuju titik misi berikutnya.
-
-RUJUKAN:
-${params.context || `[R0] ${params.loreNarrative || params.verifiedLoreSource}`}`;
-
-  if (!NINE_ROUTER_API_KEY) {
-    return {
-      isVerified: true,
-      sourceMode: "CURATED_RAG_FALLBACK",
-      story:
-        params.loreNarrative ||
-        `Di balik ${params.spotName}, tersimpan warisan ${params.opkCategory} yang dijaga turun-temurun oleh komunitas lokal (${params.verifiedLoreSource}).`,
-      riddle:
-        params.riddleClue ||
-        "Temukan bengkel perajin atau seduhan kuliner warisan di titik berpendar berikutnya untuk membuka lencana dan voucer diskon!",
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`${model}: HTTP ${res.status}`);
+          const data = (await res.json()) as { choices?: { message?: { content?: unknown } }[] };
+          const json = parseModelJson(data.choices?.[0]?.message?.content);
+          if (opts.validate && !opts.validate(json)) throw new Error(`${model}: isi jawaban tidak sesuai format`);
+          remember(model, Date.now() - started);
+          if (done) return;
+          finish();
+          resolve({ json, model, ms: Date.now() - t0 });
+        })
+        .catch((cause) => {
+          if (!controller.signal.aborted) remember(model, null);
+          last = cause;
+          running--;
+          if (done) return;
+          // gagal: langsung coba model berikutnya. Semua habis & gak ada yg jalan = nyerah
+          if (next < models.length) launch();
+          else if (running === 0) {
+            finish();
+            reject(last);
+          }
+        });
     };
-  }
-
-  try {
-    const { json: parsed } = await chatJson([
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content:
-          params.mode === "LENS_SCAN"
-            ? `Verifikasi pemindaian objek budaya di ${params.spotName} dan berikan narasi singkat beserta pengesahan voucer UMKM.`
-            : params.userQueryOrImageBase64
-            ? `Wisatawan di ${params.spotName} bertanya: "${params.userQueryOrImageBase64}". Jawab hanya berdasarkan RUJUKAN, lalu beri teka-teki singkat.`
-            : `Sambut wisatawan di ${params.spotName} dengan penggalan kisah tradisi lisan dan berikan teka-teki singkat menuju titik UMKM/Sanggar terdekat.`,
-      },
-    ]);
-    const story = typeof parsed.story === "string" ? parsed.story.trim() : "";
-    if (!story) throw new Error("Cerita kosong");
-    return {
-      isVerified: true,
-      sourceMode: "NINE_ROUTER_LIVE",
-      story: story.slice(0, 1200),
-      riddle: (typeof parsed.riddle === "string" && parsed.riddle.trim()) || params.riddleClue,
-    };
-  } catch {
-    return {
-      isVerified: true,
-      sourceMode: "CURATED_RAG_FALLBACK",
-      story:
-        params.loreNarrative ||
-        `Di balik ${params.spotName}, tersimpan warisan ${params.opkCategory} yang dijaga turun-temurun oleh komunitas lokal (${params.verifiedLoreSource}).`,
-      riddle:
-        params.riddleClue ||
-        "Temukan bengkel perajin atau seduhan kuliner warisan di titik berpendar berikutnya untuk membuka lencana dan voucer diskon!",
-    };
-  }
+    launch();
+  });
 }

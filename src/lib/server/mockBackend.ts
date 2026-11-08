@@ -82,6 +82,26 @@ export function galleryImages() {
   return (gg.lokawiraGallery ??= new Map());
 }
 
+// pertanyaan wisatawan yg belum bisa dijawab Loka (tanpa identitas), buat pengelola
+const gl = globalThis as unknown as { lokawiraLokaGaps?: { spotId: string; question: string; at: string }[] };
+export function lokaGapLog() {
+  return (gl.lokawiraLokaGaps ??= []);
+}
+
+// batas pakai AI per orang/IP (in-memory)
+const rl = globalThis as unknown as { lokawiraAiLimits?: Map<string, { n: number; reset: number }> };
+export function aiRateLimited(key: string, limit: number, windowMs: number): NextResponse | null {
+  const m = (rl.lokawiraAiLimits ??= new Map());
+  const now = Date.now();
+  const cur = m.get(key);
+  if (!cur || cur.reset < now) {
+    m.set(key, { n: 1, reset: now + windowMs });
+    return null;
+  }
+  if (++cur.n > limit) return err(429, "Loka butuh jeda sebentar. Coba lagi beberapa menit lagi.", "RATE_LIMITED");
+  return null;
+}
+
 export function getMock(): MockState {
   if (!g.lokawiraMock) {
     const users: UserRecord[] = [];

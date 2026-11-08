@@ -93,7 +93,7 @@ export default function EventsPanel({ mySpots, accountBlocked }: { mySpots: Cult
   };
 
   return (
-    <section className="gamiz-card p-5 space-y-4" aria-labelledby="ev-title">
+    <section id="events-panel" className="gamiz-card p-5 space-y-4 scroll-mt-4" aria-labelledby="ev-title">
       <div>
         <h2 id="ev-title" className="text-base font-extrabold text-alabaster">Acara di lapakmu</h2>
         <p className="text-xs text-pebble mt-1 leading-relaxed">

@@ -33,12 +33,39 @@ async function scan(spotId, file, token = V) {
   return call("POST", "/api/ai/lens-verify", { token, form: fd });
 }
 
-const st = await call("POST", "/api/ai/storyteller", { body: { spotId: "spot-mjp-01" } });
-ok("Loka live dari 9router", st.j.sourceMode === "NINE_ROUTER_LIVE" && st.j.story?.length > 40, `${st.j.sourceMode} ${st.ms}ms`);
-console.log("  cerita:", String(st.j.story).slice(0, 220));
-const q = await call("POST", "/api/ai/storyteller", { body: { spotId: "spot-mjp-01", customQuestion: "Berapa harga tiket pesawat ke Bali tahun 2030?" } });
-ok("pertanyaan di luar rujukan dijawab jujur (tidak mengarang)", q.j.sourceMode === "NINE_ROUTER_LIVE", `${q.ms}ms`);
-console.log("  jawaban:", String(q.j.story).slice(0, 220));
+// Tanya Loka: jawaban AI bersumber, jujur kalo gak ada rujukan, cepat (model paralel bertahap)
+const ask = (spotId, q) => call("POST", "/api/ai/storyteller", { body: { spotId, customQuestion: q } });
+const st = await ask("spot-mjp-01", "Bagaimana bata merah gapura ini direkatkan?");
+ok("Loka live: jawab pertanyaan budaya dr rujukan", st.j.sourceMode === "AI" && st.j.answer?.length > 20 && st.j.references?.length >= 1, `${st.j.sourceMode} ${st.ms}ms`);
+ok("tanpa salam pembuka", !/^(halo|hai|selamat datang)/i.test(st.j.answer ?? ""));
+console.log("  jawaban:", String(st.j.answer).slice(0, 220), "|", st.j.references?.join("; "));
+const q = await ask("spot-mjp-01", "Berapa harga tiket pesawat ke Bali tahun 2030?");
+ok("pertanyaan di luar rujukan dijawab jujur (tidak mengarang)", q.j.answered === false, `${q.j.sourceMode} ${q.ms}ms`);
+console.log("  jawaban:", String(q.j.answer).slice(0, 220));
+const raja = await ask("spot-mjp-02", "Siapa raja Majapahit yang membangun tempat ini dan tahun berapa?");
+ok("pertanyaan sejarah tanpa rujukan: tidak ngarang tahun/tokoh", raja.j.answered === false && raja.ms < 15000, `${raja.j.sourceMode} ${raja.ms}ms`);
+console.log("  jawaban:", String(raja.j.answer).slice(0, 220));
+const jam = await ask("spot-mjp-01", "Lagi ramai nggak? kalau ramai enaknya ke mana dulu?");
+ok("pertanyaan praktis pakai data lapak", jam.j.references?.includes("Data lapak di LOKAWIRA (diisi pemilik)"), `${jam.j.sourceMode} ${jam.ms}ms`);
+console.log("  jawaban:", String(jam.j.answer).slice(0, 220));
+const lat = [st.ms, q.ms, raja.ms, jam.ms].sort((a, b) => a - b);
+ok("waktu jawab Loka wajar", lat[lat.length - 1] < 15000, `median ${lat[2]}ms, maks ${lat[3]}ms`);
+
+// bantu mitra & pengelola
+const MDT = (await call("POST", "/api/auth/login", { body: { email: "mitra@lokawira.demo", password: "demo1234" } })).j.token;
+const ADT = (await call("POST", "/api/auth/login", { body: { email: "admin@lokawira.demo", password: "demo1234" } })).j.token;
+const notes = "jual wedang pokak hangat, resep keluarga, bisa pesan sambel wader buat dibawa pulang\n- antre di depan kasir\n- jangan buang sampah ke sungai";
+const pol = await call("POST", "/api/ai/assist", { token: MDT, body: { task: "polish-info", spotId: "spot-mjp-03", notes } });
+ok("rapikan info tempat lewat AI tanpa angka karangan", pol.j.mode === "AI" && pol.j.description && !/\d/.test(pol.j.description), `${pol.ms}ms`);
+console.log("  deskripsi:", pol.j.description, "|", pol.j.rules?.join(" / "));
+const clu = await call("POST", "/api/ai/assist", { token: MDT, body: { task: "suggest-clue", spotId: "spot-mjp-03" } });
+ok("saran petunjuk AI tidak menyebut nama objek", clu.j.mode === "AI" && clu.j.clues?.length >= 1, `${clu.ms}ms`);
+console.log("  petunjuk:", clu.j.clues?.[0]);
+const rv = await call("POST", "/api/ai/review/spot-mjp-02", { token: ADT });
+ok("periksa pengajuan dgn AI (teks + foto contoh)", rv.j.mode === "AI" && rv.j.checks?.length >= 1, `${rv.ms}ms`);
+console.log("  temuan:", rv.j.checks?.map((c) => `${c.level}: ${c.text}`).join(" | ").slice(0, 400));
+const ex = await call("POST", "/api/ai/extract-notes", { token: ADT, body: { opkCategory: "Adat Istiadat", text: "Kotagede berdiri sebagai ibu kota Mataram Islam pada abad ke-16. Kompleks makam dan Sendang Seliran dijaga abdi dalem. Pengunjung wajib memakai kain jarik saat memasuki kompleks makam. Kerajinan perak filigri berkembang di kampung sekitarnya sejak masa itu." } });
+ok("pecah teks sumber lewat AI", ex.j.mode === "AI" && ex.j.drafts?.length >= 2, `${ex.ms}ms ${ex.j.drafts?.length} draf`);
 
 const c1 = await scan("spot-mjp-02", "celengan.jpg");
 ok("foto celengan terakota di lapak celengan: cocok + voucer", c1.j.isVerified === true && !!c1.j.issuedVoucher, `conf=${c1.j.confidenceScore} ${c1.ms}ms ${c1.j.message ?? ""}`);

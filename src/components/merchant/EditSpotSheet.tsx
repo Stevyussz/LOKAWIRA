@@ -8,6 +8,7 @@ import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import type { LatLng } from "@/lib/geo";
 import type { CulturalSpot } from "@/types/lokawira";
 import ReferencePhotos from "@/components/merchant/ReferencePhotos";
+import { ClueHelper, InfoHelper } from "@/components/merchant/LokaAssist";
 import { INFO_LIMITS } from "@/lib/spotRules";
 import ScheduleFields, { scheduleErrors, scheduleFrom, schedulePayload, type ScheduleValue } from "@/components/merchant/ScheduleFields";
 
@@ -190,6 +191,7 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
           <label htmlFor="edit-clue" className={labelCls}>Petunjuk misi</label>
           <textarea id="edit-clue" rows={2} value={clue} onChange={(e) => setClue(e.target.value)} aria-invalid={!!errors.clue} aria-describedby={errors.clue ? "edit-err-clue" : undefined} className={`${input} py-3`} />
           {errors.clue && <p id="edit-err-clue" role="alert" className="mt-1 text-xs font-bold text-quotaFull">{errors.clue}</p>}
+          <ClueHelper spotId={spot.id} story={story} onPick={setClue} />
         </div>
         <div>
           <label htmlFor="edit-story" className={labelCls}>Cerita singkat</label>
@@ -226,6 +228,14 @@ export default function EditSpotSheet({ spot, allSpots, isAdmin, onClose, onSpot
             <p className="text-sm font-extrabold text-alabaster">Info tempat</p>
             <p className="text-[11px] text-pebble mt-0.5">Tampil saat wisatawan menekan Info di kartu lokasi. Bagian ini langsung tampil tanpa ditinjau ulang.</p>
           </div>
+          <InfoHelper
+            spotId={spot.id}
+            seed={[description.trim(), ...rules.map((r) => `- ${r}`)].filter(Boolean).join("\n")}
+            onUse={(r) => {
+              if (r.description) setDescription(r.description);
+              if (r.rules.length) setRulesText(r.rules.join("\n"));
+            }}
+          />
           <div>
             <label htmlFor="edit-desc" className={labelCls}>Deskripsi singkat</label>
             <textarea id="edit-desc" rows={3} maxLength={INFO_LIMITS.description} value={description} onChange={(e) => setDescription(e.target.value)} aria-invalid={!!errors.description} aria-describedby="edit-desc-hint" placeholder="Apa yang bisa dilihat, dicoba, atau dibeli di sini" className={`${input} py-3`} />

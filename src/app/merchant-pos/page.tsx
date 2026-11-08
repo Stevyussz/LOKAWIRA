@@ -10,6 +10,7 @@ import EditSpotSheet from "@/components/merchant/EditSpotSheet";
 import EventsPanel from "@/components/merchant/EventsPanel";
 import ImpactCard from "@/components/impact/ImpactCard";
 import CashierPanel from "@/components/merchant/CashierPanel";
+import LokaTips from "@/components/merchant/LokaTips";
 import GettingStarted, { MerchantMenu } from "@/components/merchant/GettingStarted";
 import RegisterSpotForm from "@/components/merchant/RegisterSpotForm";
 import ScanPromoPanel, { DEFAULT_TARGET } from "@/components/merchant/ScanPromoPanel";
@@ -128,6 +129,20 @@ function MerchantPosContent() {
         )}
 
         {!isAdmin && <GettingStarted spots={mySpots} go={setMenu} />}
+        {!isAdmin && !noLapak && !accountBlocked && (
+          <LokaTips
+            spots={mySpots}
+            onAction={(action, spotId) => {
+              if (action === "SCAN") setMenu("SCAN");
+              else if (action === "CASHIER") setMenu("KASIR");
+              else {
+                setMenu("LAPAK");
+                if (action === "EDIT") setEditingId(spotId);
+                else setTimeout(() => document.getElementById("events-panel")?.scrollIntoView({ block: "start", behavior: "smooth" }), 50);
+              }
+            }}
+          />
+        )}
         {!isAdmin && !noLapak && <ImpactCard title="Dampak lapakmu" />}
 
         {/* Ringkasan */}

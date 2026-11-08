@@ -51,6 +51,12 @@ import type {
   SnapshotResponse,
   StorytellerRequest,
   StorytellerResponse,
+  AssistRequest,
+  AssistResponse,
+  ExtractNotesRequest,
+  ExtractNotesResponse,
+  LokaGapsResponse,
+  ReviewSpotResponse,
   UpdateQuotaRequest,
   UpdateQuotaResponse,
 } from "@/types/api";
@@ -316,6 +322,13 @@ export const api = {
 
   askStoryteller: (r: StorytellerRequest) =>
     request<StorytellerResponse>("/api/ai/storyteller", { method: "POST", body: r, timeoutMs: 30000 }),
+
+  // Loka buat mitra & pengelola
+  lokaAssist: (r: AssistRequest) => request<AssistResponse>("/api/ai/assist", { method: "POST", body: r, timeoutMs: 30000 }),
+  lokaGaps: () => request<LokaGapsResponse>("/api/ai/gaps"),
+  resolveLokaGap: (spotId: string) => request<LokaGapsResponse>(`/api/ai/gaps/${encodeURIComponent(spotId)}`, { method: "DELETE" }),
+  extractNotes: (r: ExtractNotesRequest) => request<ExtractNotesResponse>("/api/ai/extract-notes", { method: "POST", body: r, timeoutMs: 40000 }),
+  reviewSpotWithLoka: (spotId: string) => request<ReviewSpotResponse>(`/api/ai/review/${encodeURIComponent(spotId)}`, { method: "POST", timeoutMs: 45000 }),
 };
 
 // pesan galat yg aman ditampilkan ke user

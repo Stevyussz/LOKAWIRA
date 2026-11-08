@@ -1,10 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import type { CulturalSpot, IssuedVoucher, LensVerificationResult, OpkCategory, UnlockedLoreCard } from "../../../src/types/lokawira";
-import { aiConfigured, chatJson, generateCulturalStoryAndValidation, VISION_MODELS } from "../../../src/lib/nineRouterClient";
-import { buildContext, pickNotes, type LoreNote } from "../../../src/lib/server/loreContext";
+import type { CulturalEvent, CulturalSpot, IssuedVoucher, LensVerificationResult, OpkCategory, UnlockedLoreCard } from "../../../src/types/lokawira";
+import type { AssistResponse, ExtractNotesResponse, ReviewSpotResponse, StorytellerResponse } from "../../../src/types/api";
+import { aiConfigured, chatJson, VISION_MODELS } from "../../../src/lib/nineRouterClient";
+import type { LoreNote } from "../../../src/lib/server/loreContext";
+import { AssistError, askLoka, extractNotes, groupGaps, parseHistory, polishInfo, reviewSpot, scrubQuestion, suggestClues, type LokaGap } from "../../../src/lib/server/loka";
 import { OPK_VALUES } from "../../../src/lib/enums";
 import { pool, tx } from "../db.js";
-import { addXp, bad, claimOnce, fail, findVisibleSpot, getEntity, listEntities, newId, profileOf, rateLimit, saveEntity, sha, uniqueCode, voucherSignature } from "../core.js";
+import { addXp, bad, claimOnce, fail, findVisibleSpot, getEntity, listEntities, newId, ownsRow, profileOf, rateLimit, saveEntity, sha, uniqueCode, visibleSpots, voucherSignature } from "../core.js";
 import { bodyOf, currentUser, requireRoles } from "../http.js";
 import { geofence } from "../geofence.js";
 import { IMAGE_TYPES, imageSignatureMatches } from "./spots.js";
@@ -40,7 +42,7 @@ async function verifyWithAi(spot: CulturalSpot, image: { type: string; data: Buf
         { role: "system", content: "Anda verifikator objek budaya yang konservatif. Jangan mengarang. Jawab JSON saja." },
         { role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: `data:${image.type};base64,${image.data.toString("base64")}` } }, ...refParts] },
       ],
-      { models: VISION_MODELS, timeoutMs: SCAN_TIMEOUT_MS, perModelMs: 15000 }
+      { models: VISION_MODELS, timeoutMs: SCAN_TIMEOUT_MS, hedgeMs: 7000, validate: (x) => typeof x.isVerified === "boolean" }
     );
     const confidence = Math.max(0, Math.min(1, Number(j.confidenceScore) || 0));
     return {
@@ -56,6 +58,7 @@ async function verifyWithAi(spot: CulturalSpot, image: { type: string; data: Buf
 }
 
 export default async function aiRoutes(app: FastifyInstance) {
+  // tanya Loka: jawaban dr rujukan kurasi + data lapak. Pertanyaan yg belum terjawab dicatat (tanpa identitas) buat pengelola
   app.post("/api/ai/storyteller", async (request) => {
     const b = bodyOf(request);
     const user = currentUser(request);
@@ -64,31 +67,102 @@ export default async function aiRoutes(app: FastifyInstance) {
     if (!row) fail(404, "Titik lokasi tidak ditemukan.");
     const spot = row.payload;
     const question = typeof b.customQuestion === "string" ? b.customQuestion.trim().slice(0, 300) : "";
-    const notes = pickNotes(spot, (await listEntities<LoreNote>(pool, "ai-note")).map((x) => x.payload), question);
-    const top = notes[0];
-    const result = await generateCulturalStoryAndValidation({
-      spotName: spot.name,
-      opkCategory: spot.opkCategory,
-      verifiedLoreSource: spot.quest.verifiedLoreSource,
-      riddleClue: spot.quest.riddleClue,
-      context: buildContext(spot, notes),
-      loreNarrative: question
-        ? top
-          ? `Soal "${question}": menurut ${top.maestroSource}, ${top.summary} ${spot.quest.loreNarrative}`
-          : `Soal "${question}": rujukan khususnya belum ada di Pengetahuan Loka. Yang tercatat dari ${spot.quest.verifiedLoreSource}: ${spot.quest.loreNarrative}`
-        : spot.quest.loreNarrative,
-      userQueryOrImageBase64: question || undefined,
-      mode: "STORYTELLER",
-    });
+    const [notes, events, spots] = await Promise.all([
+      listEntities<LoreNote>(pool, "ai-note"),
+      listEntities<CulturalEvent>(pool, "event"),
+      visibleSpots(pool, user),
+    ]);
+    const res = await askLoka({ spot, question, history: parseHistory(b.history), notes: notes.map((x) => x.payload), world: { events: events.map((x) => x.payload), spots } });
+    if (question && !res.answered) {
+      const gap: LokaGap = { spotId: spot.id, question: scrubQuestion(question), at: new Date().toISOString() };
+      await saveEntity(pool, "loka-gap", newId("gap"), gap);
+    }
     return {
       spotId: spot.id,
       spotName: spot.name,
       opkCategory: spot.opkCategory,
       verifiedSource: spot.quest.verifiedLoreSource,
-      references: [spot.quest.verifiedLoreSource, ...notes.map((n) => n.maestroSource)].filter((v, i, a) => a.indexOf(v) === i),
+      references: res.references,
       riddleTitle: spot.quest.riddleTitle,
-      ...result,
-    };
+      isVerified: true,
+      sourceMode: res.mode,
+      story: res.answer,
+      riddle: spot.quest.riddleClue,
+      answer: res.answer,
+      answered: res.answered,
+      followUps: res.followUps,
+    } satisfies StorytellerResponse;
+  });
+
+  // pertanyaan yg belum terjawab, per titik (pengelola)
+  const gapGroups = async () => {
+    const [gaps, spots] = await Promise.all([listEntities<LokaGap>(pool, "loka-gap"), listEntities<CulturalSpot>(pool, "spot")]);
+    return { gaps: groupGaps(gaps.map((x) => x.payload), spots.map((x) => x.payload)) };
+  };
+  app.get("/api/ai/gaps", async (request) => {
+    requireRoles(request, ["ADMIN"]);
+    return gapGroups();
+  });
+  app.delete<{ Params: { spotId: string } }>("/api/ai/gaps/:spotId", async (request) => {
+    requireRoles(request, ["ADMIN"]);
+    await pool.query("DELETE FROM entities WHERE kind='loka-gap' AND payload->>'spotId'=$1", [request.params.spotId]);
+    return gapGroups();
+  });
+
+  // Loka bantu mitra menulis: rapikan Info tempat, saran petunjuk misi
+  app.post("/api/ai/assist", async (request) => {
+    const user = requireRoles(request, ["MERCHANT", "ADMIN"]);
+    const b = bodyOf(request);
+    await rateLimit(pool, `assist:${user.id}`, 30, 600, "Loka butuh jeda sebentar. Coba lagi beberapa menit lagi.");
+    let spot: CulturalSpot | undefined;
+    if (b.spotId !== undefined) {
+      const row = await getEntity<CulturalSpot>(pool, "spot", String(b.spotId));
+      if (!row || row.payload.status === "ARCHIVED") fail(404, "Titik lokasi tidak ditemukan.");
+      if (!ownsRow(user, row)) fail(403, "Ini bukan lapak Anda.", "NOT_YOUR_SPOT");
+      spot = row.payload;
+    }
+    try {
+      if (b.task === "polish-info") return (await polishInfo({ spot, notes: String(b.notes ?? "") })) satisfies AssistResponse;
+      if (b.task === "suggest-clue") {
+        if (!spot) bad("Pilih lapaknya dulu.");
+        return (await suggestClues({
+          name: spot.name,
+          target: typeof b.target === "string" && b.target.trim() ? b.target.trim().slice(0, 120) : spot.quest.targetObjectPrompt,
+          story: typeof b.story === "string" ? b.story.slice(0, 800) : spot.quest.loreNarrative,
+        })) satisfies AssistResponse;
+      }
+    } catch (e) {
+      if (e instanceof AssistError) bad(e.message);
+      throw e;
+    }
+    bad("Tugas Loka tidak dikenal.");
+  });
+
+  // pengelola: pecah teks sumber jadi draf rujukan (belum disimpan)
+  app.post("/api/ai/extract-notes", async (request) => {
+    const user = requireRoles(request, ["ADMIN"]);
+    const b = bodyOf(request);
+    if (!OPK_VALUES.includes(b.opkCategory as OpkCategory)) bad("Kategori OPK tidak valid.");
+    await rateLimit(pool, `extract:${user.id}`, 10, 600, "Loka butuh jeda sebentar. Coba lagi beberapa menit lagi.");
+    try {
+      return (await extractNotes({ text: String(b.text ?? ""), opk: b.opkCategory as OpkCategory })) satisfies ExtractNotesResponse;
+    } catch (e) {
+      if (e instanceof AssistError) bad(e.message);
+      throw e;
+    }
+  });
+
+  // pengelola: periksa pengajuan titik (kelengkapan + teks & foto contoh lewat AI)
+  app.post<{ Params: { id: string } }>("/api/ai/review/:id", async (request) => {
+    const user = requireRoles(request, ["ADMIN"]);
+    const row = await getEntity<CulturalSpot>(pool, "spot", request.params.id);
+    if (!row || row.payload.status === "ARCHIVED") fail(404, "Titik lokasi tidak ditemukan.");
+    await rateLimit(pool, `review:${user.id}`, 30, 600, "Loka butuh jeda sebentar. Coba lagi beberapa menit lagi.");
+    const ids = (row.payload.quest.referenceImages ?? []).slice(0, 3).map((r) => r.id);
+    const imgs = ids.length
+      ? (await pool.query<{ file_data: Buffer; mime_type: string }>("SELECT file_data,mime_type FROM entities WHERE kind='reference-image' AND id = ANY($1)", [ids])).rows.map((x) => ({ type: x.mime_type, data: x.file_data }))
+      : [];
+    return (await reviewSpot(row.payload, imgs)) satisfies ReviewSpotResponse;
   });
 
   // pindai objek: foto wajib (JPEG/PNG/WebP asli), titik buka, dekat (kalo geofence nyala). Hadiah cuma akun, sekali/titik/hari WIB
