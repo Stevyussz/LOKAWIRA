@@ -1,3 +1,4 @@
+import { INITIAL_LORE_NOTES } from "@/lib/lokaKnowledge";
 import {
   CulturalObjectSample,
   CulturalSpot,
@@ -598,22 +599,8 @@ export function getLokawiraStore(): LokawiraMemoryStore {
       spots: structuredClone(INITIAL_CULTURAL_SPOTS),
       vouchers: structuredClone(INITIAL_VOUCHERS),
       reservations: structuredClone(INITIAL_RESERVATIONS),
-      aiTrainingNotes: [
-        {
-          id: "rag-01",
-          opkCategory: "Teknologi Tradisional",
-          maestroSource: "PPKD Kabupaten Mojokerto & Mbah Suroso",
-          summary: "Teknik kosod bata merah dan sejarah celengan terakota Majapahit abad ke-14.",
-          updatedAt: "Terverifikasi Kurator",
-        },
-        {
-          id: "rag-02",
-          opkCategory: "Pengetahuan Tradisional",
-          maestroSource: "Yayasan Lasem Heritage & Mbah Putri Sekar",
-          summary: "Rahasia mineral air sumur kapur Lasem pada pewarnaan merah Batik Tiga Negeri.",
-          updatedAt: "Terverifikasi Kurator",
-        },
-      ],
+      // Pengetahuan Loka bawaan (bersumber), lihat src/lib/lokaKnowledge.ts
+      aiTrainingNotes: INITIAL_LORE_NOTES.map((n) => ({ ...n, updatedAt: "Riset tim, November 2026" })),
     };
   }
   return globalForStore.lokawiraStore;

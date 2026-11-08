@@ -1,13 +1,12 @@
 import crypto from "node:crypto";
+import { INITIAL_LORE_NOTES, LEGACY_NOTE_SUMMARIES } from "../../src/lib/lokaKnowledge";
 import { INITIAL_CULTURAL_SPOTS, INITIAL_EVENTS, INITIAL_REGIONS, INITIAL_VOUCHERS } from "../../src/lib/seedCulturalData";
 import type { CulturalSpot } from "../../src/types/lokawira";
 import { pool, tx } from "./db.js";
 import { hashPassword } from "./core.js";
 
-const NOTES = [
-  { id: "rag-01", opkCategory: "Teknologi Tradisional", maestroSource: "PPKD Kabupaten Mojokerto & Mbah Suroso", summary: "Teknik kosod bata merah dan sejarah celengan terakota Majapahit abad ke-14." },
-  { id: "rag-02", opkCategory: "Pengetahuan Tradisional", maestroSource: "Yayasan Lasem Heritage & Mbah Putri Sekar", summary: "Rahasia mineral air sumur kapur Lasem pada pewarnaan merah Batik Tiga Negeri." },
-];
+// Pengetahuan Loka bawaan (bersumber): src/lib/lokaKnowledge.ts
+const NOTES = INITIAL_LORE_NOTES;
 
 async function upsertUser(id: string, name: string, email: string, role: string, password: string, status: string | null) {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -34,6 +33,10 @@ export async function seed() {
     }
     for (const [i, e] of INITIAL_EVENTS.entries()) {
       await c.query("INSERT INTO entities(id,kind,created_at,payload) VALUES($1,'event',$2,$3) ON CONFLICT DO NOTHING", [e.id, at(BASE + i * 1000), JSON.stringify({ ...e, createdAt: now })]);
+    }
+    // catatan bawaan lama yg sumbernya belum bisa dicek: dihapus kalo isinya belum diubah pengelola
+    for (const [id, summary] of Object.entries(LEGACY_NOTE_SUMMARIES)) {
+      await c.query("DELETE FROM entities WHERE kind='ai-note' AND id=$1 AND payload->>'summary'=$2", [id, summary]);
     }
     for (const [i, n] of NOTES.entries()) {
       await c.query("INSERT INTO entities(id,kind,created_at,payload) VALUES($1,'ai-note',$2,$3) ON CONFLICT DO NOTHING", [n.id, at(BASE - i * 1000), JSON.stringify({ ...n, updatedAt: now })]);
