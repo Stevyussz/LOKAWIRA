@@ -194,6 +194,30 @@ ok("tamu tidak bisa lihat dampak", (await call("GET", "/api/metrics")).s === 401
 // ---- AI tanpa kunci / validasi
 const st = await call("POST", "/api/ai/storyteller", { body: { spotId: prim.id, customQuestion: "kosod bata merah?" } });
 ok("storyteller jalan + rujukan", st.s === 200 && st.j.story && st.j.references?.length >= 1, `${st.j.sourceMode} ${st.ms}ms refs=${st.j.references?.length}`);
+
+// ---- Loka: tanya-jawab, catatan pertanyaan, bantu mitra, alat pengelola (jalan dgn/tanpa kunci AI)
+const lp = await call("POST", "/api/ai/storyteller", { body: { spotId: prim.id, customQuestion: "Ada acara apa minggu ini?", history: [{ q: "halo", a: "hai" }] } });
+ok("Loka jawab hal praktis dr data lapak", lp.s === 200 && lp.j.answer && lp.j.references?.includes("Data lapak di LOKAWIRA (diisi pemilik)") && Array.isArray(lp.j.followUps), `${lp.j.sourceMode} ${lp.ms}ms`);
+ok("petunjuk misi tetap kurasi (bukan buatan AI)", lp.j.riddle === prim.quest.riddleClue);
+ok("tanpa pertanyaan = narasi kurasi", (await call("POST", "/api/ai/storyteller", { body: { spotId: prim.id } })).j.sourceMode === "CURATED");
+const gq = await call("POST", "/api/ai/storyteller", { token: V, body: { spotId: prim.id, customQuestion: `Siapa arsitek kuncup zirkonia ${rnd} itu? 0812 3456 7890` } });
+ok("pertanyaan tanpa rujukan dijawab jujur", gq.j.answered === false, `${gq.j.sourceMode} ${gq.ms}ms`);
+const gaps = await call("GET", "/api/ai/gaps", { token: A });
+const gg = gaps.j.gaps?.find((g) => g.spotId === prim.id);
+const gs = gg?.samples.find((x) => x.includes(rnd));
+ok("pertanyaan belum terjawab tercatat, nomor disamarkan", gs && gs.includes("[disamarkan]") && !gs.includes("0812"), gs);
+ok("catatan pertanyaan cuma buat pengelola", (await call("GET", "/api/ai/gaps", { token: MD })).s === 403 && (await call("GET", "/api/ai/gaps")).s === 401);
+ok("tandai pertanyaan beres", !(await call("DELETE", `/api/ai/gaps/${prim.id}`, { token: A })).j.gaps.some((g) => g.spotId === prim.id));
+const pol = await call("POST", "/api/ai/assist", { token: MD, body: { task: "polish-info", spotId: "spot-mjp-03", notes: "jual wedang pokak hangat dan sambel wader buatan keluarga\n- antre di depan kasir" } });
+ok("Loka rapikan info tempat mitra", pol.s === 200 && pol.j.description?.length > 10 && Array.isArray(pol.j.rules), `${pol.j.mode} ${pol.ms}ms`);
+ok("bantu tulis cuma lapak sendiri / peran mitra", (await call("POST", "/api/ai/assist", { token: MD, body: { task: "polish-info", spotId: sp.id, notes: "bukan lapak saya ini ya panjang" } })).s === 403 && (await call("POST", "/api/ai/assist", { token: V, body: { task: "polish-info", notes: "wisatawan tidak boleh pakai ini" } })).s === 403);
+const clu = await call("POST", "/api/ai/assist", { token: MD, body: { task: "suggest-clue", spotId: "spot-mjp-03" } });
+ok("saran petunjuk misi", clu.s === 200 && clu.j.clues?.length >= 1, `${clu.j.mode} ${clu.ms}ms`);
+const rv = await call("POST", "/api/ai/review/spot-mjp-02", { token: A });
+ok("periksa pengajuan (pengelola)", rv.s === 200 && Array.isArray(rv.j.checks) && (await call("POST", "/api/ai/review/spot-mjp-02", { token: MD })).s === 403, `${rv.j.mode} ${rv.ms}ms ${rv.j.checks?.length} temuan`);
+const ex = await call("POST", "/api/ai/extract-notes", { token: A, body: { opkCategory: "Adat Istiadat", text: "Kotagede berdiri sebagai ibu kota Mataram Islam pada abad ke-16. Kompleks makam dan Sendang Seliran dijaga abdi dalem. Pengunjung wajib memakai kain jarik saat memasuki kompleks makam." } });
+ok("pecah teks sumber jadi draf rujukan", ex.s === 200 && ex.j.drafts?.length >= 1, `${ex.j.mode} ${ex.ms}ms ${ex.j.drafts?.length} draf`);
+ok("teks sumber terlalu pendek ditolak", (await call("POST", "/api/ai/extract-notes", { token: A, body: { opkCategory: "Ritus", text: "pendek" } })).s === 400);
 const fake = new FormData(); fake.append("spotId", sp.id); fake.append("image", new Blob([new Uint8Array(20000)], { type: "image/jpeg" }), "x.jpg");
 ok("scan file palsu 415", (await call("POST", "/api/ai/lens-verify", { token: V, form: fake })).s === 415);
 ok("scan tanpa foto (JSON) ditolak", (await call("POST", "/api/ai/lens-verify", { token: V, body: { spotId: sp.id, sampleId: "x" } })).s === 400);

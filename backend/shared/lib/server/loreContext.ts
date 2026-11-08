@@ -1,4 +1,5 @@
 import type { CulturalSpot } from "@/types/lokawira";
+import { keywords } from "@/lib/loka";
 
 export interface LoreNote {
   id: string;
@@ -7,26 +8,20 @@ export interface LoreNote {
   summary: string;
 }
 
-// kata umum yg gak bantu nyari rujukan
-const STOP = new Set(["yang", "dengan", "untuk", "dari", "pada", "atau", "dalam", "adalah", "kawasan", "tempat", "bagaimana", "kenapa", "mengapa", "apakah", "tentang", "sejarah", "cerita"]);
-const words = (t: string) =>
-  t
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .split(/[^a-z0-9']+/)
-    .filter((w) => w.length >= 4 && !STOP.has(w));
-
-// pilih rujukan Pengetahuan Loka yg paling nyambung sama titik & pertanyaan (pencocokan kata sederhana).
-// Rujukan yg OPK-nya sama dapat nilai tambah. Maks 3 biar prompt tetap pendek
+// pilih rujukan Pengetahuan Loka yg paling nyambung sama titik & pertanyaan (pencocokan kata dasar).
+// Kata dr pertanyaan bobotnya lebih besar dr kata nama titik. OPK sama dapat nilai tambah. Maks 3 biar prompt pendek
 export function pickNotes(spot: CulturalSpot, notes: LoreNote[], question?: string, max = 3): LoreNote[] {
-  const target = new Set([...words(spot.name), ...words(spot.regionName ?? ""), ...words(question ?? "")]);
+  const spotWords = new Set([...keywords(spot.name), ...keywords(spot.regionName ?? ""), ...keywords(spot.quest.targetObjectPrompt ?? "")]);
+  const qWords = new Set(keywords(question ?? ""));
   return notes
     .map((n) => {
-      const hay = new Set(words(`${n.summary} ${n.maestroSource}`));
+      const hay = new Set(keywords(`${n.summary} ${n.maestroSource}`));
       let score = 0;
-      target.forEach((w) => {
+      spotWords.forEach((w) => {
         if (hay.has(w)) score += 2;
+      });
+      qWords.forEach((w) => {
+        if (hay.has(w)) score += 3;
       });
       if (n.opkCategory === spot.opkCategory) score += 1;
       return { n, score };
@@ -37,7 +32,7 @@ export function pickNotes(spot: CulturalSpot, notes: LoreNote[], question?: stri
     .map((x) => x.n);
 }
 
-// konteks yg dikirim ke model: satu2nya sumber fakta yg boleh dipakai
+// konteks budaya yg dikirim ke model: satu2nya sumber fakta budaya yg boleh dipakai
 export function buildContext(spot: CulturalSpot, notes: LoreNote[]): string {
   const lines = [`[R0] Narasi terkurasi titik "${spot.name}" (sumber: ${spot.quest.verifiedLoreSource}): ${spot.quest.loreNarrative}`];
   notes.forEach((n, i) => lines.push(`[R${i + 1}] ${n.opkCategory}, sumber: ${n.maestroSource}: ${n.summary}`));
