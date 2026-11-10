@@ -47,7 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(me);
       setStatus("authed");
     } catch (err) {
-      if (err instanceof ApiError && err.isOffline) {
+      // gangguan sementara (offline, 5xx, 429): sesi belum tentu tidak sah, jangan hapus token
+      if (err instanceof ApiError && (err.isOffline || err.status >= 500 || err.status === 429)) {
         setStatus("offline");
         return;
       }
@@ -127,6 +128,13 @@ export const ROLE_LABEL: Record<AuthUser["role"], string> = {
 export function homeFor(role: AuthUser["role"]): string {
   return role === "ADMIN" ? "/admin" : role === "MERCHANT" ? "/merchant-pos" : "/";
 }
+// hanya path internal: tolak "//host", "/\\host", dan karakter kontrol, lalu pastikan origin hasil parse tetap sama
 export function safeNext(next: string | null | undefined): string | null {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  if (!next || !next.startsWith("/") || next.startsWith("//") || /[\\\u0000-\u001f]/.test(next)) return null;
+  try {
+    const base = "https://lokawira.invalid";
+    return new URL(next, base).origin === base ? next : null;
+  } catch {
+    return null;
+  }
 }

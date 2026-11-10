@@ -97,7 +97,8 @@ async function start() {
   await sweep();
   const timer = setInterval(sweep, 3600_000);
   timer.unref();
-  await app.listen({ port: Number(process.env.BACKEND_PORT) || 4000, host: process.env.BACKEND_HOST ?? "0.0.0.0" });
+  const port = Number(process.env.PORT) || Number(process.env.BACKEND_PORT) || 4000;
+  await app.listen({ port, host: process.env.BACKEND_HOST ?? "0.0.0.0" });
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.once(signal, async () => {
       await app.close();

@@ -11,3 +11,11 @@ backend/.env
 next-env.d.ts
 test-results/
 playwright-report/
+
+# Dokumen internal / proposal (jangan di-commit)
+*.docx
+*.pdf
+Lokawira-Proposal*
+PITCH-DECK*
+UPDATE-TIM*
+materi-peran/
