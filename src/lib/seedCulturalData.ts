@@ -558,6 +558,15 @@ export const INITIAL_REGIONS: Region[] = [
   { id: "rgn-pandhalungan", name: "Pandhalungan", label: "Jember (rencana survei)", theme: "sogan", center: { lat: -8.1724, lng: 113.7005 }, radiusKm: 30, status: "DRAFT" },
 ];
 
+// Kawasan fokus uji coba lapangan (produksi). Data contoh 5 kawasan di atas cuma dipakai mode demo & tes otomatis;
+// backend produksi hanya mengisi kawasan ini dan menghapus data contoh lama (lihat backend/src/seed.ts)
+export const FOCUS_REGION_ID = "rgn-pandhalungan";
+export const FOCUS_REGION: Region = {
+  ...INITIAL_REGIONS.find((r) => r.id === FOCUS_REGION_ID)!,
+  label: "Jember, Jawa Timur",
+  status: "ACTIVE",
+};
+
 // acara contoh berulang di titik demo, dihitung dr minggu ini biar agenda selalu keisi
 function nextWeekday(day: number, hour: number, minute: number): string {
   // jam WIB -> UTC (WIB = UTC+7)

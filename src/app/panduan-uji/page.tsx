@@ -22,7 +22,7 @@ const SECTIONS: Section[] = [
     who: "Bisa langsung tanpa akun. Masuk dengan akun wisatawan uji agar progres tersimpan.",
     steps: [
       "Geser, perbesar, dan perkecil peta (OpenStreetMap asli). Saat diperkecil, pin mengecil lalu bergabung menjadi lingkaran berangka.",
-      "Pilih kawasan di atas peta (Majapahit, Sogan, Bahari, Tridatu, Ukiran). Warna peta dan aksen ikut berganti.",
+      "Kawasan uji coba saat ini adalah Pandhalungan (Jember). Bila ada lebih dari satu kawasan aktif, pilih di atas peta; warna peta dan aksen ikut berganti.",
       "Ketuk sebuah titik, lalu Pandu aku: rute jalan kaki penuh tampil dulu, kemudian Mulai untuk dipandu (perlu izin lokasi).",
       "Check-In: dapat XP dan kode kehadiran KDR- untuk ditunjukkan ke pemilik lapak.",
       "Scan Objek: lihat objek yang dicari beserta foto contoh, unggah foto, lalu buka kartu kisah dan voucer LKW- yang tersimpan di Tas.",
@@ -30,7 +30,7 @@ const SECTIONS: Section[] = [
       "Hadiah dibatasi agar adil: XP dan voucer hanya untuk akun, sekali per titik per hari. Tanpa akun, kisah tetap bisa dibaca.",
       "Kisah: tanyakan sesuatu kepada Loka. Jawaban menyebut rujukan yang dipakai.",
       "Agenda: lihat acara budaya 30 hari ke depan di kawasan, lalu tekan Ingatkan aku untuk menyimpannya ke kalender HP. Kartu titik juga menampilkan acara berikutnya.",
-      "Poster QR: buka /?titik=spot-mjp-02 (alamat yang ada di poster). Aplikasi langsung membuka lapak itu, seperti orang yang memindai poster saat lewat.",
+      "Poster QR: buka alamat yang tercetak di poster lapak (bentuknya /?titik=<kode lapak>). Aplikasi langsung membuka lapak itu, seperti orang yang memindai poster saat lewat.",
       "Akun: pasang LOKAWIRA ke layar utama dan atur tingkat animasi.",
     ],
   },

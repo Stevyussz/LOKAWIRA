@@ -404,6 +404,11 @@ export default function LokawiraExplorerPage() {
       setIsWalletOpen(false);
       setIsSpotCardVisible(true);
     } else if (section === "STORY") {
+      // Kisah = cerita titik yg dipilih. Kawasan tanpa titik: kasih tau, jangan diam
+      if (!selectedSpot) {
+        notify("Pilih satu titik di peta dulu untuk membuka kisahnya bersama Loka.");
+        return;
+      }
       setIsStoryExpanded((prev) => !prev);
     } else if (section === "AGENDA") {
       setIsAgendaOpen(true);
@@ -460,6 +465,7 @@ export default function LokawiraExplorerPage() {
         }}
         activeVibe={activeVibe}
         regionKey={activeRegionId}
+        regionCenter={activeRegion?.center ?? null}
         regionLabel={activeRegion ? `${activeRegion.name}, ${activeRegion.label}` : ""}
         checkedInSpotIds={checkedInSpotIds}
         filterType={filterType}

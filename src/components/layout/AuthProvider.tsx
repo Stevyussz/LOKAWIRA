@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { api, ApiError, setAuthTokenProvider } from "@/lib/api";
+import { api, API_BASE, ApiError, CREDENTIALS, setAuthTokenProvider } from "@/lib/api";
 import { AuthUser } from "@/types/lokawira";
 import type { RegisterRequest } from "@/types/api";
 
@@ -41,6 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const recheck = useCallback(async (opts?: { silent?: boolean }) => {
+    // backend beda origin + mode Bearer + gak ada token = pasti tamu; gak usah nanya server (hemat 1 request & gak ada 401 di console)
+    if (!tokenRef.current && API_BASE && CREDENTIALS !== "include") {
+      setUser(null);
+      setStatus("guest");
+      return;
+    }
     if (!opts?.silent) setStatus("loading");
     try {
       const { user: me } = await api.me();

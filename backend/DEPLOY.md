@@ -237,6 +237,9 @@ ADMIN_NAME=Pengelola LOKAWIRA
 ADMIN_EMAIL=EMAIL_ADMIN
 ADMIN_PASSWORD=SANDI_ADMIN_MINIMAL_10_KARAKTER
 
+# Produksi fokus Jember: false = hanya kawasan Jember; data contoh 5 kawasan demo lama DIHAPUS otomatis saat start
+SEED_SAMPLE_DATA=false
+
 # Akun uji Tim Kurasi (dicantumkan di Lampiran G proposal). Set true selama penjurian, false setelahnya
 DEMO_ACCOUNTS=true
 DEMO_PASSWORD=demo1234
@@ -306,7 +309,7 @@ journalctl -u lokawira-backend -n 50 --no-pager
 curl -s http://127.0.0.1:4000/api/health     # {"ok":true,...,"db":"up"}
 ```
 
-Saat start, skema diterapkan otomatis (idempoten) dan data awal diisi, jadi `backend:migrate` tidak perlu dijalankan manual. Service ini memanggil `tsx` langsung, bukan lewat `npm run`, supaya tidak ada proses npm tambahan (hemat RAM) dan sinyal stop sampai ke Node.
+Saat start, skema diterapkan otomatis (idempoten) dan data awal diisi, jadi `backend:migrate` tidak perlu dijalankan manual. Dengan `SEED_SAMPLE_DATA=false`, data awal hanya kawasan Jember (aktif) dan rujukan Loka-nya. Data contoh lama (5 kawasan demo, 10 titik, acara, voucer, foto contoh, check-in, metrik, dan rujukan Loka kawasan itu) dihapus, dan log menulis `Data contoh dihapus: ...` sekali. Skrip deploy membuat backup sebelum restart. Service ini memanggil `tsx` langsung, bukan lewat `npm run`, supaya tidak ada proses npm tambahan (hemat RAM) dan sinyal stop sampai ke Node.
 
 ---
 
@@ -392,7 +395,7 @@ systemd-run --unit=lokawira-qa --property=User=lokawira \
   --property=WorkingDirectory=/srv/lokawira/app \
   --property=EnvironmentFile=/etc/lokawira/backend.env \
   --setenv=DATABASE_URL=postgres://lokawira:SANDI_DB@127.0.0.1:5432/lokawira_qa \
-  --setenv=BACKEND_PORT=4001 --setenv=DEMO_ACCOUNTS=true --setenv=GEOFENCE_ENABLED=true \
+  --setenv=BACKEND_PORT=4001 --setenv=DEMO_ACCOUNTS=true --setenv=GEOFENCE_ENABLED=true --setenv=SEED_SAMPLE_DATA=true \
   /srv/lokawira/app/node_modules/.bin/tsx --tsconfig backend/tsconfig.json backend/src/server.ts
 sleep 10 && curl -s http://127.0.0.1:4001/api/health
 cd /srv/lokawira/app && B=http://127.0.0.1:4001 node backend/qa/smoke.mjs

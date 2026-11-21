@@ -68,7 +68,7 @@ export const DEMO_MODE =
   process.env.NEXT_PUBLIC_DEMO_MODE !== undefined
     ? process.env.NEXT_PUBLIC_DEMO_MODE === "true"
     : process.env.NODE_ENV !== "production";
-const CREDENTIALS: RequestCredentials =
+export const CREDENTIALS: RequestCredentials =
   process.env.NEXT_PUBLIC_API_CREDENTIALS === "include" ? "include" : "same-origin";
 const DEFAULT_TIMEOUT_MS = 15000;
 

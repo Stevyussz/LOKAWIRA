@@ -30,7 +30,9 @@ Aturan yang dipakai bersama frontend dan server contoh: `src/lib/spotRules.ts` (
 3. `npm install`, lalu `npm run backend:dev`. Skema diterapkan, data awal diisi, lalu server listen di `BACKEND_HOST:BACKEND_PORT`.
 4. Frontend: `NEXT_PUBLIC_API_BASE_URL=https://api.domainmu.id` (tanpa garis miring akhir). Mode demo frontend dimatikan.
 
-Perintah lain: `npm run backend:start`, `npm run backend:migrate`, `npm run backend:typecheck`, `B=http://localhost:4000 npm run backend:qa` (butuh `DEMO_ACCOUNTS=true` dan `GEOFENCE_ENABLED=true`).
+Perintah lain: `npm run backend:start`, `npm run backend:migrate`, `npm run backend:typecheck`, `B=http://localhost:4000 npm run backend:qa` (butuh `DEMO_ACCOUNTS=true`, `GEOFENCE_ENABLED=true`, dan `SEED_SAMPLE_DATA=true` di database kosong khusus QA).
+
+Data awal: produksi (`SEED_SAMPLE_DATA=false`) hanya berisi kawasan Jember; data contoh 5 kawasan demo dihapus saat start. Mode demo frontend dan tes e2e tetap memakai data contoh dari `src/lib/seedCulturalData.ts`.
 
 Penjurian: set `DEMO_ACCOUNTS=true` supaya akun uji `wisatawan@`, `mitra@`, `calon@`, `admin@lokawira.demo` (sandi `DEMO_PASSWORD`) tersedia. Akun ini tidak bisa diganti sandinya atau dihapus. Matikan setelah penjurian.
 

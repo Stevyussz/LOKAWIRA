@@ -23,6 +23,8 @@ interface CulturalQuestMapProps {
   activeVibe: CulturalVibe;
   // id kawasan aktif: ganti kawasan = kamera ngepasin titik2 kawasan baru (dua kawasan bisa sepalet)
   regionKey?: string;
+  // pusat kawasan aktif: dipakai kamera kalo kawasan belum punya titik (mis. kawasan baru diaktifkan)
+  regionCenter?: { lat: number; lng: number } | null;
   // "Majapahit, Trowulan, Mojokerto" buat label peta
   regionLabel?: string;
   surfaceTheme?: SurfaceTheme;
@@ -243,6 +245,7 @@ export default function CulturalQuestMap({
   onSelectSpot,
   activeVibe,
   regionKey = "",
+  regionCenter = null,
   regionLabel = "",
   checkedInSpotIds,
   filterType,
@@ -273,8 +276,8 @@ export default function CulturalQuestMap({
   const routesVisible = redirectActive && !!primarySpotData && visibleIds.has(primarySpotData.id);
 
   // ref ke nilai terbaru, biar handler peta (dibikin sekali) gak basi
-  const latest = useRef({ spots, selectedSpot, userPosition, guide });
-  latest.current = { spots, selectedSpot, userPosition, guide };
+  const latest = useRef({ spots, selectedSpot, userPosition, guide, regionCenter });
+  latest.current = { spots, selectedSpot, userPosition, guide, regionCenter };
 
   // ---- chip di tepi layar: muncul kalo tujuan di luar tampilan, nunjuk arahnya + jarak ----
   const edgeRef = useRef<HTMLButtonElement | null>(null);
@@ -328,8 +331,8 @@ export default function CulturalQuestMap({
         map = new ml.Map({
           container: hostRef.current,
           style,
-          center: origin ? ll(origin.coordinates) : [112.3787, -7.5555],
-          zoom: 16,
+          center: origin ? ll(origin.coordinates) : latest.current.regionCenter ? ll(latest.current.regionCenter) : [113.7005, -8.1724],
+          zoom: origin ? 16 : 12,
           minZoom: 3,
           maxZoom: 19.5,
           // cuma Indonesia: gak bisa digeser ke luar, dan dunia gak digambar berulang
@@ -619,7 +622,13 @@ export default function CulturalQuestMap({
   const fitAll = useCallback((list: CulturalSpot[], animate: boolean) => {
     const map = mapRef.current;
     const ml = mlRef.current;
-    if (!map || !ml || list.length === 0) return;
+    if (!map || !ml) return;
+    if (list.length === 0) {
+      // kawasan tanpa titik: tampilkan wilayahnya, jangan diam di kawasan sebelumnya
+      const c = latest.current.regionCenter;
+      if (c) map.easeTo({ center: ll(c), zoom: 12, duration: animate && !prefersReducedMotion() ? 800 : 0 });
+      return;
+    }
     const b = new ml.LngLatBounds(ll(list[0].coordinates), ll(list[0].coordinates));
     list.forEach((s) => b.extend(ll(s.coordinates)));
     map.fitBounds(b, { padding: cameraPadding(), maxZoom: 17, duration: animate && !prefersReducedMotion() ? 800 : 0 });
@@ -627,7 +636,7 @@ export default function CulturalQuestMap({
 
   useEffect(() => {
     if (ready) fitAll(latest.current.spots, false);
-  }, [ready, activeVibe, regionKey, fitAll]);
+  }, [ready, activeVibe, regionKey, regionCenter?.lat, regionCenter?.lng, fitAll]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -841,10 +850,14 @@ export default function CulturalQuestMap({
           className="fixed left-3 right-[76px] sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-80 top-[34%] z-20 gamiz-card p-4 text-center space-y-3"
         >
           <p className="text-sm font-extrabold text-alabaster">
-            Belum ada {SPOT_FILTER_OPTIONS.find((o) => o.id === filterType)?.label ?? "titik"} di kawasan ini.
+            {filterType === "ALL"
+              ? "Belum ada titik budaya di kawasan ini."
+              : `Belum ada ${SPOT_FILTER_OPTIONS.find((o) => o.id === filterType)?.label ?? "titik"} di kawasan ini.`}
           </p>
-          <p className="text-xs text-pebble">Coba filter lain atau pindah kawasan.</p>
-          {onResetFilter && (
+          <p className="text-xs text-pebble">
+            {filterType === "ALL" ? "Tempat-tempatnya sedang dikurasi bersama warga dan pelaku budaya. Segera hadir." : "Coba filter lain atau pindah kawasan."}
+          </p>
+          {onResetFilter && filterType !== "ALL" && (
             <button type="button" onClick={onResetFilter} className="btn-tactile-secondary min-h-[44px] px-4 text-xs">
               Tampilkan semua titik
             </button>
