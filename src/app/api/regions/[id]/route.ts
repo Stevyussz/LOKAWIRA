@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
 import { jsonError, mockDisabled, requireRole } from "@/lib/server/mockBackend";
-import { adoptOrphans } from "@/lib/server/regions";
+import { adoptOrphans, applyRegion, regionFor } from "@/lib/server/regions";
 import { parseRegion } from "@/lib/server/regionInput";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -28,11 +28,17 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     return jsonError(409, "Nama kawasan sudah dipakai.", "REGION_NAME_TAKEN");
   }
   Object.assign(target, parsed, { id: target.id, createdAt: target.createdAt });
-  // titik di kawasan ini ngikut nama & palet barunya
+  // Evaluasi ulang semua titik yg tdnya di kawasan ini (bisa tetap, pindah ke kawasan lain, atau keluar dr semua kawasan)
   for (const s of store.spots) {
-    if (s.regionId !== id) continue;
-    s.vibe = target.theme;
-    s.regionName = `${target.name}, ${target.label}`;
+    if (s.regionId !== id || s.status === "ARCHIVED") continue;
+    const matched = regionFor(s.coordinates, store.regions);
+    if (matched) {
+      applyRegion(s, matched);
+    } else {
+      applyRegion(s, null);
+      s.regionName = "Di luar kawasan";
+      if (!s.status || s.status === "PUBLISHED") s.status = "PENDING_REVIEW";
+    }
   }
   const adopted = adoptOrphans();
   return NextResponse.json({ region: target, regions: store.regions, adopted });

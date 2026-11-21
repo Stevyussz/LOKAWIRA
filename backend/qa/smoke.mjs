@@ -156,6 +156,9 @@ const gdel = await call("DELETE", `/api/spots/${sp.id}/gallery/${gal[5].j.galler
 ok("galeri: hapus foto", gdel.s === 200 && gdel.j.gallery.length === 5);
 const story = await call("PATCH", `/api/spots/${sp.id}`, { token: M, body: { quest: { loreNarrative: "Cerita diganti mitra setelah terbit." } } });
 ok("mitra ganti cerita = ditinjau ulang (PENDING_REVIEW)", story.s === 200 && story.j.spot.status === "PENDING_REVIEW", story.j.spot?.status);
+await call("POST", `/api/admin/spots/${sp.id}/review`, { token: A, body: { decision: "PUBLISH" } });
+const targetEdit = await call("PATCH", `/api/spots/${sp.id}`, { token: M, body: { quest: { targetObjectPrompt: "Tungku terakota bermotif garis baru" } } });
+ok("mitra ganti objek pindaian = ditinjau ulang (PENDING_REVIEW)", targetEdit.s === 200 && targetEdit.j.spot.status === "PENDING_REVIEW", targetEdit.j.spot?.status);
 await call("POST", `/api/admin/spots/${sp.id}/review`, { token: A, body: { decision: "REJECT", reason: "uji" } });
 ok("foto galeri lapak ditolak tidak bisa dibuka", (await fetch(B + gurl)).status === 404);
 // terbitkan lagi: lapak ini masih dipakai tes agenda & dampak di bawah

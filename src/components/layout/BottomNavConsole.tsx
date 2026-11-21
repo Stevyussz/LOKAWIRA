@@ -10,7 +10,6 @@ type Section = "MAP" | "STORY" | "AGENDA" | "WALLET";
 interface BottomNavConsoleProps {
   activeSection: Section;
   onSelectSection: (section: Section) => void;
-  onOpenScanner: () => void;
   activeVoucherCount: number;
   // jumlah acara hari ini di kawasan (titik kecil di tab Agenda)
   todayEventCount: number;

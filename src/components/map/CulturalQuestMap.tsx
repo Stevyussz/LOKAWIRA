@@ -2,16 +2,21 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "motion/react";
 import type { GeoJSONSource, Map as MLMap, Marker as MLMarker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Icon from "@/components/ui/Icon";
 import Loka from "@/components/brand/Loka";
-import { CulturalSpot, CulturalVibe, SurfaceTheme } from "@/types/lokawira";
+import LokaScene from "@/components/brand/LokaScene";
+import { RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import SpotPin, { CLUSTER_PX, PIN_OFFSET, PinSize, zoomTier } from "@/components/map/SpotPin";
+import ClusterPin from "@/components/map/ClusterPin";
+import MapControls from "@/components/map/MapControls";
+import { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 import { VIBE_METADATA } from "@/lib/seedCulturalData";
 import { VIBE_HEX } from "@/lib/vibeColors";
+import { VIBE_MAP_PALETTE } from "@/lib/spotMeta";
 import { ZONE_RADIUS_METERS, LatLng, anchorSpot, bearingDegrees, circlePolygon, lookAheadBearing, curveBetween, distanceMeters, formatDistance, regionOrigin, INDONESIA_BOUNDS } from "@/lib/geo";
-import { loadLontarStyle } from "@/lib/mapStyle";
+import { applyVibeToMap, loadLontarStyle } from "@/lib/mapStyle";
 import type { WalkingRoute } from "@/lib/route";
 import { matchesSpotFilter, SpotFilter, SPOT_FILTER_OPTIONS } from "@/lib/spotFilter";
 import { motionReduced } from "@/lib/motionPref";
@@ -27,13 +32,16 @@ interface CulturalQuestMapProps {
   regionCenter?: { lat: number; lng: number } | null;
   // "Majapahit, Trowulan, Mojokerto" buat label peta
   regionLabel?: string;
-  surfaceTheme?: SurfaceTheme;
-  onToggleTheme?: () => void;
   checkedInSpotIds: string[];
   filterType: SpotFilter;
   onResetFilter?: () => void;
   // Membuka sheet "Butuh apa?"
   onOpenNeeds?: () => void;
+  // Membuka panel Rute Jelajah
+  onOpenTrail?: () => void;
+  trailSpotIds?: string[];
+  trailCoords?: [number, number][] | null;
+  isLoading?: boolean;
   // server gak terjangkau: tampilkan penanda & izinkan coba lagi
   isOffline?: boolean;
   onRetry?: () => void;
@@ -72,173 +80,6 @@ function plainMarkerEl(el: HTMLElement) {
   el.removeAttribute("aria-label");
 }
 
-const typeLabel = (t: CulturalSpot["spotType"]) =>
-  t === "PRIMARY_DEST" ? "Cagar Utama" : t === "SANGGAR_SENI" ? "Sanggar Seni" : t === "UMKM_KULINER" ? "Makan & Minum" : "Oleh-oleh";
-
-interface PinProps {
-  spot: CulturalSpot;
-  hex: { primary: string; accent: string; umkm: string };
-  isSelected: boolean;
-  isCompleted: boolean;
-  isRedirectTarget: boolean;
-  onSelect: (spot: CulturalSpot) => void;
-  // ukuran pin ngikutin zoom: full (dekat), compact (sedang), dot (jauh). Yg terpilih selalu full
-  size: PinSize;
-}
-
-type PinSize = "full" | "compact" | "dot";
-// batas zoom tiap ukuran, dan jarak (px layar) di mana pin yg berdekatan digabung jadi satu lingkaran berangka
-const zoomTier = (z: number): PinSize => (z >= 15.3 ? "full" : z >= 11 ? "compact" : "dot");
-const CLUSTER_PX: Record<PinSize, number> = { full: 0, compact: 54, dot: 30 };
-// marker ditambatkan di bawah; pin kecil digeser biar titik tengahnya pas di lokasi
-const PIN_OFFSET: Record<PinSize, number> = { full: 0, compact: 18, dot: 8 };
-
-// isi 1 pin (dirender ke elemen marker MapLibre lewat portal)
-function SpotPin({ spot, hex, isSelected, isCompleted, isRedirectTarget, onSelect, size }: PinProps) {
-  const quotaRatio = spot.quota.currentVisitors / spot.quota.maxCapacity;
-  const isCrowded = quotaRatio >= 0.85;
-  const isPrimary = spot.spotType === "PRIMARY_DEST";
-  const isSanggar = spot.spotType === "SANGGAR_SENI";
-  const body = isCompleted ? "#2B8A4B" : isPrimary ? hex.primary : isSanggar ? hex.accent : hex.umkm;
-  const iconName = isCompleted ? "check" : isPrimary ? "heritage" : isSanggar ? "sanggar" : spot.spotType === "UMKM_KULINER" ? "food" : "umkm";
-  const label = `Pilih titik ${spot.name}, ${typeLabel(spot.spotType)}`;
-
-  // zoom sedang: lingkaran ikon kecil tanpa label. Yg terpilih ikut ringkas (biar gak nutupin tetangganya),
-  // tapi terisi warna & tetep ada namanya
-  if (size === "compact" || (size === "dot" && isSelected)) {
-    return (
-      <div className="relative flex flex-col items-center">
-        <button
-          type="button"
-          onClick={() => onSelect(spot)}
-          aria-label={label}
-          aria-pressed={isSelected}
-          className={`relative rounded-full flex items-center justify-center shadow-md before:absolute before:-inset-1.5 before:content-[''] ${isSelected ? "w-11 h-11" : "w-9 h-9"}`}
-          style={{
-            backgroundColor: isSelected ? body : "var(--bg-basalt-card)",
-            border: `3px solid ${isSelected ? "var(--bg-basalt-card)" : body}`,
-            color: isSelected ? "#FFF8EC" : body,
-            boxShadow: isSelected ? `0 0 0 3px ${body}` : undefined,
-          }}
-        >
-          <Icon name={iconName} size={isSelected ? 22 : 18} />
-          {isPrimary && isCrowded && !isCompleted && (
-            <span aria-hidden="true" className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-quotaFull ring-2 ring-[var(--bg-basalt-card)]" />
-          )}
-        </button>
-        {isSelected && (
-          <span className="absolute top-full mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold max-w-[150px] truncate shadow-sm bg-vibePrimary text-[var(--vibe-on-primary)]">
-            {spot.name.split("&")[0].trim()}
-          </span>
-        )}
-      </div>
-    );
-  }
-  // zoom jauh: titik warna. Area sentuh tetap 28 px
-  if (size === "dot") {
-    return (
-      <button
-        type="button"
-        onClick={() => onSelect(spot)}
-        aria-label={label}
-        aria-pressed={false}
-        className="relative block w-4 h-4 rounded-full shadow before:absolute before:-inset-1.5 before:content-['']"
-        style={{ backgroundColor: body, border: "2.5px solid var(--bg-basalt-card)" }}
-      />
-    );
-  }
-
-  return (
-    <div className={`relative origin-bottom ${isSelected ? "scale-[1.3]" : "hover:scale-110"}`} style={{ transition: "transform 200ms" }}>
-      <span aria-hidden="true" className="absolute left-1/2 -translate-x-1/2 bottom-[-6px] w-9 h-3 rounded-[50%] bg-[#4A341C]/25" />
-      {isSelected && (
-        <span
-          aria-hidden="true"
-          className="absolute left-1/2 bottom-[-12px] w-14 h-6 rounded-[50%] border-2 animate-ground-pulse"
-          style={{ borderColor: body }}
-        />
-      )}
-      <button
-        type="button"
-        onClick={() => onSelect(spot)}
-        aria-label={label}
-        aria-pressed={isSelected}
-        className="relative block w-[56px] h-[68px] before:absolute before:-inset-3 before:content-['']"
-      >
-        <span className={isSelected ? "animate-pin-bob block" : "block"}>
-          <svg viewBox="0 0 64 76" className="w-[56px] h-[68px]" aria-hidden="true">
-            <defs>
-              <linearGradient id={`pg-${spot.id}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={body} />
-                <stop offset="100%" stopColor={body} stopOpacity="0.82" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M32 74 C32 74 5 46 5 27 A27 27 0 0 1 59 27 C59 46 32 74 32 74 Z"
-              fill={`url(#pg-${spot.id})`}
-              stroke="var(--bg-basalt-card)"
-              strokeWidth="4"
-              strokeLinejoin="round"
-            />
-            <path d="M12 24 A20 20 0 0 1 32 7 A20 20 0 0 1 52 24 C44 16 20 16 12 24 Z" fill="#FFF8EC" fillOpacity="0.28" />
-            <circle cx="32" cy="27" r="18" fill="var(--bg-basalt-card)" />
-          </svg>
-          <span className="absolute left-1/2 top-[27px] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-            <Icon name={iconName} size={30} motion="pop" />
-          </span>
-        </span>
-        {isPrimary && isCrowded && !isCompleted && (
-          <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-quotaFull ring-2 ring-[var(--bg-basalt-card)] text-[10px] font-extrabold text-[#FFF8EC] flex items-center justify-center">
-            !
-          </span>
-        )}
-      </button>
-
-      {isRedirectTarget && !isSelected && (
-        <motion.span
-          initial={{ opacity: 0, y: 6, scale: 0.8 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: "spring", stiffness: 420, damping: 18, delay: 0.9 }}
-          className="absolute left-1/2 -translate-x-1/2 -top-8 px-2.5 py-1 rounded-full bg-quotaSafe text-[11px] font-extrabold text-[var(--vibe-on-primary)] shadow-md whitespace-nowrap"
-        >
-          Bebas antre
-        </motion.span>
-      )}
-      {isSelected && (
-        <span className="absolute left-1/2 -translate-x-1/2 -top-8 px-2.5 py-1 rounded-full bg-basalt text-[11px] font-extrabold text-alabaster shadow-md whitespace-nowrap">
-          {isPrimary ? (isCrowded ? `Padat ${Math.round(quotaRatio * 100)}%` : `Lengang ${Math.round(quotaRatio * 100)}%`) : `+${spot.quest.rewardPoints} XP`}
-        </span>
-      )}
-      <span
-        className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold max-w-[150px] truncate shadow-sm ${
-          isSelected ? "bg-vibePrimary text-[var(--vibe-on-primary)]" : "bg-basalt text-alabaster"
-        }`}
-      >
-        {spot.name.split("&")[0].trim()}
-      </span>
-    </div>
-  );
-}
-
-// beberapa titik yg bertumpuk saat peta diperkecil: satu lingkaran berangka, diketuk = perbesar ke kumpulan itu
-function ClusterPin({ count, names, hex, hasSelected, onZoom }: { count: number; names: string[]; hex: { primary: string }; hasSelected: boolean; onZoom: () => void }) {
-  const d = count >= 10 ? 52 : count >= 5 ? 46 : 40;
-  return (
-    <button
-      type="button"
-      onClick={onZoom}
-      aria-label={`${count} titik di sekitar sini${hasSelected ? ", termasuk titik pilihanmu" : ""}: ${names.slice(0, 3).join(", ")}${count > 3 ? ", dan lainnya" : ""}. Perbesar peta`}
-      className="relative rounded-full flex items-center justify-center font-num font-extrabold text-sm shadow-lg hover:scale-110"
-      style={{ width: d, height: d, backgroundColor: hex.primary, color: "var(--vibe-on-primary)", border: "3px solid var(--bg-basalt-card)", transition: "transform 200ms" }}
-    >
-      <span aria-hidden="true" className="absolute inset-[-7px] rounded-full opacity-30" style={{ backgroundColor: hex.primary }} />
-      {/* cincin tinta: titik yg sedang dipilih ada di dalam kelompok ini */}
-      {hasSelected && <span aria-hidden="true" className="absolute inset-[-11px] rounded-full border-[3px] border-alabaster" />}
-      <span className="relative">{count}</span>
-    </button>
-  );
-}
-
 export default function CulturalQuestMap({
   spots,
   selectedSpot,
@@ -251,6 +92,10 @@ export default function CulturalQuestMap({
   filterType,
   onResetFilter,
   onOpenNeeds,
+  onOpenTrail,
+  trailSpotIds,
+  trailCoords = null,
+  isLoading = false,
   isOffline = false,
   onRetry,
   isSurgeDemo = false,
@@ -276,8 +121,8 @@ export default function CulturalQuestMap({
   const routesVisible = redirectActive && !!primarySpotData && visibleIds.has(primarySpotData.id);
 
   // ref ke nilai terbaru, biar handler peta (dibikin sekali) gak basi
-  const latest = useRef({ spots, selectedSpot, userPosition, guide, regionCenter });
-  latest.current = { spots, selectedSpot, userPosition, guide, regionCenter };
+  const latest = useRef({ spots, selectedSpot, userPosition, guide, regionCenter, activeVibe });
+  latest.current = { spots, selectedSpot, userPosition, guide, regionCenter, activeVibe };
 
   // ---- chip di tepi layar: muncul kalo tujuan di luar tampilan, nunjuk arahnya + jarak ----
   const edgeRef = useRef<HTMLButtonElement | null>(null);
@@ -325,7 +170,10 @@ export default function CulturalQuestMap({
     setMapError(null);
     (async () => {
       try {
-        const [ml, style] = await Promise.all([import("maplibre-gl").then((m) => ((m as unknown as { default?: MapLibre }).default ?? m) as MapLibre), loadLontarStyle()]);
+        const [ml, style] = await Promise.all([
+          import("maplibre-gl").then((m) => ((m as unknown as { default?: MapLibre }).default ?? m) as MapLibre),
+          loadLontarStyle(latest.current.activeVibe),
+        ]);
         if (cancelled || !hostRef.current) return;
         const origin = regionOrigin(latest.current.spots);
         map = new ml.Map({
@@ -362,18 +210,22 @@ export default function CulturalQuestMap({
             attrib?.removeAttribute("open");
           });
           const firstLabel = map.getStyle().layers.find((l) => l.type === "symbol")?.id;
+          const pal = VIBE_MAP_PALETTE[latest.current.activeVibe] ?? VIBE_MAP_PALETTE.majapahit;
           map.addSource("zone", { type: "geojson", data: EMPTY as never });
-          map.addLayer({ id: "zone-fill", type: "fill", source: "zone", paint: { "fill-color": "#C8421F", "fill-opacity": 0.08 } }, firstLabel);
-          map.addLayer({ id: "zone-line", type: "line", source: "zone", paint: { "line-color": "#C8421F", "line-opacity": 0.45, "line-width": 2 } }, firstLabel);
+          map.addLayer({ id: "zone-fill", type: "fill", source: "zone", paint: { "fill-color": pal.primary, "fill-opacity": 0.08 } }, firstLabel);
+          map.addLayer({ id: "zone-line", type: "line", source: "zone", paint: { "line-color": pal.primary, "line-opacity": 0.45, "line-width": 2 } }, firstLabel);
           map.addSource("redirect", { type: "geojson", data: EMPTY as never });
-          map.addLayer({ id: "redirect-casing", type: "line", source: "redirect", layout: { "line-cap": "round" }, paint: { "line-color": "#FFFAEE", "line-width": 9 } }, firstLabel);
-          map.addLayer({ id: "redirect-line", type: "line", source: "redirect", layout: { "line-cap": "round" }, paint: { "line-color": "#1B6334", "line-width": 4.5 } }, firstLabel);
+          map.addLayer({ id: "redirect-casing", type: "line", source: "redirect", layout: { "line-cap": "round" }, paint: { "line-color": pal.road, "line-width": 9 } }, firstLabel);
+          map.addLayer({ id: "redirect-line", type: "line", source: "redirect", layout: { "line-cap": "round" }, paint: { "line-color": pal.safe, "line-width": 4.5 } }, firstLabel);
           map.addSource("redirect-end", { type: "geojson", data: EMPTY as never });
-          map.addLayer({ id: "redirect-end", type: "circle", source: "redirect-end", paint: { "circle-radius": 6, "circle-color": "#FFFAEE", "circle-stroke-color": "#1B6334", "circle-stroke-width": 3.5 } }, firstLabel);
+          map.addLayer({ id: "redirect-end", type: "circle", source: "redirect-end", paint: { "circle-radius": 6, "circle-color": pal.road, "circle-stroke-color": pal.safe, "circle-stroke-width": 3.5 } }, firstLabel);
+          map.addSource("trail", { type: "geojson", data: EMPTY as never });
+          map.addLayer({ id: "trail-casing", type: "line", source: "trail", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": pal.road, "line-width": 8 } }, firstLabel);
+          map.addLayer({ id: "trail-line", type: "line", source: "trail", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": pal.umkm, "line-width": 4, "line-dasharray": [2, 1.5] } }, firstLabel);
           map.addSource("route", { type: "geojson", data: EMPTY as never });
-          map.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#FFFAEE", "line-width": 10 } }, firstLabel);
-          map.addLayer({ id: "route-road", type: "line", source: "route", filter: ["==", ["get", "kind"], "road"], layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#C8421F", "line-width": 5 } }, firstLabel);
-          map.addLayer({ id: "route-straight", type: "line", source: "route", filter: ["==", ["get", "kind"], "straight"], layout: { "line-cap": "round" }, paint: { "line-color": "#C8421F", "line-width": 4, "line-dasharray": [0.5, 2.2] } }, firstLabel);
+          map.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": pal.road, "line-width": 10 } }, firstLabel);
+          map.addLayer({ id: "route-road", type: "line", source: "route", filter: ["==", ["get", "kind"], "road"], layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": pal.primary, "line-width": 5 } }, firstLabel);
+          map.addLayer({ id: "route-straight", type: "line", source: "route", filter: ["==", ["get", "kind"], "straight"], layout: { "line-cap": "round" }, paint: { "line-color": pal.primary, "line-width": 4, "line-dasharray": [0.5, 2.2] } }, firstLabel);
           setReady(true);
         });
         map.on("move", () => updateEdge());
@@ -616,7 +468,18 @@ export default function CulturalQuestMap({
     } else {
       set("route", EMPTY);
     }
-  }, [ready, primarySpotData, routesVisible, filteredSpots, userPosition, guide, route]);
+
+    if (trailCoords && trailCoords.length >= 2) {
+      set("trail", { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: trailCoords } });
+    } else {
+      set("trail", EMPTY);
+    }
+  }, [ready, primarySpotData, routesVisible, filteredSpots, userPosition, guide, route, trailCoords]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (ready && map) applyVibeToMap(map, activeVibe);
+  }, [ready, activeVibe]);
 
   // ---- kamera ----
   const fitAll = useCallback((list: CulturalSpot[], animate: boolean) => {
@@ -782,15 +645,17 @@ export default function CulturalQuestMap({
       {pinEls.map(({ id, el }) => {
         const spot = filteredSpots.find((x) => x.id === id);
         if (!spot) return null;
+        const trailPos = trailSpotIds ? trailSpotIds.indexOf(spot.id) : -1;
         return createPortal(
           <SpotPin
             spot={spot}
-            hex={hex}
+            hex={{ ...hex, safe: VIBE_MAP_PALETTE[activeVibe]?.safe }}
             isSelected={selectedSpot?.id === spot.id}
             isCompleted={checkedInSpotIds.includes(spot.id)}
             isRedirectTarget={routesVisible && spot.spotType !== "PRIMARY_DEST"}
             onSelect={handleSelect}
             size={pinSize}
+            trailIndex={trailPos >= 0 ? trailPos + 1 : undefined}
           />,
           el,
           id
@@ -817,8 +682,8 @@ export default function CulturalQuestMap({
           <svg viewBox="0 0 160 160" width="230" height="230" aria-hidden="true" style={{ transform: `rotate(${coneDeg}deg)`, transition: "transform 300ms ease-out" }}>
             <defs>
               <radialGradient id="coneGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#1F8A83" stopOpacity="0.8" />
-                <stop offset="100%" stopColor="#1F8A83" stopOpacity="0" />
+                <stop offset="0%" stopColor={hex.umkm} stopOpacity="0.8" />
+                <stop offset="100%" stopColor={hex.umkm} stopOpacity="0" />
               </radialGradient>
             </defs>
             <path d="M80 80 L40 8 A84 84 0 0 1 120 8 Z" fill="url(#coneGrad)" />
@@ -844,18 +709,23 @@ export default function CulturalQuestMap({
         </div>
       )}
 
-      {filteredSpots.length === 0 && (
+      {ready && !isLoading && !mapError && filteredSpots.length === 0 && (
         <div
           role="status"
-          className="fixed left-3 right-[76px] sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-80 top-[34%] z-20 gamiz-card p-4 text-center space-y-3"
+          className="fixed left-3 right-[76px] sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-96 top-[28%] z-20 gamiz-card overflow-hidden p-4 text-center space-y-3"
         >
-          <p className="text-sm font-extrabold text-alabaster">
+          <RegionCoverBanner
+            vibe={activeVibe}
+            compact
+            eyebrow="Kawasan Budaya"
+            title={regionLabel || vibeMeta.region}
+            subtitle={filterType === "ALL" ? "Sedang kurasi bersama warga & penggerak lokal." : `Filter ${SPOT_FILTER_OPTIONS.find((o) => o.id === filterType)?.label ?? "titik"} belum menemukan titik.`}
+          />
+          <LokaScene scene="empty-map" vibe={activeVibe} size={88} />
+          <p className="text-xs text-pebble leading-relaxed">
             {filterType === "ALL"
-              ? "Belum ada titik budaya di kawasan ini."
-              : `Belum ada ${SPOT_FILTER_OPTIONS.find((o) => o.id === filterType)?.label ?? "titik"} di kawasan ini.`}
-          </p>
-          <p className="text-xs text-pebble">
-            {filterType === "ALL" ? "Tempat-tempatnya sedang dikurasi bersama warga dan pelaku budaya. Segera hadir." : "Coba filter lain atau pindah kawasan."}
+              ? "Titik-titik cagar dan pelaku usaha sedang disiapkan agar tampil lengkap di peta ini."
+              : "Coba filter lain atau pindah ke kawasan lain dari pemilih di atas peta."}
           </p>
           {onResetFilter && filterType !== "ALL" && (
             <button type="button" onClick={onResetFilter} className="btn-tactile-secondary min-h-[44px] px-4 text-xs">
@@ -877,78 +747,19 @@ export default function CulturalQuestMap({
         <span />
       </button>
 
-      {/* kontrol kamera: zoom cuma di layar lebar, di HP pakai cubit */}
-      <div className="fixed right-3 sm:right-5 z-20 flex flex-col gap-2" style={{ bottom: "calc(var(--sheet-h, 0px) + 108px + env(safe-area-inset-bottom))" }}>
-        <div className="andesite-glass rounded-2xl p-1 hidden sm:flex flex-col">
-          <button
-            type="button"
-            onClick={() => mapRef.current?.zoomIn()}
-            aria-label="Perbesar peta"
-            className="min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center text-alabaster hover:bg-slateElev transition-colors"
-          >
-            <Icon name="plus" size={20} weight="bold" />
-          </button>
-          <div className="h-px bg-stoneSubtle mx-2" />
-          <button
-            type="button"
-            onClick={() => mapRef.current?.zoomOut()}
-            aria-label="Perkecil peta"
-            className="min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center text-alabaster hover:bg-slateElev transition-colors"
-          >
-            <Icon name="minus" size={20} weight="bold" />
-          </button>
-        </div>
-
-        {isOffline && onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            aria-label="Server tidak terhubung. Ketuk untuk mencoba lagi"
-            className="min-h-[48px] min-w-[48px] rounded-2xl flex flex-col items-center justify-center text-[10px] font-extrabold leading-none gap-0.5 bg-basalt text-quotaFull border border-quotaFull"
-          >
-            <Icon name="alert" size={20} />
-            <span>Offline</span>
-          </button>
-        )}
-
-        {onOpenNeeds && (
-          <button
-            type="button"
-            onClick={onOpenNeeds}
-            aria-label="Cari makan, minum, oleh-oleh, atau fasilitas"
-            className="andesite-glass min-h-[48px] min-w-[48px] rounded-2xl flex flex-col items-center justify-center text-[10px] font-extrabold leading-none gap-0.5 text-alabaster hover:bg-slateElev transition-colors"
-          >
-            <Icon name="search" size={20} className="text-vibePrimary" motion="pop" />
-            <span>Cari</span>
-          </button>
-        )}
-
-        {onToggleSurgeDemo && (
-          <button
-            type="button"
-            onClick={onToggleSurgeDemo}
-            aria-pressed={isSurgeDemo}
-            aria-label="Demo lonjakan pengunjung di situs utama"
-            title="Mode demo: simulasikan situs utama padat 95%"
-            className={`min-h-[48px] min-w-[48px] rounded-2xl flex flex-col items-center justify-center text-[10px] font-extrabold leading-none gap-0.5 transition-colors ${
-              isSurgeDemo ? "bg-quotaFull text-[var(--vibe-on-primary)]" : "andesite-glass text-alabaster hover:bg-slateElev"
-            }`}
-          >
-            <Icon name="users" size={20} motion="pop" />
-            <span>Demo</span>
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={handleRecenter}
-          aria-label={phase === "navigating" ? "Ikuti posisi dan arah saya" : userPosition ? "Pusatkan ke lokasi saya" : "Tampilkan semua titik di kawasan"}
-          title="Pusatkan peta"
-          className="andesite-glass min-h-[48px] min-w-[48px] rounded-2xl flex items-center justify-center hover:bg-slateElev transition-colors"
-        >
-          <Icon name="pin" size={24} className="text-vibePrimary" motion="pop" />
-        </button>
-      </div>
+      <MapControls
+        onZoomIn={() => mapRef.current?.zoomIn()}
+        onZoomOut={() => mapRef.current?.zoomOut()}
+        onRecenter={handleRecenter}
+        recenterLabel={phase === "navigating" ? "Ikuti posisi dan arah saya" : userPosition ? "Pusatkan ke lokasi saya" : "Tampilkan semua titik di kawasan"}
+        isOffline={isOffline}
+        onRetry={onRetry}
+        onOpenNeeds={onOpenNeeds}
+        onOpenTrail={onOpenTrail}
+        trailActive={Boolean(trailSpotIds && trailSpotIds.length > 0)}
+        isSurgeDemo={isSurgeDemo}
+        onToggleSurgeDemo={onToggleSurgeDemo}
+      />
     </div>
   );
 }

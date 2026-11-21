@@ -4,7 +4,7 @@ import { mockDisabled } from "@/lib/server/mockBackend";
 import { NextRequest, NextResponse } from "next/server";
 import { awardXp, claimOnce, currentUser, endOfWibDay, ownerInactive, profileOf, visibleSpots, wibDay } from "@/lib/server/mockBackend";
 import { getLokawiraStore } from "@/lib/seedCulturalData";
-import { isCrowded, needsBooking } from "@/lib/spotRules";
+import { isCrowded, needsBooking, normalizeSlot } from "@/lib/spotRules";
 import type { RedirectNote } from "@/types/api";
 import { IssuedVoucher, ReservationPass } from "@/types/lokawira";
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // kapasitas per slot per hari WIB: total orang di slot ini gak boleh lewat kapasitas tempat
-    const slotName = slot || spot.quota.nextAvailableSlot;
+    const slotName = normalizeSlot(slot, spot) || normalizeSlot(spot.quota.nextAvailableSlot, spot) || spot.quota.nextAvailableSlot;
     const today = wibDay();
     const booked = store.reservations
       .filter((r) => r.spotId === spot.id && r.scheduledSlot === slotName && wibDay(new Date(r.createdAt)) === today)

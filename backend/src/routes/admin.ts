@@ -1,13 +1,12 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { CulturalSpot, IssuedVoucher, ReservationPass } from "../../../src/types/lokawira";
 import { pool, tx } from "../db.js";
-import { bad, fail, getEntity, listEntities, saveEntity, visibleSpots } from "../core.js";
+import { bad, fail, getEntity, saveEntity, visibleSpots } from "../core.js";
 import { bodyOf, requireRoles, type UserRow } from "../http.js";
 
-type MerchantRow = Pick<UserRow, "id" | "name" | "email" | "status" | "status_reason" | "created_at">;
+type MerchantRow = Pick<UserRow, "id" | "name" | "email" | "status" | "status_reason" | "created_at"> & { spot_count?: number };
 
-async function merchantSummary(u: MerchantRow) {
-  const r = await pool.query<{ count: string }>("SELECT count(*) FROM entities WHERE kind='spot' AND owner_id=$1 AND payload->>'status' IS DISTINCT FROM 'ARCHIVED'", [u.id]);
+function toMerchantDto(u: MerchantRow, spotCount: number) {
   return {
     id: u.id,
     name: u.name,
@@ -15,26 +14,56 @@ async function merchantSummary(u: MerchantRow) {
     status: u.status ?? "ACTIVE",
     ...(u.status_reason ? { statusReason: u.status_reason } : {}),
     createdAt: new Date(u.created_at).toISOString(),
-    spotCount: Number(r.rows[0].count),
+    spotCount,
   };
 }
 
-// paginasi offset sederhana (cursor = offset base64url)
-function page<T>(rows: T[], request: FastifyRequest, def = 20) {
+async function merchantSummary(u: MerchantRow) {
+  const r = await pool.query<{ count: string }>("SELECT count(*) FROM entities WHERE kind='spot' AND owner_id=$1 AND payload->>'status' IS DISTINCT FROM 'ARCHIVED'", [u.id]);
+  return toMerchantDto(u, Number(r.rows[0].count));
+}
+
+function pageParams(request: FastifyRequest, def = 20) {
   const q = request.query as { limit?: string; cursor?: string };
   const limit = Math.max(1, Math.min(100, Number(q.limit) || def));
-  const off = q.cursor ? Number(Buffer.from(q.cursor, "base64url").toString()) || 0 : 0;
-  const slice = rows.slice(off, off + limit);
-  return { slice, ...(off + slice.length < rows.length ? { nextCursor: Buffer.from(String(off + slice.length)).toString("base64url") } : {}) };
+  const off = q.cursor ? Math.max(0, Number(Buffer.from(q.cursor, "base64url").toString()) || 0) : 0;
+  return { limit, off };
+}
+
+function encodeCursor(rows: unknown[], limit: number, off: number) {
+  const hasMore = rows.length > limit;
+  const slice = hasMore ? rows.slice(0, limit) : rows;
+  return {
+    slice,
+    ...(hasMore ? { nextCursor: Buffer.from(String(off + slice.length)).toString("base64url") } : {}),
+  };
 }
 
 export default async function adminRoutes(app: FastifyInstance) {
   app.get("/api/admin/merchants", async (request) => {
     requireRoles(request, ["ADMIN"]);
     const status = (request.query as { status?: string }).status || null;
-    const r = await pool.query<MerchantRow>("SELECT id,name,email,status,status_reason,created_at FROM users WHERE role='MERCHANT' AND ($1::text IS NULL OR status=$1) ORDER BY created_at DESC", [status]);
-    const { slice, nextCursor } = page(r.rows, request);
-    return { merchants: await Promise.all(slice.map(merchantSummary)), ...(nextCursor ? { nextCursor } : {}) };
+    const { limit, off } = pageParams(request, 20);
+    const r = await pool.query<MerchantRow>(
+      `SELECT u.id, u.name, u.email, u.status, u.status_reason, u.created_at,
+              COUNT(e.id)::int AS spot_count
+       FROM users u
+       LEFT JOIN entities e
+         ON e.kind = 'spot'
+        AND e.owner_id = u.id
+        AND e.payload->>'status' IS DISTINCT FROM 'ARCHIVED'
+       WHERE u.role = 'MERCHANT'
+         AND ($1::text IS NULL OR u.status = $1)
+       GROUP BY u.id
+       ORDER BY u.created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [status, limit + 1, off]
+    );
+    const { slice, nextCursor } = encodeCursor(r.rows, limit, off);
+    return {
+      merchants: (slice as MerchantRow[]).map((m) => toMerchantDto(m, Number(m.spot_count ?? 0))),
+      ...(nextCursor ? { nextCursor } : {}),
+    };
   });
 
   // setujui / tolak / nonaktifkan mitra. Lapak mitra nonaktif langsung ilang dr peta publik
@@ -76,17 +105,37 @@ export default async function adminRoutes(app: FastifyInstance) {
   app.get("/api/admin/reservations", async (request) => {
     requireRoles(request, ["ADMIN"]);
     const q = request.query as { spotId?: string; status?: string; from?: string; to?: string };
-    const rows = (await listEntities<ReservationPass>(pool, "reservation"))
-      .map((x) => x.payload)
-      .filter((r) => (!q.spotId || r.spotId === q.spotId) && (!q.status || r.status === q.status) && (!q.from || r.createdAt >= q.from) && (!q.to || r.createdAt <= q.to));
-    const { slice, nextCursor } = page(rows, request, 10);
-    return { reservations: slice, ...(nextCursor ? { nextCursor } : {}) };
+    const { limit, off } = pageParams(request, 10);
+    const r = await pool.query<{ payload: ReservationPass }>(
+      `SELECT payload
+       FROM entities
+       WHERE kind = 'reservation'
+         AND ($1::text IS NULL OR payload->>'spotId' = $1)
+         AND ($2::text IS NULL OR payload->>'status' = $2)
+         AND ($3::text IS NULL OR payload->>'createdAt' >= $3)
+         AND ($4::text IS NULL OR payload->>'createdAt' <= $4)
+       ORDER BY created_at DESC, id
+       LIMIT $5 OFFSET $6`,
+      [q.spotId || null, q.status || null, q.from || null, q.to || null, limit + 1, off]
+    );
+    const { slice, nextCursor } = encodeCursor(r.rows, limit, off);
+    return { reservations: (slice as { payload: ReservationPass }[]).map((x) => x.payload), ...(nextCursor ? { nextCursor } : {}) };
   });
   app.get("/api/admin/vouchers", async (request) => {
     requireRoles(request, ["ADMIN"]);
     const q = request.query as { spotId?: string; status?: string };
-    const rows = (await listEntities<IssuedVoucher>(pool, "voucher")).map((x) => x.payload).filter((v) => (!q.spotId || v.spotId === q.spotId) && (!q.status || v.status === q.status));
-    const { slice, nextCursor } = page(rows, request, 10);
-    return { vouchers: slice, ...(nextCursor ? { nextCursor } : {}) };
+    const { limit, off } = pageParams(request, 10);
+    const r = await pool.query<{ payload: IssuedVoucher }>(
+      `SELECT payload
+       FROM entities
+       WHERE kind = 'voucher'
+         AND ($1::text IS NULL OR payload->>'spotId' = $1)
+         AND ($2::text IS NULL OR payload->>'status' = $2)
+       ORDER BY created_at DESC, id
+       LIMIT $3 OFFSET $4`,
+      [q.spotId || null, q.status || null, limit + 1, off]
+    );
+    const { slice, nextCursor } = encodeCursor(r.rows, limit, off);
+    return { vouchers: (slice as { payload: IssuedVoucher }[]).map((x) => x.payload), ...(nextCursor ? { nextCursor } : {}) };
   });
 }

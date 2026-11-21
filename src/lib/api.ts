@@ -36,6 +36,7 @@ import type {
   ReferenceImagesResponse,
   GalleryResponse,
   ResetPasswordRequest,
+  VerifyEmailRequest,
   ListMerchantsResponse,
   MerchantDecisionResponse,
   RejectRequest,
@@ -293,6 +294,12 @@ export const api = {
 
   resetPassword: (r: ResetPasswordRequest) =>
     request<OkResponse>("/api/auth/reset-password", { method: "POST", body: r }),
+
+  verifyEmail: (r: VerifyEmailRequest) =>
+    request<OkResponse>("/api/auth/verify-email", { method: "POST", body: r }),
+
+  resendVerification: () =>
+    request<OkResponse>("/api/auth/resend-verification", { method: "POST", body: {} }),
 
   // balikin token baru (sesi lama dicabut), backend asli boleh gak ngirim - pake cookie
   changePassword: (r: ChangePasswordRequest) =>

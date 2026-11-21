@@ -8,6 +8,7 @@ import { DISCOUNT_MAX, DISCOUNT_MIN } from "@/components/merchant/ScanPromoPanel
 import { MAX_REFERENCE_PHOTOS } from "@/components/merchant/ReferencePhotos";
 import StagedPhotos, { Staged } from "@/components/merchant/StagedPhotos";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
+import { formatRupiah } from "@/lib/format";
 import type { LatLng } from "@/lib/geo";
 import { matchRegion } from "@/lib/regionMatch";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
@@ -15,7 +16,6 @@ import ScheduleFields, { scheduleErrors, scheduleFrom, schedulePayload, type Sch
 import type { CulturalSpot, CulturalVibe, OpkCategory, SpotType } from "@/types/lokawira";
 
 type LapakType = Exclude<SpotType, "PRIMARY_DEST">;
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 const OPK_BY_TYPE: Record<LapakType, OpkCategory> = {
   SANGGAR_SENI: "Seni",
   UMKM_KULINER: "Pengetahuan Tradisional",
@@ -103,8 +103,8 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
     if (target.trim().length < 5) errs.target = "Tulis objek yang harus dipotret wisatawan, minimal 5 huruf.";
     if (!Number.isFinite(capacity) || capacity < 1 || capacity > 500) errs.capacity = "Kapasitas 1 sampai 500 orang.";
     if (voucherTitle.trim().length < 5) errs.vtitle = "Judul voucer minimal 5 huruf.";
-    if (discount < DISCOUNT_MIN || discount > DISCOUNT_MAX) errs.discount = `Potongan harus antara ${rupiah(DISCOUNT_MIN)} dan ${rupiah(DISCOUNT_MAX)}.`;
-    if (minSpend > 0 && minSpend < discount) errs.min = `Minimal belanja sebaiknya tidak lebih kecil dari potongan (${rupiah(discount)}).`;
+    if (discount < DISCOUNT_MIN || discount > DISCOUNT_MAX) errs.discount = `Potongan harus antara ${formatRupiah(DISCOUNT_MIN)} dan ${formatRupiah(DISCOUNT_MAX)}.`;
+    if (minSpend > 0 && minSpend < discount) errs.min = `Minimal belanja sebaiknya tidak lebih kecil dari potongan (${formatRupiah(discount)}).`;
     Object.assign(errs, scheduleErrors(sched, false));
     setErrors(errs);
     setMsg(null);
@@ -290,7 +290,7 @@ export default function RegisterSpotForm({ userId, isAdmin, accountBlocked, acti
         <FieldError id="err-vtitle" msg={errors.vtitle} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <MoneyField id="lapak-disc" label="Potongan harga" value={discount} onChange={setDiscount} presets={[5000, 10000, 15000, 20000]} error={errors.discount} help={`Boleh diketik sendiri, ${rupiah(DISCOUNT_MIN)} sampai ${rupiah(DISCOUNT_MAX)}.`} />
+        <MoneyField id="lapak-disc" label="Potongan harga" value={discount} onChange={setDiscount} presets={[5000, 10000, 15000, 20000]} error={errors.discount} help={`Boleh diketik sendiri, ${formatRupiah(DISCOUNT_MIN)} sampai ${formatRupiah(DISCOUNT_MAX)}.`} />
         <MoneyField id="lapak-min" label="Minimal belanja" value={minSpend} onChange={setMinSpend} presets={[0, 20000, 30000, 50000]} zeroLabel="Tanpa minimum" error={errors.min} help="Isi 0 kalau tanpa minimum." />
       </div>
 

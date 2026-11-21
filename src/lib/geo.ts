@@ -41,6 +41,28 @@ export function regionOrigin(spots: CulturalSpot[]): CulturalSpot | null {
   return anchorSpot(spots) ?? spots[0] ?? null;
 }
 
+// Urutkan rute jelajah terpendek memakai heuristic tetangga terdekat mulai dr titik acuan (origin)
+export function orderTrailStops(origin: LatLng, spots: CulturalSpot[]): CulturalSpot[] {
+  const pool = [...spots];
+  const ordered: CulturalSpot[] = [];
+  let cursor: LatLng = origin;
+  while (pool.length > 0) {
+    let bestIdx = 0;
+    let bestDist = distanceMeters(cursor, pool[0].coordinates);
+    for (let i = 1; i < pool.length; i++) {
+      const d = distanceMeters(cursor, pool[i].coordinates);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    const [picked] = pool.splice(bestIdx, 1);
+    ordered.push(picked);
+    cursor = picked.coordinates;
+  }
+  return ordered;
+}
+
 export function project(c: LatLng, origin: LatLng): Point {
   const dx = (c.lng - origin.lng) * mPerDegLng(origin.lat);
   const dy = (origin.lat - c.lat) * M_PER_DEG_LAT; // utara ke atas

@@ -5,9 +5,9 @@ import Icon from "@/components/ui/Icon";
 import MoneyField from "@/components/merchant/MoneyField";
 import ScanObjectEditor, { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import { api, describeError } from "@/lib/api";
+import { formatRupiah } from "@/lib/format";
 import type { CulturalSpot } from "@/types/lokawira";
 
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 const input = "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted";
 const labelCls = "block text-xs font-bold text-pebble mb-1.5";
 export const DISCOUNT_MIN = 1000;
@@ -59,9 +59,9 @@ export default function ScanPromoPanel({ mySpots, setSpots, accountBlocked, onGo
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (title.trim().length < 5) errs.title = "Judul minimal 5 huruf. Contoh: Diskon belanja oleh-oleh.";
-    if (amount < DISCOUNT_MIN || amount > DISCOUNT_MAX) errs.amount = `Potongan harus antara ${rupiah(DISCOUNT_MIN)} dan ${rupiah(DISCOUNT_MAX)}.`;
+    if (amount < DISCOUNT_MIN || amount > DISCOUNT_MAX) errs.amount = `Potongan harus antara ${formatRupiah(DISCOUNT_MIN)} dan ${formatRupiah(DISCOUNT_MAX)}.`;
     if (minSpend > 10_000_000) errs.min = "Minimal belanja terlalu besar.";
-    else if (minSpend > 0 && minSpend < amount) errs.min = `Minimal belanja sebaiknya tidak lebih kecil dari potongan (${rupiah(amount)}), supaya lapakmu tidak rugi.`;
+    else if (minSpend > 0 && minSpend < amount) errs.min = `Minimal belanja sebaiknya tidak lebih kecil dari potongan (${formatRupiah(amount)}), supaya lapakmu tidak rugi.`;
     setPromoErrs(errs);
     setPromoMsg(null);
     if (Object.keys(errs).length) return;
@@ -134,13 +134,13 @@ export default function ScanPromoPanel({ mySpots, setSpots, accountBlocked, onGo
             {promoErrs.title && <p id="ps-title-err" role="alert" className="mt-1 text-xs font-bold text-quotaFull">{promoErrs.title}</p>}
           </div>
 
-          <MoneyField id="ps-amount" label="Potongan harga" value={amount} onChange={setAmount} presets={[5000, 10000, 15000, 20000, 25000]} help={`Boleh diketik sendiri, antara ${rupiah(DISCOUNT_MIN)} sampai ${rupiah(DISCOUNT_MAX)}.`} error={promoErrs.amount} />
+          <MoneyField id="ps-amount" label="Potongan harga" value={amount} onChange={setAmount} presets={[5000, 10000, 15000, 20000, 25000]} help={`Boleh diketik sendiri, antara ${formatRupiah(DISCOUNT_MIN)} sampai ${formatRupiah(DISCOUNT_MAX)}.`} error={promoErrs.amount} />
           <MoneyField id="ps-min" label="Minimal belanja" value={minSpend} onChange={setMinSpend} presets={[0, 20000, 30000, 50000]} zeroLabel="Tanpa minimum" help="Belanja pengunjung harus sebesar ini supaya voucer boleh dipakai. Isi 0 kalau tanpa minimum." error={promoErrs.min} />
 
           <div aria-live="polite" className="rounded-2xl bg-obsidian p-3.5 text-xs text-pebble leading-relaxed">
             <p className="font-extrabold text-alabaster mb-0.5">Yang akan dilihat wisatawan</p>
-            Voucer <b className="text-alabaster">{title.trim() || "(judul belum diisi)"}</b>, potongan <b className="font-num text-alabaster">{rupiah(amount)}</b>
-            {minSpend > 0 ? <>, berlaku untuk belanja minimal <b className="font-num text-alabaster">{rupiah(minSpend)}</b>.</> : <>, tanpa minimal belanja.</>}
+            Voucer <b className="text-alabaster">{title.trim() || "(judul belum diisi)"}</b>, potongan <b className="font-num text-alabaster">{formatRupiah(amount)}</b>
+            {minSpend > 0 ? <>, berlaku untuk belanja minimal <b className="font-num text-alabaster">{formatRupiah(minSpend)}</b>.</> : <>, tanpa minimal belanja.</>}
           </div>
 
           <button type="submit" disabled={promoBusy || accountBlocked} className="btn-tactile-primary w-full min-h-[52px] px-5 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-70">

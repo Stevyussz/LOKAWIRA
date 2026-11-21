@@ -6,16 +6,11 @@ import EditSpotSheet from "@/components/merchant/EditSpotSheet";
 import ScanObjectEditor, { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import AdminSpotForm from "@/components/admin/AdminSpotForm";
 import { formatCoord } from "@/lib/geo";
+import { SPOT_TYPE_LABEL } from "@/lib/spotMeta";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
-import type { CulturalSpot, CulturalVibe, SpotType } from "@/types/lokawira";
+import type { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 
 const SELECT = "min-h-[44px] px-3 rounded-xl bg-obsidian border border-stoneStrong text-xs font-bold text-alabaster";
-const TYPE_LABEL: Record<SpotType, string> = {
-  PRIMARY_DEST: "Cagar budaya",
-  SANGGAR_SENI: "Sanggar seni",
-  UMKM_KULINER: "Makan & minum",
-  UMKM_KRIYA: "Kriya & oleh-oleh",
-};
 const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
   PUBLISHED: { text: "Tampil di peta", cls: "bg-basalt text-quotaSafe" },
   PENDING_REVIEW: { text: "Menunggu persetujuan", cls: "bg-slateElev text-alabaster" },
@@ -78,7 +73,7 @@ export default function AdminSpotsPanel({ spots, setSpots, defaultRegion, onToas
             <label className="sr-only" htmlFor="asp-type">Jenis</label>
             <select id="asp-type" value={type} onChange={(e) => setType(e.target.value)} className={SELECT}>
               <option value="">Semua jenis</option>
-              {Object.entries(TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {Object.entries(SPOT_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
             <label className="sr-only" htmlFor="asp-status">Status</label>
             <select id="asp-status" value={status} onChange={(e) => setStatus(e.target.value)} className={SELECT}>
@@ -102,7 +97,7 @@ export default function AdminSpotsPanel({ spots, setSpots, defaultRegion, onToas
                   <span className="text-[11px] font-bold text-vibeSecondary">{sp.regionName} • {sp.opkCategory}</span>
                   <h3 className="text-sm font-extrabold text-alabaster">{sp.name}</h3>
                   <p className={`inline-flex text-[11px] font-extrabold px-2 py-0.5 rounded-full ${st.cls}`}>{st.text}</p>
-                  <p className="text-[11px] text-pebble">{TYPE_LABEL[sp.spotType]} · <span className="font-num">{formatCoord(sp.coordinates)}</span></p>
+                  <p className="text-[11px] text-pebble">{SPOT_TYPE_LABEL[sp.spotType]} · <span className="font-num">{formatCoord(sp.coordinates)}</span></p>
                   <p className="text-[11px] text-pebble">Sumber: {sp.quest.verifiedLoreSource}</p>
                   <p className={`text-[11px] font-bold ${scanOk ? "text-quotaSafe" : "text-quotaWarning"}`}>
                     {scanOk ? `Objek scan siap (${sp.quest.referenceImages?.length} foto contoh)` : "Objek scan belum lengkap"}

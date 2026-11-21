@@ -5,9 +5,12 @@ import { motion } from "motion/react";
 import { DEMO_MODE } from "@/lib/api";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
+import LokaScene from "@/components/brand/LokaScene";
 import { CulturalSpot } from "@/types/lokawira";
 import { anchorSpot } from "@/lib/geo";
 import { needsBooking } from "@/lib/spotRules";
+import { formatRupiah } from "@/lib/format";
+import { spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
 
 interface QuotaBoardSheetProps {
   isOpen: boolean;
@@ -29,17 +32,6 @@ const LEVEL_META: Record<Level, { label: string; icon: IconName; text: string; b
 };
 
 const levelOf = (ratio: number): Level => (ratio >= 0.85 ? "FULL" : ratio >= 0.6 ? "WARN" : "SAFE");
-
-const iconFor = (spot: CulturalSpot): IconName =>
-  spot.spotType === "PRIMARY_DEST"
-    ? "heritage"
-    : spot.spotType === "SANGGAR_SENI"
-    ? "sanggar"
-    : spot.spotType === "UMKM_KULINER"
-    ? "food"
-    : "umkm";
-
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 
 // papan Antrean: gambaran seluruh titik di kawasan, diurutkan dr yg paing padat
 export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShowOnMap }: QuotaBoardSheetProps) {
@@ -80,10 +72,8 @@ export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShow
   return (
     <Sheet isOpen={isOpen} onClose={onClose} titleId="quota-board-title" header={header}>
       {rows.length === 0 ? (
-        <div className="py-10 text-center space-y-2">
-          <div className="mx-auto w-16 h-16 rounded-3xl bg-slateElev flex items-center justify-center text-vibePrimary">
-            <Icon name="users" size={34} />
-          </div>
+        <div className="py-8 text-center space-y-3">
+          <LokaScene scene="empty-map" size={104} />
           <p className="text-base font-extrabold text-alabaster">Belum ada titik di kawasan ini</p>
           <p className="text-sm text-pebble">Pindah kawasan dari pemilih di atas peta.</p>
         </div>
@@ -107,7 +97,7 @@ export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShow
                   Ambil jadwal masuk, lalu kunjungi{" "}
                   <strong>{partners.map((p) => p.name.split("&")[0].trim()).join(" dan ")}</strong> sambil
                   menunggu. Hadiah voucer hingga{" "}
-                  <strong className="font-num text-vibeSecondary">{rupiah(bestReward)}</strong>.
+                  <strong className="font-num text-vibeSecondary">{formatRupiah(bestReward)}</strong>.
                 </p>
               )}
               {redirect && needsBooking(primary) && (
@@ -139,18 +129,12 @@ export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShow
                 >
                   <div className="flex items-start gap-3">
                     <span className="w-11 h-11 rounded-2xl bg-slateElev flex items-center justify-center text-vibePrimary shrink-0">
-                      <Icon name={iconFor(spot)} size={26} />
+                      <Icon name={spotTypeIcon(spot.spotType)} size={26} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-extrabold text-alabaster leading-snug">{spot.name}</p>
                       <p className="text-[11px] text-pebble mt-0.5">
-                        {isPrimary
-                          ? "Cagar budaya utama"
-                          : spot.spotType === "SANGGAR_SENI"
-                          ? "Sanggar seni"
-                          : spot.spotType === "UMKM_KULINER"
-                          ? "Makan & minum"
-                          : "Oleh-oleh dan kriya"}
+                        {isPrimary ? "Cagar budaya utama" : spotTypeLabel(spot.spotType)}
                       </p>
                     </div>
                     <span className={`shrink-0 inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full ${meta.chip}`}>
@@ -193,7 +177,7 @@ export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShow
                       <span className="text-[11px] text-pebble">Slot berikutnya: <strong className="font-num text-alabaster">{spot.quota.nextAvailableSlot}</strong></span>
                     ) : (
                       <span className="text-[11px] font-bold text-quotaSafe font-num">
-                        Voucer {rupiah(spot.quest.voucherReward.discountAmount)}
+                        Voucer {formatRupiah(spot.quest.voucherReward.discountAmount)}
                       </span>
                     )}
                     <div className="flex items-center gap-2">

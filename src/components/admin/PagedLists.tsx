@@ -150,13 +150,13 @@ export function VouchersPanel() {
       <ListState loading={list.loading} error={list.error} empty={list.items.length === 0} onRetry={list.reload} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {list.items.map((v) => (
-          <div key={v.code} className="perforated-ticket p-4 flex items-center justify-between gap-3">
+          <div key={v.code} className="rounded-2xl bg-basalt border border-stoneSubtle p-4 flex items-center justify-between gap-3">
             <div>
-              <span className="font-num text-xs font-bold text-vibePrimary block">{v.code} • {v.status}</span>
+              <span className="font-num text-xs font-bold text-vibePrimary block">{v.code} · {v.status}</span>
               <p className="text-sm font-extrabold text-alabaster mt-0.5">{v.merchantName}</p>
               <p className="text-xs text-pebble">{v.discountTitle}</p>
             </div>
-            <span className="font-num text-sm font-extrabold text-quotaSafe">Rp{v.discountAmount.toLocaleString("id-ID")}</span>
+            <span className="font-num text-sm font-extrabold text-quotaSafe shrink-0">Rp{v.discountAmount.toLocaleString("id-ID")}</span>
           </div>
         ))}
       </div>

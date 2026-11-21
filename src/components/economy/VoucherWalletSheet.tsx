@@ -4,7 +4,11 @@ import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
+import QrCodeSvg from "@/components/ui/QrCodeSvg";
+import LokaScene, { type LokaSceneKind } from "@/components/brand/LokaScene";
+import { NusantaraCornerFrame, NusantaraPatternStrip, PrasastiSeal } from "@/components/brand/NusantaraOrnaments";
 import { formatExpiry, formatWhen, isExpired } from "@/lib/formatTime";
+import { formatRupiah } from "@/lib/format";
 import { IssuedVoucher, ReservationPass, UnlockedLoreCard } from "@/types/lokawira";
 
 interface VoucherWalletSheetProps {
@@ -16,6 +20,7 @@ interface VoucherWalletSheetProps {
   loreCards: UnlockedLoreCard[];
   // dipakai tombol di state kosong biar user laangsung punya langkah berikutnya
   onOpenScanner?: () => void;
+  onOpenBoard?: () => void;
 }
 
 type WalletTab = "VOUCHERS" | "PASSES" | "LORE";
@@ -26,18 +31,6 @@ const TABS: { id: WalletTab; label: string; icon: IconName }[] = [
   { id: "LORE", label: "Kartu Lore", icon: "story" },
 ];
 
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
-
-// garis batang dekoratif yg turunan dr id, biar tiap tiket punya pola sendiri - bkn QR sungguhan
-function barsFor(id: string): number[] {
-  let seed = 0;
-  for (const ch of id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
-  return Array.from({ length: 44 }, () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return 1 + ((seed >>> 28) % 3);
-  });
-}
-
 // item daftar muncul bertahap - cuma opacity & trasnform, dibatasi biar ringan di HP lemah
 const itemMotion = (i: number) => ({
   initial: { opacity: 0, y: 14 },
@@ -46,23 +39,21 @@ const itemMotion = (i: number) => ({
 });
 
 function EmptyState({
-  icon,
+  scene = "empty-wallet",
   title,
   hint,
   actionLabel,
   onAction,
 }: {
-  icon: IconName;
+  scene?: LokaSceneKind;
   title: string;
   hint: string;
   actionLabel: string;
   onAction: () => void;
 }) {
   return (
-    <div className="py-10 px-4 text-center space-y-3">
-      <div className="mx-auto w-16 h-16 rounded-3xl bg-slateElev flex items-center justify-center text-vibePrimary">
-        <Icon name={icon} size={34} />
-      </div>
+    <div className="py-8 px-4 text-center space-y-3">
+      <LokaScene scene={scene} size={104} />
       <p className="text-base font-extrabold text-alabaster">{title}</p>
       <p className="text-sm text-pebble max-w-xs mx-auto">{hint}</p>
       <button
@@ -118,7 +109,7 @@ function VoucherTicket({
           </div>
 
           <p className="text-[11px] text-pebble font-num leading-snug">
-            Min. belanja {rupiah(voucher.minimumSpend)}
+            Min. belanja {formatRupiah(voucher.minimumSpend)}
             <br />
             {formatExpiry(voucher.expiresAt)}
           </p>
@@ -149,11 +140,14 @@ function VoucherTicket({
                 <span>{showCode ? "Tutup kode" : "Tunjukkan ke kasir"}</span>
               </button>
               {showCode && (
-                <div className="rounded-xl bg-obsidian p-3 space-y-1.5">
-                  <p className="font-num text-2xl font-extrabold tracking-wider text-alabaster break-all">{voucher.code}</p>
-                  <p className="text-[11px] text-pebble leading-snug">
-                    Tunjukkan layar ini ke kasir {voucher.merchantName}. Kasir memasukkan kode ini di aplikasi kasirnya, lalu potongan berlaku. Kode hanya bisa dipakai sekali.
-                  </p>
+                <div className="rounded-xl bg-obsidian p-3 flex items-center gap-3">
+                  <QrCodeSvg value={voucher.code} size={96} label={`QR Voucer ${voucher.code}`} />
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-num text-xl font-extrabold tracking-wider text-alabaster break-all">{voucher.code}</p>
+                    <p className="text-[11px] text-pebble leading-snug">
+                      Tunjukkan QR atau kode ini ke kasir {voucher.merchantName} untuk dipindai atau dimasukkan. Berlaku sekali pakai.
+                    </p>
+                  </div>
                 </div>
               )}
             </>
@@ -175,7 +169,6 @@ function VoucherTicket({
 }
 
 function PassTicket({ pass, index }: { pass: ReservationPass; index: number }) {
-  const bars = useMemo(() => barsFor(pass.ticketId), [pass.ticketId]);
   const checkedIn = pass.status === "CHECKED_IN";
   return (
     <motion.li {...itemMotion(index)} className="ticket-shadow list-none">
@@ -225,16 +218,14 @@ function PassTicket({ pass, index }: { pass: ReservationPass; index: number }) {
 
         <div aria-hidden="true" className="perforation-h h-[6px] mx-5" style={{ marginTop: -2 }} />
 
-        <div className="px-4 pt-3 pb-4">
-          <div aria-hidden="true" className="flex items-stretch h-9 gap-[2px] opacity-80">
-            {bars.map((w, i) => (
-              <span key={i} className="bg-alabaster rounded-[1px]" style={{ width: w * 1.4 }} />
-            ))}
+        <div className="px-4 pt-3 pb-4 flex items-center gap-3.5">
+          <QrCodeSvg value={pass.ticketId} size={84} label={`QR E-Ticket ${pass.ticketId}`} />
+          <div className="min-w-0">
+            <p className="font-num text-xs font-extrabold tracking-[0.18em] text-alabaster break-all">
+              {pass.ticketId}
+            </p>
+            <p className="text-[11px] text-pebble mt-0.5">Tunjukkan QR atau kode ini ke petugas gerbang.</p>
           </div>
-          <p className="font-num text-xs font-extrabold tracking-[0.18em] text-alabaster mt-2">
-            {pass.ticketId}
-          </p>
-          <p className="text-[11px] text-pebble mt-0.5">Tunjukkan kode ini ke petugas gerbang.</p>
         </div>
       </div>
     </motion.li>
@@ -243,23 +234,28 @@ function PassTicket({ pass, index }: { pass: ReservationPass; index: number }) {
 
 function LoreCollectible({ card, index }: { card: UnlockedLoreCard; index: number }) {
   const [open, setOpen] = useState(false);
+  const acc = Math.round(card.confidenceScore * 100);
   return (
     <motion.li {...itemMotion(index)} className="ticket-shadow list-none">
-      <article className="rounded-2xl overflow-hidden border border-stoneSubtle bg-basalt">
+      <article className="relative rounded-2xl overflow-hidden border border-stoneSubtle bg-basalt">
         <div className="bg-vibePrimary text-[var(--vibe-on-primary)] px-4 pt-3 pb-3 flex items-center justify-between gap-3">
           <span className="text-[11px] font-extrabold">{card.opkCategory}</span>
           <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold bg-basalt text-alabaster rounded-full px-2.5 py-1">
             <Icon name="seal" size={14} />
-            <span className="font-num">{Math.round(card.confidenceScore * 100)}%</span> akurat
+            <span className="font-num">{acc}%</span> akurat
           </span>
         </div>
-        <div className="tumpal-edge" aria-hidden="true" />
+        <NusantaraPatternStrip vibe="majapahit" height={8} />
 
-        <div className="p-4 space-y-2.5">
-          <h3 className="font-display text-xl font-extrabold text-alabaster leading-snug">
-            {card.objectName}
-          </h3>
-          <p className={`font-serif text-sm text-alabaster leading-relaxed ${open ? "" : "line-clamp-3"}`}>
+        <div className="relative p-4 space-y-2.5">
+          <NusantaraCornerFrame size={18} />
+          <div className="relative z-10 flex items-start justify-between gap-2">
+            <h3 className="font-display text-xl font-extrabold text-alabaster leading-snug">
+              {card.objectName}
+            </h3>
+            <PrasastiSeal size={40} accuracyPct={acc} />
+          </div>
+          <p className={`relative z-10 font-serif text-sm text-alabaster leading-relaxed ${open ? "" : "line-clamp-3"}`}>
             {card.story}
           </p>
           <button
@@ -289,6 +285,7 @@ export default function VoucherWalletSheet({
   reservations,
   loreCards,
   onOpenScanner,
+  onOpenBoard,
 }: VoucherWalletSheetProps) {
   const [activeTab, setActiveTab] = useState<WalletTab>("VOUCHERS");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -324,6 +321,11 @@ export default function VoucherWalletSheet({
     onOpenScanner?.();
   };
 
+  const boardThenClose = () => {
+    onClose();
+    onOpenBoard?.();
+  };
+
   const header = (
     <div className="space-y-3.5">
       <div className="flex items-start justify-between gap-3">
@@ -333,7 +335,7 @@ export default function VoucherWalletSheet({
           </h2>
           <p className="text-xs text-pebble mt-1 font-num">
             {active.length > 0
-              ? `${active.length} voucer siap tukar · senilai ${rupiah(activeValue)}`
+              ? `${active.length} voucer siap tukar · senilai ${formatRupiah(activeValue)}`
               : "Belum ada voucer yang siap ditukar"}
           </p>
         </div>
@@ -403,7 +405,7 @@ export default function VoucherWalletSheet({
             {activeTab === "VOUCHERS" &&
               (sortedVouchers.length === 0 ? (
                 <EmptyState
-                  icon="voucher"
+                  scene="empty-wallet"
                   title="Tasmu masih kosong"
                   hint="Pindai artefak budaya atau ikuti Misi Sirkular untuk mendapat voucer UMKM."
                   actionLabel="Scan objek sekarang"
@@ -426,11 +428,11 @@ export default function VoucherWalletSheet({
             {activeTab === "PASSES" &&
               (reservations.length === 0 ? (
                 <EmptyState
-                  icon="ticket"
+                  scene="empty-wallet"
                   title="Belum ada E-Ticket"
-                  hint="Ambil jadwal masuk dari papan Antrean atau tombol Tiket di kartu lokasi."
-                  actionLabel="Scan objek sekarang"
-                  onAction={scanThenClose}
+                  hint="Ambil jadwal masuk dari Papan Antrean atau tombol Tiket di kartu lokasi."
+                  actionLabel={onOpenBoard ? "Lihat Papan Antrean" : "Scan objek sekarang"}
+                  onAction={onOpenBoard ? boardThenClose : scanThenClose}
                 />
               ) : (
                 <ul className="space-y-4 pt-1">
@@ -443,7 +445,7 @@ export default function VoucherWalletSheet({
             {activeTab === "LORE" &&
               (loreCards.length === 0 ? (
                 <EmptyState
-                  icon="story"
+                  scene="empty-search"
                   title="Belum ada kartu koleksi"
                   hint="Setiap artefak yang berhasil dipindai membuka satu kartu kisah yang bersumber."
                   actionLabel="Scan objek sekarang"

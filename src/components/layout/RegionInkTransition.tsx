@@ -9,7 +9,6 @@ import { CulturalVibe } from "@/types/lokawira";
 // pergantian kawasan terasa kyk tinta budaya baru yg merembes di atas lontar: lingkaran berwarna kawasan tujuan melebar dr t
 export default function RegionInkTransition({ activeVibe }: { activeVibe: CulturalVibe }) {
   const { tier } = useMotion();
-  const reduce = tier === "reduce";
   const prev = useRef<CulturalVibe>(activeVibe);
   const [ink, setInk] = useState<{ key: number; color: string; x: number; y: number } | null>(null);
 

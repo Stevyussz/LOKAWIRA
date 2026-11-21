@@ -32,9 +32,11 @@ async function adoptOrphans(c: Db) {
 
 async function eventsManagedBy(user: AuthUser) {
   const all = await listEntities<CulturalEvent>(pool, "event");
-  if (user.role === "ADMIN") return all.map((x) => x.payload);
-  const own = await pool.query<{ id: string }>("SELECT id FROM entities WHERE kind='spot' AND owner_id=$1", [user.id]);
-  const ids = new Set(own.rows.map((x) => x.id));
+  const active =
+    user.role === "ADMIN"
+      ? await pool.query<{ id: string }>("SELECT id FROM entities WHERE kind='spot' AND payload->>'status' IS DISTINCT FROM 'ARCHIVED'")
+      : await pool.query<{ id: string }>("SELECT id FROM entities WHERE kind='spot' AND owner_id=$1 AND payload->>'status' IS DISTINCT FROM 'ARCHIVED'", [user.id]);
+  const ids = new Set(active.rows.map((x) => x.id));
   return all.map((x) => x.payload).filter((e) => ids.has(e.spotId));
 }
 
@@ -75,13 +77,25 @@ export default async function agendaRoutes(app: FastifyInstance) {
       if (regions.some((r) => r.id !== row.id && r.name.toLowerCase() === data.name.toLowerCase())) fail(409, "Nama kawasan sudah dipakai.", "REGION_NAME_TAKEN");
       const region: Region = { ...data, id: row.id, createdAt: row.payload.createdAt };
       await saveEntity(c, "region", row.id, region);
-      // titik di kawasan ini ngikut nama & palet barunya
-      await c.query(
-        "UPDATE entities SET payload = payload || jsonb_build_object('vibe',$2::text,'regionName',$3::text) WHERE kind='spot' AND payload->>'regionId'=$1",
-        [row.id, region.theme, `${region.name}, ${region.label}`]
+      const updatedRegions = await listRegions(c);
+      // Evaluasi ulang semua titik yg sebelumnya masuk kawasan ini (radius/pusat mungkin berubah)
+      const affected = await c.query<{ id: string; owner_id: string | null; payload: CulturalSpot }>(
+        "SELECT id,owner_id,payload FROM entities WHERE kind='spot' AND payload->>'regionId'=$1 AND payload->>'status' IS DISTINCT FROM 'ARCHIVED' FOR UPDATE",
+        [row.id]
       );
+      for (const sRow of affected.rows) {
+        const matched = regionFor(sRow.payload.coordinates, updatedRegions);
+        if (matched) {
+          applyRegion(sRow.payload, matched);
+        } else {
+          applyRegion(sRow.payload, null);
+          sRow.payload.regionName = "Di luar kawasan";
+          if (!sRow.payload.status || sRow.payload.status === "PUBLISHED") sRow.payload.status = "PENDING_REVIEW";
+        }
+        await saveEntity(c, "spot", sRow.id, sRow.payload, sRow.owner_id);
+      }
       const adopted = await adoptOrphans(c);
-      return { region, regions: await listRegions(c), adopted };
+      return { region, regions: updatedRegions, adopted };
     });
   });
 

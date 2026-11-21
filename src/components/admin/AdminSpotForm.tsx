@@ -7,6 +7,7 @@ import MoneyField from "@/components/merchant/MoneyField";
 import StagedPhotos, { Staged } from "@/components/merchant/StagedPhotos";
 import { MAX_REFERENCE_PHOTOS } from "@/components/merchant/ReferencePhotos";
 import { api, describeError } from "@/lib/api";
+import { formatRupiah } from "@/lib/format";
 import type { LatLng } from "@/lib/geo";
 import { matchRegion } from "@/lib/regionMatch";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
@@ -16,7 +17,6 @@ import ScheduleFields, { scheduleErrors, scheduleFrom, schedulePayload, type Sch
 const FIELD = "w-full min-h-[48px] px-3.5 py-2 rounded-xl bg-obsidian border border-stoneStrong text-sm text-alabaster placeholder:text-ashMuted";
 const LABEL = "block text-xs font-bold text-pebble mb-1.5";
 const OPK_OPTIONS: OpkCategory[] = ["Cagar Budaya", "Tradisi Lisan", "Manuskrip", "Adat Istiadat", "Ritus", "Pengetahuan Tradisional", "Teknologi Tradisional", "Seni", "Bahasa", "Permainan Rakyat", "Olahraga Tradisional"];
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 
 function Err({ msg }: { msg?: string }) {
   return msg ? <p role="alert" className="mt-1 text-xs font-bold text-quotaFull">{msg}</p> : null;
@@ -80,7 +80,7 @@ export default function AdminSpotForm({ spots, setSpots, defaultRegion, onToast 
     if (!Number.isFinite(capacity) || capacity < 1 || capacity > 5000) errs.capacity = "Kapasitas 1 sampai 5.000 orang.";
     if (!Number.isFinite(xp) || xp < 0 || xp > 1000) errs.xp = "Hadiah XP 0 sampai 1.000.";
     if (vTitle.trim().length < 5) errs.vtitle = "Judul voucer minimal 5 huruf.";
-    if (discount < 1000 || discount > 100000) errs.discount = `Potongan harus antara ${rupiah(1000)} dan ${rupiah(100000)}.`;
+    if (discount < 1000 || discount > 100000) errs.discount = `Potongan harus antara ${formatRupiah(1000)} dan ${formatRupiah(100000)}.`;
     Object.assign(errs, scheduleErrors(sched, true));
     setErrors(errs);
     if (Object.keys(errs).length > 0 || !pin) return;

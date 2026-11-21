@@ -1,8 +1,8 @@
 // Service worker LOKAWIRA. Ganti VERSION tiap ubah strategi cache biar cache lama dibuang
-const VERSION = "lkw-v1";
+const VERSION = "lkw-v2";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
-const PRECACHE = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/manifest.webmanifest"];
+const PRECACHE = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/manifest.webmanifest", "/images/auth-nusantara.webp"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(STATIC).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -25,8 +25,8 @@ self.addEventListener("fetch", (e) => {
   // data API (akun, voucer, tiket) gak pernah dicache: selalu segar & gak bocor antar akun
   if (url.pathname.startsWith("/api/")) return;
 
-  // aset build (nama berhash, gak berubah) & ikon: ambil dr cache dulu
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
+  // aset build (nama berhash, gak berubah), gambar editorial & ikon: ambil dr cache dulu
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/") || url.pathname.startsWith("/images/")) {
     e.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
         if (res.ok) { const copy = res.clone(); caches.open(STATIC).then((c) => c.put(req, copy)); }

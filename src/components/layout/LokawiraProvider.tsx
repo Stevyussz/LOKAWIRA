@@ -9,7 +9,6 @@ import {
   Region,
   IssuedVoucher,
   ReservationPass,
-  SurfaceTheme,
   UnlockedLoreCard,
 } from "@/types/lokawira";
 import {
@@ -29,12 +28,6 @@ interface LokawiraContextValue {
   activeRegionId: string;
   setActiveRegionId: (id: string) => void;
   setRegions: React.Dispatch<React.SetStateAction<Region[]>>;
-  surfaceTheme: SurfaceTheme;
-  toggleSurfaceTheme: () => void;
-  gpsSimulated: boolean;
-  toggleGpsSimulated: () => void;
-  pdpConsentAccepted: boolean;
-  acceptPdpConsent: () => void;
   lokaPoints: number;
   addLokaPoints: (pts: number) => void;
   spots: CulturalSpot[];
@@ -49,8 +42,6 @@ interface LokawiraContextValue {
   setLoreCards: React.Dispatch<React.SetStateAction<UnlockedLoreCard[]>>;
   checkedInSpotIds: string[];
   markSpotCheckedIn: (spotId: string) => void;
-  uiStateOverride: "NORMAL" | "LOADING" | "EMPTY" | "ERROR";
-  setUiStateOverride: (st: "NORMAL" | "LOADING" | "EMPTY" | "ERROR") => void;
   refreshServerData: () => Promise<void>;
   // ambil XP, kartu lore, check-in, tas, dan tiket milik akun login dari server (gak ngapa2in buat tamu)
   syncProfile: () => Promise<void>;
@@ -80,9 +71,6 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
   const liveRegions = regions.filter((r) => r.status === "ACTIVE");
   const activeRegion = liveRegions.find((r) => r.id === activeRegionId) ?? liveRegions[0] ?? null;
   const activeVibe: CulturalVibe = activeRegion?.theme ?? "majapahit";
-  const [surfaceTheme, setSurfaceTheme] = useState<SurfaceTheme>("andesite");
-  const [gpsSimulated, setGpsSimulated] = useState<boolean>(true);
-  const [pdpConsentAccepted, setPdpConsentAccepted] = useState<boolean>(false);
   const [lokaPoints, setLokaPoints] = useState<number>(DEMO_MODE ? 420 : 0);
   const [spots, setSpotsRaw] = useState<CulturalSpot[]>(DEMO_MODE ? INITIAL_CULTURAL_SPOTS : []);
   // stlh user mengubah kuota scr lokal (demo/admin), hasil fetch awal yg terlammbat gak boleh menimpanya
@@ -99,9 +87,6 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
     DEMO_MODE ? INITIAL_LORE_CARDS : []
   );
   const [checkedInSpotIds, setCheckedInSpotIds] = useState<string[]>([]);
-  const [uiStateOverride, setUiStateOverride] = useState<
-    "NORMAL" | "LOADING" | "EMPTY" | "ERROR"
-  >("NORMAL");
 
   const [dataStatus, setDataStatus] = useState<"loading" | "live" | "offline">("loading");
 
@@ -170,19 +155,6 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id, authStatus]);
 
-  const toggleSurfaceTheme = () => {
-    setSurfaceTheme((prev) => (prev === "andesite" ? "daylight" : "andesite"));
-  };
-
-  const toggleGpsSimulated = () => {
-    setGpsSimulated((prev) => !prev);
-  };
-
-  const acceptPdpConsent = () => {
-    setPdpConsentAccepted(true);
-    setGpsSimulated(true);
-  };
-
   const addLokaPoints = (pts: number) => {
     setLokaPoints((prev) => prev + pts);
   };
@@ -203,12 +175,6 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
         activeRegionId: activeRegion?.id ?? "",
         setActiveRegionId,
         setRegions,
-        surfaceTheme,
-        toggleSurfaceTheme,
-        gpsSimulated,
-        toggleGpsSimulated,
-        pdpConsentAccepted,
-        acceptPdpConsent,
         lokaPoints,
         addLokaPoints,
         spots,
@@ -222,8 +188,6 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
         setLoreCards,
         checkedInSpotIds,
         markSpotCheckedIn,
-        uiStateOverride,
-        setUiStateOverride,
         refreshServerData,
         syncProfile,
         dataStatus,
@@ -231,7 +195,6 @@ export function LokawiraProvider({ children }: { children: React.ReactNode }) {
     >
       <div
         data-vibe={activeVibe}
-        data-theme={surfaceTheme}
         className="min-h-screen bg-andesite text-alabaster font-sans transition-colors duration-300"
       >
         {children}

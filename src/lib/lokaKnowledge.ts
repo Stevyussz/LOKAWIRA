@@ -217,13 +217,41 @@ export const INITIAL_LORE_NOTES: SeedLoreNote[] = [
       "Passura' adalah ukiran Toraja pada dinding tongkonan dan alang. Pa'barre Allo berbentuk lingkaran matahari bersinar, dimaknai sebagai lambang ketuhanan dan kesatuan, juga harapan agar ilmu dan kearifan memberi kehidupan seperti sinar matahari. Pa'manuk Londong (ayam jantan) dipasang di depan atau belakang rumah dan lumbung di atas Pa'barre Allo, dimaknai sebagai norma dan aturan yang datang dari langit. Pa'tedong menyerupai wajah kerbau dan dimaknai sebagai kemakmuran; menurut satu sumber, ukiran ini menandai bahwa rumah itu adalah tongkonan. Tafsir motif berbeda antarsumber.",
   },
 
-  // ---- Pandhalungan (Jember), kawasan draf ----
+  // ---- Pandhalungan (Jember) ----
   {
     id: "rag-pdl-canmacanan",
     opkCategory: "Seni",
     maestroSource: "Jurnal Imaji UNY (Makna Simbolik Can-macanan Kaddhuk); jurnal Avatara UNESA; skripsi Universitas Jember (2023)",
     summary:
       "Can Macanan Kadduk adalah seni pertunjukan Pandhalungan dari Jember yang memadukan budaya Jawa dan Madura. Kesenian ini tercatat dalam daftar kekayaan budaya takbenda Indonesia dengan nomor registrasi 2014004573. Satu sumber menyebut kesenian ini lahir dari keresahan petani yang gagal panen di Desa Tegalboto, Jember. Kajian terbaru mencatat eksistensinya menurun karena maraknya kesenian modern.",
+  },
+  {
+    id: "rag-pdl-pandhalungan",
+    opkCategory: "Adat Istiadat",
+    maestroSource: "Portal Pemkab Jember (jemberkab.go.id); kajian budaya Pandhalungan Tapal Kuda (Universitas Jember)",
+    summary:
+      "Pandhalungan merujuk pada ruang pertemuan dan perpaduan budaya Jawa dan Madura di kawasan Tapal Kuda, Jawa Timur, khususnya Kabupaten Jember. Akulturasi ini tampak pada kosakata pergaulan sehari-hari, tradisi agraris perkebunan tembakau dan kopi, hingga kesenian rakyat seperti Tari Lahbako dan Can Macanan Kadduk.",
+  },
+  {
+    id: "rag-pdl-duplang",
+    opkCategory: "Cagar Budaya",
+    maestroSource: "Portal Pemkab Jember (jemberkab.go.id); Dinas Kebudayaan dan Pariwisata Prov. Jawa Timur (BPCB Jawa Timur)",
+    summary:
+      "Situs Megalitikum Duplang terletak di Desa Kamal, Kecamatan Arjasa, Jember, dan oleh warga setempat juga dikenal dengan sebutan Situs Sembah atau Lembah Lasdono. Kompleks cagar budaya yang dipelihara sejak 1985 ini memuat tinggalan prasejarah berupa menhir kembar (dengan ketinggian mencapai sekitar 224 cm), dolmen atau kubur batu berlubang empat di sudutnya, serta batu kenong tunggal dan kembar.",
+  },
+  {
+    id: "rag-pdl-tanoker",
+    opkCategory: "Permainan Rakyat",
+    maestroSource: "Komunitas Tanoker Ledokombo (tanoker.org); Portal Pemkab Jember (jemberkab.go.id); Koalisi Seni",
+    summary:
+      "Komunitas Tanoker di Kecamatan Ledokombo, Jember, didirikan pada 2009 oleh Farha Ciciek dan Suporahardjo sebagai ruang belajar ramah anak, termasuk bagi anak-anak keluarga buruh migran. Dalam bahasa Madura, tanoker berarti kepompong. Sejak 2010 komunitas ini rutin menggerakkan Festival Egrang dengan permainan egrang bambu sebagai media ekspresi dan gotong royong warga.",
+  },
+  {
+    id: "rag-pdl-batik-jember",
+    opkCategory: "Teknologi Tradisional",
+    maestroSource: "Portal Pemkab Jember (jemberkab.go.id); Good News From Indonesia (Batik Labako Sumberjambe); penelitian Universitas PGRI Adi Buana Surabaya",
+    summary:
+      "Batik Jember dikenal luas melalui motif daun tembakau (sering disebut Batik Labako, terinspirasi gerak Tari Lahbako) yang mencerminkan sejarah agraris Jember sebagai sentra tembakau. Sentra pembatikannya tumbuh di Desa Sumberpakem, Kecamatan Sumberjambe, dan kembali giat dikembangkan sejak sekitar 2010 dengan perpaduan warna cerah khas karakter Pandhalungan.",
   },
 ];
 

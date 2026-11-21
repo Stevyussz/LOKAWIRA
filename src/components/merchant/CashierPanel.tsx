@@ -2,11 +2,11 @@
 
 import React, { useState } from "react";
 import Icon from "@/components/ui/Icon";
+import QrCodeScannerModal from "@/components/merchant/QrCodeScannerModal";
 import { isExpired } from "@/lib/formatTime";
+import { formatRupiah } from "@/lib/format";
 import { api, ApiError, DEMO_MODE, describeError } from "@/lib/api";
 import type { IssuedVoucher } from "@/types/lokawira";
-
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 
 type Kind = "VOUCHER" | "VISIT";
 // LKW- = voucer diskon, KDR- = bukti hadir. Angka doang (tanpa awalan) ditolak biar gak ketuker
@@ -32,6 +32,7 @@ export default function CashierPanel({ myVouchers, setVouchers, noLapak, onGoReg
   const [code, setCode] = useState(initialCode);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const guess = detect(code);
 
@@ -51,7 +52,7 @@ export default function CashierPanel({ myVouchers, setVouchers, noLapak, onGoReg
         setResult({
           ok: true,
           title: "Voucer sah. Beri potongan harga",
-          text: `Potong ${rupiah(data.redeemedVoucher.discountAmount)} dari belanjaan pengunjung${data.redeemedVoucher.minimumSpend > 0 ? ` (belanja minimal ${rupiah(data.redeemedVoucher.minimumSpend)})` : ""}. Voucer ini sudah terpakai dan tidak bisa dipakai lagi.`,
+          text: `Potong ${formatRupiah(data.redeemedVoucher.discountAmount)} dari belanjaan pengunjung${data.redeemedVoucher.minimumSpend > 0 ? ` (belanja minimal ${formatRupiah(data.redeemedVoucher.minimumSpend)})` : ""}. Voucer ini sudah terpakai dan tidak bisa dipakai lagi.`,
         });
       } else {
         const res = await api.verifyCheckIn({ code: d.code });
@@ -126,10 +127,20 @@ export default function CashierPanel({ myVouchers, setVouchers, noLapak, onGoReg
               {guess ? (guess.kind === "VOUCHER" ? "Ini voucer diskon. Akan ditukar dengan potongan harga." : "Ini bukti hadir. Akan dicatat sebagai kunjungan yang sah.") : "Kode diawali LKW- (voucer) atau KDR- (bukti hadir)."}
             </p>
           </div>
-          <button type="submit" disabled={busy} className="btn-tactile-primary w-full min-h-[54px] px-6 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-70">
-            {busy ? <Icon name="loader" size={20} weight="bold" motion="spin" /> : <Icon name="shield" size={20} />}
-            <span>{busy ? "Memeriksa" : guess?.kind === "VISIT" ? "Verifikasi kehadiran" : guess?.kind === "VOUCHER" ? "Tukarkan voucer" : "Periksa kode"}</span>
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" disabled={busy} className="btn-tactile-primary flex-1 min-h-[54px] px-6 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-70">
+              {busy ? <Icon name="loader" size={20} weight="bold" motion="spin" /> : <Icon name="shield" size={20} />}
+              <span>{busy ? "Memeriksa" : guess?.kind === "VISIT" ? "Verifikasi kehadiran" : guess?.kind === "VOUCHER" ? "Tukarkan voucer" : "Periksa kode"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="btn-tactile-secondary min-h-[54px] px-4 text-sm inline-flex items-center justify-center gap-2"
+            >
+              <Icon name="camera" size={20} className="text-vibePrimary" />
+              <span>Pindai QR</span>
+            </button>
+          </div>
         </form>
 
         {result && (
@@ -170,7 +181,7 @@ export default function CashierPanel({ myVouchers, setVouchers, noLapak, onGoReg
                 <div className="min-w-0">
                   <span className={`font-num text-sm font-extrabold block ${live ? "text-quotaSafe" : "text-pebble"}`}>{v.code}</span>
                   <p className="text-xs font-bold text-alabaster mt-0.5 truncate">{v.merchantName}</p>
-                  <p className="font-num text-[11px] text-vibeSecondary">-{rupiah(v.discountAmount)}</p>
+                  <p className="font-num text-[11px] text-vibeSecondary">-{formatRupiah(v.discountAmount)}</p>
                 </div>
                 {live ? (
                   <button type="button" onClick={() => { setCode(v.code); setResult(null); }} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs">Pilih</button>
@@ -183,6 +194,14 @@ export default function CashierPanel({ myVouchers, setVouchers, noLapak, onGoReg
           </ul>
         )}
       </section>
+      <QrCodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onDetected={(raw) => {
+          setCode(raw.trim().toUpperCase());
+          setResult(null);
+        }}
+      />
     </div>
   );
 }

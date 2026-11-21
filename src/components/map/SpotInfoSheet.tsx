@@ -5,15 +5,9 @@ import Icon from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
 import { API_BASE } from "@/lib/api";
 import { ENTRY_LABEL, entryOf, hoursText, needsBooking, openState, tzOf } from "@/lib/spotRules";
-import type { CulturalSpot, EventOccurrence, SpotType } from "@/types/lokawira";
-
-const TYPE_LABEL: Record<SpotType, string> = {
-  PRIMARY_DEST: "Cagar budaya",
-  SANGGAR_SENI: "Sanggar seni",
-  UMKM_KULINER: "Makan & minum",
-  UMKM_KRIYA: "Kriya & oleh-oleh",
-};
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
+import { formatEventLongDateTime, formatRupiah } from "@/lib/format";
+import { SPOT_TYPE_LABEL } from "@/lib/spotMeta";
+import type { CulturalSpot, EventOccurrence } from "@/types/lokawira";
 
 interface Props {
   spot: CulturalSpot | null;
@@ -130,7 +124,7 @@ export default function SpotInfoSheet({ spot, isOpen, onClose, nextEvent, onGuid
       ? en.priceIdr !== undefined
         ? en.priceIdr === 0
           ? "Bertiket, gratis"
-          : `Bertiket, ${rupiah(en.priceIdr)} per orang`
+          : `Bertiket, ${formatRupiah(en.priceIdr)} per orang`
         : ENTRY_LABEL.TICKET
       : en.mode === "RESERVATION"
       ? "Gratis, pesan slot dulu"
@@ -140,7 +134,7 @@ export default function SpotInfoSheet({ spot, isOpen, onClose, nextEvent, onGuid
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <p className="text-[11px] font-extrabold text-vibePrimary">
-          {TYPE_LABEL[spot.spotType]} · {spot.opkCategory}
+          {SPOT_TYPE_LABEL[spot.spotType]} · {spot.opkCategory}
         </p>
         <h2 id="spot-info-title" className="font-display text-xl font-extrabold text-alabaster leading-tight">
           {spot.name}
@@ -188,8 +182,7 @@ export default function SpotInfoSheet({ spot, isOpen, onClose, nextEvent, onGuid
           {nextEvent && (
             <Fact icon="sanggar" label="Acara berikutnya">
               <button type="button" onClick={onAgenda} className="text-left underline underline-offset-2 decoration-vibePrimary min-h-[24px]">
-                <b>{nextEvent.title}</b>,{" "}
-                {new Intl.DateTimeFormat("id-ID", { timeZone: tz, weekday: "long", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(nextEvent.startsAt))}
+                <b>{nextEvent.title}</b>, {formatEventLongDateTime(nextEvent.startsAt, tz)}
               </button>
             </Fact>
           )}

@@ -5,7 +5,7 @@ import Icon from "@/components/ui/Icon";
 import Loka from "@/components/brand/Loka";
 import { useLocation } from "@/components/layout/LocationProvider";
 import { bearingDegrees, compassWord, distanceMeters, formatDistance } from "@/lib/geo";
-import type { WalkingRoute } from "@/lib/route";
+import type { TravelMode, WalkingRoute } from "@/lib/route";
 import type { CulturalSpot } from "@/types/lokawira";
 
 // jarak (m) yg dianggap "sudah tiba" di UI kalo server gak ngasih radius. Server tetap menentukan sendiri
@@ -16,6 +16,8 @@ interface GuideCardProps {
   phase: "preview" | "navigating";
   route: WalkingRoute | null;
   routeLoading: boolean;
+  mode?: TravelMode;
+  onChangeMode?: (m: TravelMode) => void;
   // radius check-in dr server (kalo ada), dipake nentuin "sudah tiba"
   arriveRadius?: number | null;
   isCheckedIn: boolean;
@@ -25,10 +27,23 @@ interface GuideCardProps {
 }
 
 // kartu pandu: preview (lihat rute penuh, tekan Mulai) lalu navigasi (jarak, arah, tiba -> Check-In)
-export default function GuideCard({ spot, phase, route, routeLoading, arriveRadius, isCheckedIn, onStart, onStop, onCheckIn }: GuideCardProps) {
+export default function GuideCard({
+  spot,
+  phase,
+  route,
+  routeLoading,
+  mode = "foot",
+  onChangeMode,
+  arriveRadius,
+  isCheckedIn,
+  onStart,
+  onStop,
+  onCheckIn,
+}: GuideCardProps) {
   const { position, watchError } = useLocation();
   const dest = spot.coordinates;
-  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}&travelmode=walking`;
+  const gmapsTravel = mode === "motorcycle" ? "two-wheeler" : "walking";
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}&travelmode=${gmapsTravel}`;
 
   const meters = position ? distanceMeters(position, dest) : null;
   const bearing = position ? bearingDegrees(position, dest) : null;
@@ -36,7 +51,12 @@ export default function GuideCard({ spot, phase, route, routeLoading, arriveRadi
   const threshold = Math.max(arriveRadius ?? ARRIVED_METERS, 20);
   const arrived = meters !== null && meters <= threshold;
   const roughFix = position !== null && position.accuracy > 100;
-  const walkMinutes = route ? Math.max(1, Math.round(route.seconds / 60)) : meters !== null ? Math.max(1, Math.round(meters / 1.3 / 60)) : null;
+  const fallbackSpeedMs = mode === "motorcycle" ? 7.2 : 1.3;
+  const travelMinutes = route
+    ? Math.max(1, Math.round(route.seconds / 60))
+    : meters !== null
+    ? Math.max(1, Math.round(meters / fallbackSpeedMs / 60))
+    : null;
 
   // layar jangan mati selama navigasi
   useEffect(() => {
@@ -81,7 +101,9 @@ export default function GuideCard({ spot, phase, route, routeLoading, arriveRadi
             <Loka variant="mark" size={38} mood={routeLoading || !position ? "think" : "happy"} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-extrabold text-vibePrimary">Rute jalan kaki</p>
+            <p className="text-[11px] font-extrabold text-vibePrimary">
+              {mode === "motorcycle" ? "Rute sepeda motor" : "Rute jalan kaki"}
+            </p>
             <h3 className="text-base font-extrabold text-alabaster leading-snug">{name}</h3>
             {!position ? (
               <p className="text-xs text-pebble mt-0.5">Mencari lokasimu</p>
@@ -89,7 +111,7 @@ export default function GuideCard({ spot, phase, route, routeLoading, arriveRadi
               <p className="text-xs text-pebble mt-0.5">Menghitung rute</p>
             ) : route ? (
               <p className="text-sm font-bold text-alabaster mt-0.5">
-                <span className="font-num">{formatDistance(route.meters)}</span> · sekitar <span className="font-num">{walkMinutes}</span> menit
+                <span className="font-num">{formatDistance(route.meters)}</span> · sekitar <span className="font-num">{travelMinutes}</span> menit
               </p>
             ) : (
               <p className="text-xs font-bold text-quotaWarning mt-0.5">
@@ -98,6 +120,33 @@ export default function GuideCard({ spot, phase, route, routeLoading, arriveRadi
             )}
           </div>
         </div>
+        {onChangeMode && (
+          <div role="group" aria-label="Moda perjalanan" className="grid grid-cols-2 gap-2">
+            {(
+              [
+                { id: "foot", label: "Jalan kaki" },
+                { id: "motorcycle", label: "Sepeda motor" },
+              ] as const
+            ).map((opt) => {
+              const active = mode === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onChangeMode(opt.id)}
+                  className={`min-h-[44px] px-3 rounded-xl text-xs font-extrabold border transition-colors ${
+                    active
+                      ? "bg-vibePrimary text-[var(--vibe-on-primary)] border-transparent"
+                      : "bg-basalt text-pebble border-stoneSubtle hover:text-alabaster"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {roughFix && <p className="text-[11px] font-bold text-quotaWarning">Sinyal GPS kurang tepat. Pindah ke area terbuka.</p>}
         {watchError && <p role="alert" className="text-[11px] font-bold text-quotaFull">{watchError}</p>}
         <div className="grid grid-cols-[1fr_auto] gap-2">
@@ -138,7 +187,7 @@ export default function GuideCard({ spot, phase, route, routeLoading, arriveRadi
           ) : (
             <p className="text-sm font-extrabold text-alabaster">
               <span className="font-num">{formatDistance(meters)}</span> ke arah {compassWord(bearing ?? 0)}
-              {walkMinutes !== null && <span className="text-pebble font-bold"> · ±<span className="font-num">{walkMinutes}</span> mnt</span>}
+              {travelMinutes !== null && <span className="text-pebble font-bold"> · ±<span className="font-num">{travelMinutes}</span> mnt</span>}
             </p>
           )}
           <p className="text-[11px] text-pebble">

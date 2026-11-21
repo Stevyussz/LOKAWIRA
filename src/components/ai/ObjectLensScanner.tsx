@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { MotionConfig, motion } from "motion/react";
+import { motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
+import Sheet from "@/components/ui/Sheet";
 import { API_BASE, ApiError, api, DEMO_MODE, describeError } from "@/lib/api";
 import { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import { fileToJpeg, shrinkToJpeg, ACCEPTED_IMAGE_TYPES } from "@/lib/image";
+import { formatRupiah } from "@/lib/format";
 import {
   CulturalSpot,
   IssuedVoucher,
@@ -17,7 +19,7 @@ import Link from "next/link";
 import Loka from "@/components/brand/Loka";
 import { LocationError, useLocation } from "@/components/layout/LocationProvider";
 import { formatDistance } from "@/lib/geo";
-import { motionReduced, useReducedMotionConfig } from "@/lib/motionPref";
+import { motionReduced } from "@/lib/motionPref";
 
 interface ObjectLensScannerProps {
   isOpen: boolean;
@@ -36,7 +38,6 @@ export default function ObjectLensScanner({
   activeSpot,
   onScanVerified,
 }: ObjectLensScannerProps) {
-  const reducedMotion = useReducedMotionConfig();
   const [selectedSampleId, setSelectedSampleId] = useState<string>(
     CULTURAL_OBJECT_SAMPLES[0].id
   );
@@ -55,6 +56,7 @@ export default function ObjectLensScanner({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const voucherRef = useRef<HTMLDivElement | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
+  const flightTimerRef = useRef<number | null>(null);
   // jarak terang voucer menuju tab Tas pas user menekan "Simpan ke Tas"
   const [flight, setFlight] = useState<{ x: number; y: number } | null>(null);
 
@@ -71,7 +73,13 @@ export default function ObjectLensScanner({
   }, [uploadedFile]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      if (flightTimerRef.current !== null) {
+        window.clearTimeout(flightTimerRef.current);
+        flightTimerRef.current = null;
+      }
+      return;
+    }
     setScanResult(null);
     setScanError(null);
     setFlight(null);
@@ -83,16 +91,13 @@ export default function ObjectLensScanner({
         setSelectedSampleId(matchingSample.id);
       }
     }
-  }, [isOpen, activeSpot]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    return () => {
+      if (flightTimerRef.current !== null) {
+        window.clearTimeout(flightTimerRef.current);
+        flightTimerRef.current = null;
+      }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, activeSpot]);
 
   useEffect(() => {
     if (!isOpen && videoRef.current?.srcObject) {
@@ -108,8 +113,6 @@ export default function ObjectLensScanner({
     const reduce = motionReduced();
     resultRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
   }, [scanResult]);
-
-  if (!isOpen) return null;
 
   const currentSample =
     CULTURAL_OBJECT_SAMPLES.find((s) => s.id === selectedSampleId) ||
@@ -209,7 +212,7 @@ export default function ObjectLensScanner({
         opkCategory: data.opkReference,
         verifiedSource: data.verifiedSource,
         story: data.culturalStory,
-        unlockedAt: "Baru saja dibuka",
+        unlockedAt: new Date().toISOString(),
         confidenceScore: data.confidenceScore,
       };
 
@@ -248,7 +251,11 @@ export default function ObjectLensScanner({
       x: t.left + t.width / 2 - (a.left + a.width / 2),
       y: t.top + t.height / 2 - (a.top + a.height / 2),
     });
-    window.setTimeout(onClose, 700);
+    if (flightTimerRef.current !== null) window.clearTimeout(flightTimerRef.current);
+    flightTimerRef.current = window.setTimeout(() => {
+      flightTimerRef.current = null;
+      onClose();
+    }, 700);
   };
 
   // apa yg harus dicari wisatawan: objek dari mitra/pengelola + foto contohnya
@@ -265,39 +272,32 @@ export default function ObjectLensScanner({
     ? "var(--vibe-accent)"
     : "var(--vibe-on-primary)";
 
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="lens-scanner-title"
-      className="fixed inset-0 z-50 bg-alabaster/60 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
-    >
-      <MotionConfig reducedMotion={reducedMotion}>
-      <div className="gamiz-card w-full max-w-2xl my-auto p-5 sm:p-6 space-y-5">
-        {/* Clean Gamiz Modal Header */}
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <span className="text-xs font-bold text-vibePrimary">
-              {activeSpot ? activeSpot.name.split("&")[0].trim() : "Pemindai objek"}
-            </span>
-            <h2
-              id="lens-scanner-title"
-              className="text-lg sm:text-xl font-extrabold text-alabaster"
-            >
-              Pindai objek, dapat hadiah
-            </h2>
-          </div>
+  const header = (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <span className="text-xs font-bold text-vibePrimary">
+          {activeSpot ? activeSpot.name.split("&")[0].trim() : "Pemindai objek"}
+        </span>
+        <h2 id="lens-scanner-title" className="text-lg sm:text-xl font-extrabold text-alabaster">
+          Pindai objek, dapat hadiah
+        </h2>
+      </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Tutup Pemindai Kamera (Escape)"
-            className="btn-tactile-secondary min-h-[44px] px-3.5 py-1.5 text-xs flex items-center gap-1.5"
-          >
-            <Icon name="close" size={16} weight="bold" />
-            <span>Tutup</span>
-          </button>
-        </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Tutup Pemindai Kamera (Escape)"
+        className="btn-tactile-secondary min-h-[44px] px-3.5 py-1.5 text-xs flex items-center gap-1.5"
+      >
+        <Icon name="close" size={16} weight="bold" />
+        <span>Tutup</span>
+      </button>
+    </div>
+  );
+
+  return (
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="lens-scanner-title" header={header} maxWidthClass="sm:max-w-2xl">
+      <div className="space-y-5 pt-1">
 
         {/* bidik AR: lensa gelap biar retikel & laser terabca jelas (kontras tinggi) */}
         <div className="relative w-full h-64 rounded-3xl bg-alabaster overflow-hidden text-[var(--vibe-on-primary)]">
@@ -590,29 +590,30 @@ export default function ObjectLensScanner({
                       ? { duration: 0.65, ease: [0.5, 0, 0.75, 0] }
                       : { type: "spring", stiffness: 240, damping: 14, delay: 0.7 }
                   }
-                  className="relative z-10 perforated-ticket m-4 mt-4 p-4 flex flex-wrap items-center justify-between gap-3"
+                  className="relative z-10 ticket-shadow m-4 mt-4"
                 >
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-vibePrimary">
-                      <Icon name="voucher" size={18} className="text-vibePrimary" />
-                      <span>Voucer UMKM Berhasil Diklaim</span>
+                  <div className="ticket-cut-v flex flex-wrap items-center justify-between gap-3 rounded-2xl overflow-hidden border border-stoneSubtle p-4">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-vibePrimary">
+                        <Icon name="voucher" size={18} className="text-vibePrimary" />
+                        <span>Voucer UMKM Berhasil Diklaim</span>
+                      </div>
+                      <p className="text-sm font-extrabold text-alabaster mt-0.5">
+                        {scanResult.issuedVoucher.merchantName}
+                      </p>
+                      <p className="text-xs text-pebble">
+                        {scanResult.issuedVoucher.discountTitle}
+                      </p>
                     </div>
-                    <p className="text-sm font-extrabold text-alabaster mt-0.5">
-                      {scanResult.issuedVoucher.merchantName}
-                    </p>
-                    <p className="text-xs text-pebble">
-                      {scanResult.issuedVoucher.discountTitle}
-                    </p>
-                  </div>
 
-                  <div className="bg-obsidian px-4 py-2.5 rounded-2xl text-right">
-                    <span className="font-num text-sm font-extrabold text-vibeSecondary block">
-                      {scanResult.issuedVoucher.code}
-                    </span>
-                    <span className="font-num text-xs font-bold text-quotaSafe">
-                      Diskon Rp
-                      {scanResult.issuedVoucher.discountAmount.toLocaleString("id-ID")}
-                    </span>
+                    <div className="bg-obsidian px-4 py-2.5 rounded-2xl text-right">
+                      <span className="font-num text-sm font-extrabold text-vibeSecondary block">
+                        {scanResult.issuedVoucher.code}
+                      </span>
+                      <span className="font-num text-xs font-bold text-quotaSafe">
+                        Diskon {formatRupiah(scanResult.issuedVoucher.discountAmount)}
+                      </span>
+                    </div>
                   </div>
                 </motion.div>
               </>
@@ -637,7 +638,6 @@ export default function ObjectLensScanner({
           </motion.div>
         )}
       </div>
-    </MotionConfig>
-    </div>
+    </Sheet>
   );
 }

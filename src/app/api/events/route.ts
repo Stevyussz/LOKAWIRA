@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
     }
   }
   list.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const manageable = user && (user.role === "ADMIN" || user.role === "MERCHANT") ? store.events.filter((e) => ownsSpot(user, e.spotId)) : undefined;
+  const activeSpotIds = new Set(store.spots.filter((s) => s.status !== "ARCHIVED").map((s) => s.id));
+  const manageable = user && (user.role === "ADMIN" || user.role === "MERCHANT")
+    ? store.events.filter((e) => activeSpotIds.has(e.spotId) && ownsSpot(user, e.spotId))
+    : undefined;
   return NextResponse.json({ occurrences: list.slice(0, 200), events: manageable });
 }
 

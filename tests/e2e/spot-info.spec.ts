@@ -41,14 +41,18 @@ test("API info tempat: validasi, galeri maks 6, foto titik orang lain ditolak, m
   await request.patch(`/api/spots/${id}`, { headers: bearer(mitra), data: { description: "", rules: [], contact: "" } });
 });
 
-test("API: mitra mengubah cerita = lapak ditinjau ulang; nama objek scan tidak", async ({ request }) => {
+test("API: mitra mengubah cerita atau objek scan = lapak ditinjau ulang", async ({ request }) => {
   const mitra = await apiLogin(request, "mitra@lokawira.demo");
   const admin = await apiLogin(request, "admin@lokawira.demo");
   const id = "spot-mjp-03";
   const before = (await (await request.get("/api/spots")).json()).spots.find((s: { id: string }) => s.id === id);
 
   const target = await request.patch(`/api/spots/${id}`, { headers: bearer(mitra), data: { quest: { targetObjectPrompt: "Cobek batu di meja depan" } } });
-  expect((await target.json()).spot.status ?? "PUBLISHED").toBe("PUBLISHED");
+  expect((await target.json()).spot.status).toBe("PENDING_REVIEW");
+  expect((await (await request.get("/api/spots")).json()).spots.some((s: { id: string }) => s.id === id)).toBe(false);
+
+  // Terbitkan kembali oleh pengelola, lalu uji perubahan narasi cerita
+  expect((await request.post(`/api/admin/spots/${id}/review`, { headers: bearer(admin), data: { decision: "PUBLISH" } })).status()).toBe(200);
 
   const story = await request.patch(`/api/spots/${id}`, { headers: bearer(mitra), data: { quest: { loreNarrative: "Cerita baru yang belum diperiksa pengelola." } } });
   expect((await story.json()).spot.status).toBe("PENDING_REVIEW");

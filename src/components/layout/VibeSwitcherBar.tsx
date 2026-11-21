@@ -2,10 +2,12 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { useVibeHex, VIBE_HEX } from "@/lib/vibeColors";
+import { VIBE_HEX } from "@/lib/vibeColors";
+import { REGION_COVER_IMAGE } from "@/lib/spotMeta";
 import { SPOT_FILTER_OPTIONS, SpotFilter } from "@/lib/spotFilter";
+import { useReducedMotionConfig } from "@/lib/motionPref";
 import Icon from "@/components/ui/Icon";
-import { Region, SurfaceTheme } from "@/types/lokawira";
+import { Region } from "@/types/lokawira";
 
 interface VibeSwitcherBarProps {
   // daftar kawasan dr server (bkn kode lagi)
@@ -15,12 +17,6 @@ interface VibeSwitcherBarProps {
   lokaPoints: number;
   filterType?: SpotFilter;
   onChangeFilter?: (filter: SpotFilter) => void;
-  surfaceTheme?: SurfaceTheme;
-  onToggleTheme?: () => void;
-  gpsSimulated?: boolean;
-  onToggleGps?: () => void;
-  pdpConsentAccepted?: boolean;
-  onAcceptPdp?: () => void;
   // Membuka sheet akun (masuk, daftar, dasbor, keluar)
   onOpenAccount?: () => void;
 }
@@ -34,7 +30,7 @@ export default function VibeSwitcherBar({
   onChangeFilter,
   onOpenAccount,
 }: VibeSwitcherBarProps) {
-  const vh = useVibeHex();
+  const reducedMotion = useReducedMotionConfig();
   const [regionMenuOpen, setRegionMenuOpen] = useState<boolean>(false);
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -88,7 +84,7 @@ export default function VibeSwitcherBar({
   const RING_C = 2 * Math.PI * RING_R;
 
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={reducedMotion}>
     <header className="fixed top-3 left-3 right-3 sm:left-5 sm:right-5 z-30 pointer-events-none">
       <div className="flex items-start justify-between gap-3">
         {/* level badge dgn cincin XP */}
@@ -182,14 +178,22 @@ export default function VibeSwitcherBar({
                         : "text-pebble hover:bg-slateElev hover:text-alabaster"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <span
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: VIBE_HEX[v.theme].primary }}
-                      />
-                      <div>
-                        <span className="text-sm font-extrabold block">{v.shortName}</span>
-                        <span className="text-xs text-pebble block">{v.regionLabel}</span>
+                        className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border-2 relative bg-obsidian"
+                        style={{ borderColor: VIBE_HEX[v.theme].primary }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={REGION_COVER_IMAGE[v.theme]}
+                          alt=""
+                          aria-hidden="true"
+                          className="w-full h-full object-cover"
+                        />
+                      </span>
+                      <div className="min-w-0">
+                        <span className="text-sm font-extrabold block truncate">{v.shortName}</span>
+                        <span className="text-xs text-pebble block truncate">{v.regionLabel}</span>
                       </div>
                     </div>
                     {isSelected && (

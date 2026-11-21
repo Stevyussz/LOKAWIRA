@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import { api, describeError } from "@/lib/api";
 import { repeatText } from "@/lib/eventRules";
+import { formatTimeOnly } from "@/lib/format";
 import { tzOf } from "@/lib/spotRules";
 import type { CulturalEvent, CulturalSpot, EventRepeat } from "@/types/lokawira";
 
@@ -87,9 +88,8 @@ export default function EventsPanel({ mySpots, accountBlocked }: { mySpots: Cult
   const fmt = (ev: CulturalEvent) => {
     const s = mySpots.find((x) => x.id === ev.spotId);
     const tz = s ? tzOf(s) : "Asia/Jakarta";
-    const t = (iso: string) => new Intl.DateTimeFormat("id-ID", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
     const d = new Intl.DateTimeFormat("id-ID", { timeZone: tz, day: "numeric", month: "short" }).format(new Date(ev.startsAt));
-    return `${ev.repeat === "NONE" ? d : repeatText(ev, tz)}, ${t(ev.startsAt)}–${t(ev.endsAt)}`;
+    return `${ev.repeat === "NONE" ? d : repeatText(ev, tz)}, ${formatTimeOnly(ev.startsAt, tz)}-${formatTimeOnly(ev.endsAt, tz)}`;
   };
 
   return (

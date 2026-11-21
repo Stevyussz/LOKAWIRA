@@ -5,10 +5,13 @@ import type { GeoJSONSource, Map as MLMap, Marker as MLMarker } from "maplibre-g
 import "maplibre-gl/dist/maplibre-gl.css";
 import { LatLng, ZONE_RADIUS_METERS, circlePolygon, distanceMeters, formatCoord, formatDistance, regionOrigin, INDONESIA_BOUNDS } from "@/lib/geo";
 import { loadLontarStyle } from "@/lib/mapStyle";
+import { VIBE_MAP_PALETTE } from "@/lib/spotMeta";
 import { searchPlaces, PlaceResult } from "@/lib/geocode";
 import { LocationError, useLocation } from "@/components/layout/LocationProvider";
 import Icon from "@/components/ui/Icon";
 import { CulturalSpot } from "@/types/lokawira";
+
+const PICKER_COLORS = VIBE_MAP_PALETTE.majapahit;
 
 interface LocationPickerProps {
   // titik yg udh ada di kawasan (utk acuan posisi)
@@ -24,7 +27,7 @@ interface LocationPickerProps {
 type MapLibre = typeof import("maplibre-gl");
 const ll = (c: LatLng): [number, number] => [c.lng, c.lat];
 
-const PIN_SVG = `<svg viewBox="0 0 64 76" width="40" height="48" aria-hidden="true"><path d="M32 74 C32 74 5 46 5 27 A27 27 0 0 1 59 27 C59 46 32 74 32 74 Z" fill="#1B6334" stroke="#FFFAEE" stroke-width="4" stroke-linejoin="round"/><circle cx="32" cy="27" r="11" fill="#FFFAEE"/></svg>`;
+const PIN_SVG = `<svg viewBox="0 0 64 76" width="40" height="48" aria-hidden="true"><path d="M32 74 C32 74 5 46 5 27 A27 27 0 0 1 59 27 C59 46 32 74 32 74 Z" fill="${PICKER_COLORS.safe}" stroke="${PICKER_COLORS.halo}" stroke-width="4" stroke-linejoin="round"/><circle cx="32" cy="27" r="11" fill="${PICKER_COLORS.halo}"/></svg>`;
 
 // penentu lokasi dgn pin di peta nyata (OpenStreetMap): ketuk/seret pin, atau panah keyboard
 export default function LocationPicker({ spots, value, onChange, label = "Lokasi", fallbackCenter }: LocationPickerProps) {
@@ -110,8 +113,8 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
             type: "geojson",
             data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [circlePolygon(o.coordinates, ZONE_RADIUS_METERS)] } },
           });
-          map.addLayer({ id: "zone-fill", type: "fill", source: "zone", paint: { "fill-color": "#C8421F", "fill-opacity": 0.1 } }, firstLabel);
-          map.addLayer({ id: "zone-line", type: "line", source: "zone", paint: { "line-color": "#C8421F", "line-opacity": 0.5, "line-width": 2.5 } }, firstLabel);
+          map.addLayer({ id: "zone-fill", type: "fill", source: "zone", paint: { "fill-color": PICKER_COLORS.primary, "fill-opacity": 0.1 } }, firstLabel);
+          map.addLayer({ id: "zone-line", type: "line", source: "zone", paint: { "line-color": PICKER_COLORS.primary, "line-opacity": 0.5, "line-width": 2.5 } }, firstLabel);
           setReady(true);
         });
       } catch {
@@ -148,7 +151,7 @@ export default function LocationPicker({ spots, value, onChange, label = "Lokasi
     dotsRef.current = spots.map((sp) => {
       const el = document.createElement("div");
       const main = sp.id === originId;
-      el.style.cssText = `width:${main ? 22 : 16}px;height:${main ? 22 : 16}px;border-radius:50%;background:${main ? "#C8421F" : "#574E63"};border:3px solid #FFFAEE;pointer-events:none`;
+      el.style.cssText = `width:${main ? 22 : 16}px;height:${main ? 22 : 16}px;border-radius:50%;background:${main ? PICKER_COLORS.primary : PICKER_COLORS.text};border:3px solid ${PICKER_COLORS.halo};pointer-events:none`;
       return new ml.Marker({ element: el }).setLngLat(ll(sp.coordinates)).addTo(map);
     });
   }, [ready, spots, originId]);

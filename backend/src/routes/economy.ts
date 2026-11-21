@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { CulturalSpot, IssuedVoucher, ReservationPass } from "../../../src/types/lokawira";
 import { distanceMeters } from "../../../src/lib/geo";
-import { isCrowded, needsBooking, openState } from "../../../src/lib/spotRules";
+import { isCrowded, needsBooking, normalizeSlot, openState } from "../../../src/lib/spotRules";
 import { pool, tx } from "../db.js";
 import {
   addXp, bad, claimOnce, endOfWibDay, fail, findVisibleSpot, getEntity, isExpiredIso, listEntities, newId, ownedSpotIds, rateLimit, sha,
@@ -109,7 +109,10 @@ export default async function economyRoutes(app: FastifyInstance) {
     const accept = b.acceptCircularQuest === true;
     // pengalihan cuma saat tempat padat (>= 85%), sesuai proposal. Di bawah itu misinya diabaikan
     const crowded = isCrowded(spot);
-    const slot = String(b.scheduledSlot ?? "").trim().slice(0, 40) || spot.quota.nextAvailableSlot;
+    const slot =
+      normalizeSlot(String(b.scheduledSlot ?? ""), spot) ||
+      normalizeSlot(spot.quota.nextAvailableSlot, spot) ||
+      spot.quota.nextAvailableSlot;
 
     // calon lapak pengalih: UMKM/sanggar terbit terdekat di kawasan yg sama, pemiliknya aktif, BUKAN tempat ini sendiri
     let partner: CulturalSpot | undefined;

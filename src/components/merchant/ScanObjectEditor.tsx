@@ -48,7 +48,13 @@ export default function ScanObjectEditor({ spot, setSpots, disabled, idPrefix = 
     try {
       const res = await api.updateSpot(spot.id, { quest: { targetObjectPrompt: target.trim() } });
       setSpots(res.spots);
-      setMsg({ ok: true, text: "Objek tersimpan. Wisatawan akan diminta memotret objek ini." });
+      setMsg({
+        ok: true,
+        text:
+          res.spot.status === "PENDING_REVIEW"
+            ? "Objek disimpan dan masuk antrean tinjau ulang pengelola sebelum tampil ke wisatawan."
+            : "Objek tersimpan. Wisatawan akan diminta memotret objek ini.",
+      });
     } catch (e2) {
       setMsg({ ok: false, text: describeError(e2, "Objek gagal disimpan.") });
     } finally {

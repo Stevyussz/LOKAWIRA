@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import Icon, { type IconName } from "@/components/ui/Icon";
 import { api, describeError } from "@/lib/api";
+import { formatRupiah } from "@/lib/format";
 import type { ImpactResponse } from "@/types/api";
 import type { Region } from "@/types/lokawira";
-
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 
 // dampak nyata 30 hari: bukti buat mitra (ke pembeli/sponsor) & pengelola (ke pemda). Semua angka anonim
 export default function ImpactCard({ title, regions }: { title: string; regions?: Region[] }) {
@@ -25,13 +25,15 @@ export default function ImpactCard({ title, regions }: { title: string; regions?
   useEffect(load, [load]);
 
   const t = data?.totals;
+  const checkInRate = t && t.checkIns > 0 ? Math.round((t.checkInsVerified / t.checkIns) * 100) : 0;
+  const voucherRate = t && t.vouchersIssued > 0 ? Math.round((t.vouchersRedeemed / t.vouchersIssued) * 100) : 0;
   const tiles: { icon: IconName; label: string; value: string; hint: string }[] = t
     ? [
         { icon: "qr", label: "Poster QR dipindai", value: String(t.qrOpens), hint: "Orang yang lewat lalu ingin tahu isinya" },
         { icon: "compass", label: "Diarahkan ke lokasi", value: String(t.guides), hint: "Memakai Pandu aku menuju titik" },
         { icon: "calendar", label: "Pengingat acara", value: String(t.reminders), hint: `Dari ${t.upcomingEvents} jadwal acara 30 hari ke depan` },
-        { icon: "pin", label: "Datang dan check-in", value: String(t.checkIns), hint: `${t.checkInsVerified} diverifikasi pemilik lapak` },
-        { icon: "voucher", label: "Voucer ditukar", value: String(t.vouchersRedeemed), hint: `Belanja dengan potongan ${rupiah(t.redeemedValue)}` },
+        { icon: "pin", label: "Datang dan check-in", value: String(t.checkIns), hint: `${t.checkInsVerified} diverifikasi (${checkInRate}%)` },
+        { icon: "voucher", label: "Voucer ditukar", value: String(t.vouchersRedeemed), hint: `Potongan ${formatRupiah(t.redeemedValue)} (${voucherRate}% dari ${t.vouchersIssued})` },
         { icon: "sanggar", label: "Titik punya agenda", value: `${t.spotsWithEvents}/${t.spots}`, hint: "Titik dengan acara terjadwal" },
       ]
     : [];
@@ -39,7 +41,7 @@ export default function ImpactCard({ title, regions }: { title: string; regions?
   const copySummary = async () => {
     if (!t) return;
     const area = regionId ? regions?.find((r) => r.id === regionId)?.name ?? "" : regions ? "semua kawasan" : "lapak saya";
-    const text = `Dampak LOKAWIRA 30 hari terakhir (${area}): poster QR dipindai ${t.qrOpens} kali, ${t.guides} orang diarahkan ke lokasi, ${t.reminders} pengingat acara disimpan, ${t.checkIns} check-in (${t.checkInsVerified} diverifikasi), ${t.vouchersRedeemed} voucer ditukar dengan potongan ${rupiah(t.redeemedValue)}, ${t.spotsWithEvents} dari ${t.spots} titik punya agenda.`;
+    const text = `Dampak LOKAWIRA 30 hari terakhir (${area}): poster QR dipindai ${t.qrOpens} kali, ${t.guides} orang diarahkan ke lokasi, ${t.reminders} pengingat acara disimpan, ${t.checkIns} check-in (${t.checkInsVerified} diverifikasi), ${t.vouchersRedeemed} voucer ditukar dengan potongan ${formatRupiah(t.redeemedValue)}, ${t.spotsWithEvents} dari ${t.spots} titik punya agenda.`;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -68,6 +70,10 @@ export default function ImpactCard({ title, regions }: { title: string; regions?
             <Icon name={copied ? "check" : "copy"} size={16} />
             <span>{copied ? "Tersalin" : "Salin ringkasan"}</span>
           </button>
+          <Link href="/laporan-dampak" className="btn-tactile-primary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
+            <Icon name="download" size={16} />
+            <span>Laporan Resmi (PDF)</span>
+          </Link>
         </div>
       </div>
       {err ? (

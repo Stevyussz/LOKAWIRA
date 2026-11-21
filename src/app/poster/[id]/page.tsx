@@ -4,6 +4,7 @@ import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import Loka from "@/components/brand/Loka";
+import { NusantaraCornerFrame, NusantaraPatternStrip, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import Icon from "@/components/ui/Icon";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 
@@ -50,22 +51,45 @@ export default function PosterPage({ params }: { params: Promise<{ id: string }>
 
       <article
         aria-label={`Poster ${spot.name}`}
-        className="w-full max-w-[148mm] rounded-3xl bg-basalt border-4 border-vibePrimary p-6 sm:p-8 flex flex-col items-center text-center gap-4 print:border-[3mm] print:rounded-none print:max-w-none print:h-[200mm]"
+        data-vibe={spot.vibe}
+        className="relative w-full max-w-[148mm] rounded-3xl bg-basalt border-4 border-vibePrimary overflow-hidden print:border-[3mm] print:rounded-none print:max-w-none print:h-[200mm] flex flex-col justify-between"
       >
-        <div className="flex items-center gap-2">
-          <Loka variant="mark" size={40} />
-          <span className="font-display text-lg font-extrabold text-vibePrimary">LOKAWIRA</span>
+        <NusantaraPatternStrip vibe={spot.vibe} height={10} />
+        <div className="relative flex-1 p-5 sm:p-7 flex flex-col items-center text-center gap-3.5 justify-center">
+          <NusantaraCornerFrame size={26} />
+          <div className="relative z-10 w-full">
+            <RegionCoverBanner
+              vibe={spot.vibe}
+              compact
+              eyebrow={spot.opkCategory}
+              title={spot.name}
+              subtitle={spot.highlight || spot.regionName}
+            />
+          </div>
+          <div className="relative z-10 flex items-center justify-center gap-3 pt-1">
+            <Loka variant="mark" size={38} />
+            <span className="font-display text-lg font-extrabold text-vibePrimary tracking-wide">LOKAWIRA</span>
+            <PrasastiSeal size={36} />
+          </div>
+          <p className="relative z-10 text-sm text-pebble max-w-sm">
+            Pindai QR ini dengan kamera HP untuk membuka kisah budaya, jadwal acara, dan voucer kunjungan.
+          </p>
+          {svg ? (
+            <div
+              role="img"
+              aria-label={`Kode QR menuju ${spot.name}`}
+              className="relative z-10 w-[56mm] h-[56mm] max-w-full rounded-2xl border-2 border-stoneSubtle bg-[#FFFAEE] p-2 [&>svg]:w-full [&>svg]:h-full"
+              dangerouslySetInnerHTML={{ __html: svg }}
+            />
+          ) : (
+            <p role="status" className="text-sm text-pebble">Membuat kode QR</p>
+          )}
+          <div className="relative z-10 space-y-0.5">
+            <p className="font-num text-[11px] text-pebble break-all">{url}</p>
+            <p className="text-xs font-bold text-alabaster">{spot.regionName}</p>
+          </div>
         </div>
-        <h1 className="font-display text-3xl font-extrabold text-alabaster leading-tight">{spot.name}</h1>
-        {spot.highlight && <p className="text-base font-bold text-alabaster">{spot.highlight}</p>}
-        <p className="text-sm text-pebble">Pindai dengan kamera HP untuk tahu isinya: kisah budaya, jadwal acara, dan voucer kunjungan.</p>
-        {svg ? (
-          <div role="img" aria-label={`Kode QR menuju ${spot.name}`} className="w-[60mm] h-[60mm] max-w-full [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: svg }} />
-        ) : (
-          <p role="status" className="text-sm text-pebble">Membuat kode QR</p>
-        )}
-        <p className="font-num text-[11px] text-pebble break-all">{url}</p>
-        <p className="text-xs text-pebble">{spot.regionName}</p>
+        <NusantaraPatternStrip vibe={spot.vibe} height={10} />
       </article>
     </main>
   );

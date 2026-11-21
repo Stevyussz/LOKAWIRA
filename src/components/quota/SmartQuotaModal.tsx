@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/Icon";
+import QrCodeSvg from "@/components/ui/QrCodeSvg";
 import { api, DEMO_MODE, describeError } from "@/lib/api";
 import { useAuth } from "@/components/layout/AuthProvider";
 import { motion } from "motion/react";
 import Sheet from "@/components/ui/Sheet";
 import { CulturalSpot, IssuedVoucher, ReservationPass } from "@/types/lokawira";
-import { entryOf, isCrowded as crowdedNow } from "@/lib/spotRules";
+import { availableSlotsFor, entryOf, isCrowded as crowdedNow } from "@/lib/spotRules";
+import { formatRupiah } from "@/lib/format";
 import type { RedirectNote } from "@/types/api";
 
 interface SmartQuotaModalProps {
@@ -49,14 +51,16 @@ export default function SmartQuotaModal({
     undefined
   );
 
+  const slots = useMemo(() => (spot ? availableSlotsFor(spot) : []), [spot]);
+
   useEffect(() => {
     if (!isOpen || !spot) return;
-    setScheduledSlot(spot.quota.nextAvailableSlot || "14:30 WIB");
+    setScheduledSlot(slots[0] || "09:00 WIB");
     setCreatedPass(null);
     setCreatedVoucher(undefined);
     setRewardNote(undefined);
     setFormError(null);
-  }, [isOpen, spot]);
+  }, [isOpen, spot, slots]);
 
   if (!spot) return null;
 
@@ -67,7 +71,7 @@ export default function SmartQuotaModal({
   const partners = nearbyUmkmSpots.filter((x) => x.id !== spot.id);
   // hadiah voucer dari UMKM sekitar (angka asli dari data mitra, bkn tulisan tetap)
   const bestReward = partners.reduce((m, x) => Math.max(m, x.quest.voucherReward.discountAmount), 0);
-  const rewardText = bestReward > 0 ? `Rp${bestReward.toLocaleString("id-ID")}` : "";
+  const rewardText = bestReward > 0 ? formatRupiah(bestReward) : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,9 +97,7 @@ export default function SmartQuotaModal({
       setRewardNote(data.rewardNote);
       onReservationCreated(data.reservation, data.bonusVoucher, data.awardedPoints ?? 0);
     } catch (err) {
-      setFormError(
-        err instanceof Error ? err.message : "Terjadi kesalahan saat memesan slot."
-      );
+      setFormError(describeError(err, "Terjadi kesalahan saat memesan slot."));
     } finally {
       setIsSubmitting(false);
     }
@@ -176,7 +178,7 @@ export default function SmartQuotaModal({
                       {umkm.name}
                     </p>
                     <p className="text-xs text-quotaSafe font-num font-bold mt-0.5">
-                      Voucer Rp{umkm.quest.voucherReward.discountAmount.toLocaleString("id-ID")}
+                      Voucer {formatRupiah(umkm.quest.voucherReward.discountAmount)}
                     </p>
                   </div>
                   <button
@@ -205,7 +207,7 @@ export default function SmartQuotaModal({
               return (
                 <p className="text-xs text-alabaster leading-relaxed">
                   {en.mode === "TICKET"
-                    ? `Tiket masuk ${en.priceIdr ? `Rp${en.priceIdr.toLocaleString("id-ID")} per orang` : "gratis"}. ${en.note || "Bayar di loket saat masuk."} Pesan jam masuk di sini supaya tidak antre.`
+                    ? `Tiket masuk ${en.priceIdr ? `${formatRupiah(en.priceIdr)} per orang` : "gratis"}. ${en.note || "Bayar di loket saat masuk."} Pesan jam masuk di sini supaya tidak antre.`
                     : "Masuk gratis, tapi tempatnya terbatas. Pesan jam masuk di sini."}
                 </p>
               );
@@ -255,7 +257,7 @@ export default function SmartQuotaModal({
                 Pilih Slot Jam Masuk
               </label>
               <div className="flex flex-wrap gap-2">
-                {["14:30 WIB", "15:15 WIB", "16:00 WIB"].map((slot) => (
+                {slots.map((slot) => (
                   <button
                     key={slot}
                     type="button"
@@ -308,7 +310,7 @@ export default function SmartQuotaModal({
               ) : (
                 <>
                   <Icon name="ticket" size={20} motion="pop" />
-                  <span>Ambil QR Reservation Pass (+75 XP)</span>
+                  <span>{user ? "Pesan E-Ticket (+75 XP)" : "Pesan E-Ticket"}</span>
                 </>
               )}
             </button>
@@ -320,70 +322,87 @@ export default function SmartQuotaModal({
             initial={{ opacity: 0, y: 18, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 320, damping: 24 }}
-            className="perforated-ticket p-5 space-y-3"
+            className="ticket-shadow"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Icon name="check" size={24} className="text-quotaSafe" motion="pop" />
-                <div>
-                  <span className="text-xs font-bold text-quotaSafe block">
-                    QR Reservation Pass Aktif
+            <div className="ticket-cut-h rounded-2xl overflow-hidden border border-stoneSubtle">
+              <div className="h-2 bg-vibePrimary" aria-hidden="true" />
+              <div className="tumpal-edge" aria-hidden="true" />
+              <div className="p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Icon name="check" size={24} className="text-quotaSafe" motion="pop" />
+                    <div>
+                      <span className="text-xs font-bold text-quotaSafe block">
+                        E-Ticket Masuk Aktif
+                      </span>
+                      <h3 className="text-base font-extrabold text-alabaster">
+                        {createdPass.spotName}
+                      </h3>
+                    </div>
+                  </div>
+                  <span className="font-num text-sm font-extrabold px-3 py-1 rounded-xl bg-obsidian text-vibeSecondary">
+                    {createdPass.ticketId}
                   </span>
-                  <h3 className="text-base font-extrabold text-alabaster">
-                    {createdPass.spotName}
-                  </h3>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs bg-obsidian p-3.5 rounded-2xl">
+                  <div>
+                    <span className="text-pebble block">Pemesan</span>
+                    <strong className="text-alabaster">{createdPass.visitorName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-pebble block">Jam Masuk</span>
+                    <strong className="font-num text-vibePrimary">
+                      {createdPass.scheduledSlot}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-pebble block">Rombongan</span>
+                    <strong className="font-num text-alabaster">
+                      {createdPass.partySize} Orang
+                    </strong>
+                  </div>
                 </div>
               </div>
-              <span className="font-num text-sm font-extrabold px-3 py-1 rounded-xl bg-obsidian text-vibeSecondary">
-                {createdPass.ticketId}
-              </span>
-            </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs bg-obsidian p-3.5 rounded-2xl">
-              <div>
-                <span className="text-pebble block">Pemesan</span>
-                <strong className="text-alabaster">{createdPass.visitorName}</strong>
-              </div>
-              <div>
-                <span className="text-pebble block">Jam Masuk</span>
-                <strong className="font-num text-vibePrimary">
-                  {createdPass.scheduledSlot}
-                </strong>
-              </div>
-              <div>
-                <span className="text-pebble block">Rombongan</span>
-                <strong className="font-num text-alabaster">
-                  {createdPass.partySize} Orang
-                </strong>
-              </div>
-            </div>
+              <div aria-hidden="true" className="perforation-h h-[6px] mx-5" style={{ marginTop: -2 }} />
 
-            {!createdVoucher && rewardNote && (
-              <p className="p-3.5 rounded-2xl bg-obsidian text-xs text-alabaster leading-relaxed">
-                {rewardNote === "LOGIN_FOR_REWARD"
-                  ? "Voucer pengalih antrean hanya untuk pengguna yang masuk. Masuk atau daftar, lalu pesan lagi untuk mendapatkannya."
-                  : rewardNote === "ALREADY_CLAIMED_TODAY"
-                  ? "Voucer pengalih antrean dari lapak ini sudah kamu terima hari ini."
-                  : rewardNote === "NOT_CROWDED"
-                  ? "Tempat ini sedang tidak padat, jadi tidak perlu dialihkan. Voucer pengalih hanya terbit saat tempat terisi 85% atau lebih."
-                  : "Belum ada lapak mitra di kawasan ini, jadi voucer pengalih antrean belum tersedia."}
-              </p>
-            )}
-
-            {createdVoucher && (
-              <div className="p-3.5 rounded-2xl bg-obsidian text-xs flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <span className="text-[11px] text-vibePrimary font-bold block">
-                    Bonus Voucer Pengalih Antrean
-                  </span>
-                  <strong className="text-alabaster">{createdVoucher.merchantName}</strong>
+              <div className="p-5 pt-3.5 space-y-3">
+                <div className="flex items-center gap-3.5">
+                  <QrCodeSvg value={createdPass.ticketId} size={88} label={`QR E-Ticket ${createdPass.ticketId}`} />
+                  <div className="text-xs text-pebble space-y-1">
+                    <p className="font-num text-sm font-extrabold tracking-wider text-alabaster">{createdPass.ticketId}</p>
+                    <p>Tunjukkan QR atau kode tiket ini ke petugas gerbang saat jam masukmu tiba.</p>
+                  </div>
                 </div>
-                <span className="font-num text-sm font-extrabold text-vibeSecondary">
-                  {createdVoucher.code} (Rp
-                  {createdVoucher.discountAmount.toLocaleString("id-ID")})
-                </span>
+
+                {!createdVoucher && rewardNote && (
+                  <p className="p-3.5 rounded-2xl bg-obsidian text-xs text-alabaster leading-relaxed">
+                    {rewardNote === "LOGIN_FOR_REWARD"
+                      ? "Voucer pengalih antrean hanya untuk pengguna yang masuk. Masuk atau daftar, lalu pesan lagi untuk mendapatkannya."
+                      : rewardNote === "ALREADY_CLAIMED_TODAY"
+                      ? "Voucer pengalih antrean dari lapak ini sudah kamu terima hari ini."
+                      : rewardNote === "NOT_CROWDED"
+                      ? "Tempat ini sedang tidak padat, jadi tidak perlu dialihkan. Voucer pengalih hanya terbit saat tempat terisi 85% atau lebih."
+                      : "Belum ada lapak mitra di kawasan ini, jadi voucer pengalih antrean belum tersedia."}
+                  </p>
+                )}
+
+                {createdVoucher && (
+                  <div className="p-3.5 rounded-2xl bg-obsidian text-xs flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[11px] text-vibePrimary font-bold block">
+                        Bonus Voucer Pengalih Antrean
+                      </span>
+                      <strong className="text-alabaster">{createdVoucher.merchantName}</strong>
+                    </div>
+                    <span className="font-num text-sm font-extrabold text-vibeSecondary">
+                      {createdVoucher.code} ({formatRupiah(createdVoucher.discountAmount)})
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </motion.div>
         )}
       </div>

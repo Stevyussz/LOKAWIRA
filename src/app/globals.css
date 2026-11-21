@@ -301,37 +301,6 @@ body {
 [data-motion="reduce"] .animate-pin-bob, [data-motion="reduce"] .animate-sheet-up, [data-motion="reduce"] .animate-ground-pulse,
 [data-motion="reduce"] .animate-ping, [data-motion="reduce"] .animate-scanline { animation: none !important; }
 
-/* efek Potongan Tiket Fisik utk Voucer UMKM & Tiket Reservasi (Identity Motif) */
-.perforated-ticket {
-  position: relative;
-  background: var(--bg-basalt-card);
-  border: 1px solid var(--border-stone-strong);
-  border-radius: 20px;
-}
-
-.perforated-ticket::before,
-.perforated-ticket::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 22px;
-  height: 22px;
-  background-color: var(--bg-andesite-base);
-  border-radius: 9999px;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.perforated-ticket::before {
-  left: -12px;
-  border-right: 1px solid var(--border-stone-strong);
-}
-
-.perforated-ticket::after {
-  right: -12px;
-  border-left: 1px solid var(--border-stone-strong);
-}
-
 @keyframes scanlineMove {
   0% {
     top: 22%;

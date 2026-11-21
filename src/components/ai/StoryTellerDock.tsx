@@ -3,12 +3,12 @@
 import Loka from "@/components/brand/Loka";
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { useVibeHex } from "@/lib/vibeColors";
 import Icon from "@/components/ui/Icon";
 import { api, describeError } from "@/lib/api";
 import { CulturalSpot } from "@/types/lokawira";
 import type { LokaMode } from "@/types/api";
 import { suggestQuestions } from "@/lib/loka";
+import { formatShortRupiah } from "@/lib/format";
 import { useReducedMotionConfig } from "@/lib/motionPref";
 
 // satu tanya-jawab di percakapan dgn Loka
@@ -36,7 +36,6 @@ export default function StoryTellerDock({
   onSelectNearbyUmkm,
 }: StoryTellerDockProps) {
   const reducedMotion = useReducedMotionConfig();
-  const vh = useVibeHex();
   const [narrative, setNarrative] = useState<string>("");
   const [displayedText, setDisplayedText] = useState<string>("");
   const [showRiddle, setShowRiddle] = useState<boolean>(false);
@@ -67,6 +66,10 @@ export default function StoryTellerDock({
       setDisplayedText("");
       return;
     }
+    if (reducedMotion === "always") {
+      setDisplayedText(narrative);
+      return;
+    }
     let idx = 0;
     setDisplayedText("");
     const timer = setInterval(() => {
@@ -80,7 +83,7 @@ export default function StoryTellerDock({
     }, 16);
 
     return () => clearInterval(timer);
-  }, [narrative]);
+  }, [narrative, reducedMotion]);
 
   useEffect(() => {
     if (turns.length) lastRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion === "always" ? "auto" : "smooth" });
@@ -251,7 +254,7 @@ export default function StoryTellerDock({
                     {selectedSpot.quest.riddleTitle}
                   </span>
                   <span className="font-num text-[11px] font-bold text-quotaSafe">
-                    +Rp{selectedSpot.quest.voucherReward.discountAmount / 1000}rb
+                    +{formatShortRupiah(selectedSpot.quest.voucherReward.discountAmount)}
                   </span>
                 </div>
                 <p className="text-xs text-alabaster leading-relaxed">
@@ -325,7 +328,7 @@ export default function StoryTellerDock({
                             type="button"
                             disabled={isLoadingAi}
                             onClick={() => ask(f)}
-                            className="min-h-[36px] px-3 py-1.5 rounded-full border border-stoneStrong bg-basalt text-[11px] font-bold text-alabaster text-left hover:border-vibePrimary disabled:opacity-60"
+                            className="min-h-[44px] px-3 py-1.5 rounded-full border border-stoneStrong bg-basalt text-[11px] font-bold text-alabaster text-left hover:border-vibePrimary disabled:opacity-60"
                           >
                             {f}
                           </button>

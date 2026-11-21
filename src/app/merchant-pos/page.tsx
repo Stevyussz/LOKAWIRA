@@ -14,24 +14,10 @@ import LokaTips from "@/components/merchant/LokaTips";
 import GettingStarted, { MerchantMenu } from "@/components/merchant/GettingStarted";
 import RegisterSpotForm from "@/components/merchant/RegisterSpotForm";
 import ScanPromoPanel, { DEFAULT_TARGET } from "@/components/merchant/ScanPromoPanel";
-import { SpotType } from "@/types/lokawira";
 import Icon, { IconName } from "@/components/ui/Icon";
 import { formatCoord } from "@/lib/geo";
-
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
-
-const TYPE_LABEL: Record<SpotType, string> = {
-  PRIMARY_DEST: "Cagar budaya",
-  SANGGAR_SENI: "Sanggar seni",
-  UMKM_KULINER: "UMKM makan & minum",
-  UMKM_KRIYA: "UMKM kriya & oleh-oleh",
-};
-const TYPE_ICON: Record<SpotType, IconName> = {
-  PRIMARY_DEST: "heritage",
-  SANGGAR_SENI: "sanggar",
-  UMKM_KULINER: "food",
-  UMKM_KRIYA: "umkm",
-};
+import { formatRupiah } from "@/lib/format";
+import { SPOT_TYPE_ICON, SPOT_TYPE_LABEL } from "@/lib/spotMeta";
 
 function MerchantPosContent() {
   const searchParams = useSearchParams();
@@ -154,7 +140,7 @@ function MerchantPosContent() {
           <div className="gamiz-card p-4 min-w-[200px] sm:min-w-0 snap-start shrink-0 sm:shrink">
             <span className="text-xs font-bold text-pebble block">Sudah dipakai</span>
             <p className="font-num text-2xl font-extrabold text-quotaSafe mt-1">{redeemed.length}</p>
-            <span className="text-xs text-pebble font-num">Senilai {rupiah(redeemedValue)}</span>
+            <span className="text-xs text-pebble font-num">Senilai {formatRupiah(redeemedValue)}</span>
           </div>
           <div className="gamiz-card p-4 min-w-[200px] sm:min-w-0 snap-start shrink-0 sm:shrink">
             <span className="text-xs font-bold text-pebble block">{isAdmin ? "Semua lapak" : "Lapak saya"}</span>
@@ -201,7 +187,7 @@ function MerchantPosContent() {
                     return (
                       <li key={s.id} className="list-none rounded-2xl border border-stoneSubtle bg-basalt p-3.5 flex items-start gap-3">
                         <span className="w-11 h-11 rounded-2xl bg-slateElev text-vibePrimary flex items-center justify-center shrink-0">
-                          <Icon name={TYPE_ICON[s.spotType]} size={24} />
+                          <Icon name={SPOT_TYPE_ICON[s.spotType]} size={24} />
                         </span>
                         <div className="min-w-0 space-y-0.5">
                           <p className="text-sm font-extrabold text-alabaster leading-snug">{s.name}</p>
@@ -215,9 +201,9 @@ function MerchantPosContent() {
                           ) : (
                             <p className="inline-flex text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-quotaSafe/15 text-quotaSafe">Tampil di peta</p>
                           )}
-                          <p className="text-[11px] text-pebble">{TYPE_LABEL[s.spotType]} · {s.regionName}</p>
+                          <p className="text-[11px] text-pebble">{SPOT_TYPE_LABEL[s.spotType]} · {s.regionName}</p>
                           <p className="font-num text-[11px] text-pebble">{formatCoord(s.coordinates)}</p>
-                          <p className="font-num text-[11px] font-bold text-quotaSafe">Voucer {rupiah(s.quest.voucherReward.discountAmount)} · min. {rupiah(s.quest.voucherReward.minimumSpend)}</p>
+                          <p className="font-num text-[11px] font-bold text-quotaSafe">Voucer {formatRupiah(s.quest.voucherReward.discountAmount)} · min. {formatRupiah(s.quest.voucherReward.minimumSpend)}</p>
                           {!scanOk && (
                             <p className="text-[11px] font-bold text-quotaWarning">
                               Objek scan belum lengkap.{" "}

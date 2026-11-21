@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Sheet from "@/components/ui/Sheet";
 import Icon from "@/components/ui/Icon";
-import Loka from "@/components/brand/Loka";
+import LokaScene from "@/components/brand/LokaScene";
 import { downloadIcs } from "@/lib/ics";
 import { trackOnce } from "@/lib/track";
 import { entryOf, ENTRY_LABEL, tzOf, TZ_LABEL } from "@/lib/spotRules";
@@ -66,8 +66,8 @@ export default function AgendaSheet({ isOpen, onClose, regionName, occurrences, 
       ) : occurrences === null ? (
         <p role="status" className="py-8 text-center text-sm text-pebble">Memuat agenda</p>
       ) : groups.length === 0 ? (
-        <div className="py-8 text-center space-y-2">
-          <div className="flex justify-center"><Loka size={72} mood="think" /></div>
+        <div className="py-8 text-center space-y-3">
+          <LokaScene scene="empty-agenda" size={104} />
           <p className="text-base font-extrabold text-alabaster">Belum ada acara terjadwal</p>
           <p className="text-sm text-pebble">Sanggar dan lapak di kawasan ini belum mengisi jadwal. Coba kawasan lain, atau jelajahi titiknya di peta.</p>
         </div>

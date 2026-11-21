@@ -167,8 +167,65 @@ export function applyInfo(spot: CulturalSpot, info: Partial<Record<keyof SpotInf
   }
 }
 
-// teks budaya yg dibacakan Loka & dibaca wisatawan (cerita, petunjuk, judul misi). Mitra ngubah ini = ditinjau ulang pengelola.
-// Nama objek scan gak termasuk: itu cuma patokan foto, dan mitra perlu bebas ngaturnya saat menyiapkan misi
+// Teks budaya & prompt objek pindaian: jika mitra mengubah ini, titik kembali ditinjau ulang pengelola
 export function storyChanged(a: CulturalSpot, b: CulturalSpot) {
-  return a.quest.loreNarrative !== b.quest.loreNarrative || a.quest.riddleClue !== b.quest.riddleClue || a.quest.riddleTitle !== b.quest.riddleTitle;
+  return (
+    a.quest.loreNarrative !== b.quest.loreNarrative ||
+    a.quest.riddleClue !== b.quest.riddleClue ||
+    a.quest.riddleTitle !== b.quest.riddleTitle ||
+    a.quest.targetObjectPrompt !== b.quest.targetObjectPrompt
+  );
+}
+
+const DEFAULT_SLOTS = ["09:00", "11:00", "14:00", "16:00"];
+
+// Normalisasi slot waktu (mis. "14:30" / "14.30" / "14:30 wib" -> "14:30 WIB"), namun tetap pertahankan teks bebas seperti kode uji
+export function normalizeSlot(raw: string, spot?: Pick<CulturalSpot, "coordinates">): string {
+  const clean = String(raw || "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
+  if (!clean) return "";
+  const tz = spot ? TZ_LABEL[tzOf(spot)] : "WIB";
+  const m = clean.match(/^(\d{1,2})[:.](\d{2})(?:\s*(WIB|WITA|WIT))?$/i);
+  if (m) {
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (h >= 0 && h <= 23 && min >= 0 && min <= 59) {
+      const zone = (m[3] ?? tz).toUpperCase();
+      return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")} ${zone}`;
+    }
+  }
+  return clean;
+}
+
+// Daftar slot jam masuk dinamis berdasarkan jam buka titik (atau fallback yang dinormalkan)
+export function availableSlotsFor(spot: Pick<CulturalSpot, "openingHours" | "quota" | "coordinates">): string[] {
+  const tz = TZ_LABEL[tzOf(spot)];
+  const next = spot.quota.nextAvailableSlot ? normalizeSlot(spot.quota.nextAvailableSlot, spot) : "";
+  const out: string[] = [];
+  const push = (s: string) => {
+    if (s && !out.includes(s)) out.push(s);
+  };
+  if (next) push(next);
+
+  const open = spot.openingHours?.open ?? "08:00";
+  const close = spot.openingHours?.close ?? "17:00";
+  const toMin = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : NaN;
+  };
+  const openMin = toMin(open);
+  const closeMin = toMin(close);
+  if (Number.isFinite(openMin) && Number.isFinite(closeMin) && closeMin > openMin + 60) {
+    const start = Math.ceil((openMin + 30) / 30) * 30;
+    const step = closeMin - start > 360 ? 120 : 60;
+    for (let m = start; m <= closeMin - 30 && out.length < 4; m += step) {
+      const hh = String(Math.floor(m / 60)).padStart(2, "0");
+      const mm = String(m % 60).padStart(2, "0");
+      push(`${hh}:${mm} ${tz}`);
+    }
+  }
+  for (const fallback of DEFAULT_SLOTS) {
+    if (out.length >= 3) break;
+    push(`${fallback} ${tz}`);
+  }
+  return out;
 }

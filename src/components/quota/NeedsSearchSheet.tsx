@@ -4,14 +4,18 @@ import React, { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
+import LokaScene from "@/components/brand/LokaScene";
 import { CulturalSpot } from "@/types/lokawira";
-import { regionOrigin } from "@/lib/geo";
+import { distanceMeters, formatDistance, LatLng, regionOrigin } from "@/lib/geo";
+import { formatRupiah } from "@/lib/format";
+import { spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
 
 interface NeedsSearchSheetProps {
   isOpen: boolean;
   onClose: () => void;
   // titik di kawasan aktif
   spots: CulturalSpot[];
+  userPosition?: LatLng | null;
   onShowOnMap: (spot: CulturalSpot) => void;
 }
 
@@ -43,41 +47,14 @@ const TYPE_WORDS: Record<CulturalSpot["spotType"], string> = {
   UMKM_KRIYA: "oleh-oleh kriya souvenir kerajinan",
 };
 
-const TYPE_LABEL: Record<CulturalSpot["spotType"], string> = {
-  PRIMARY_DEST: "Cagar budaya utama",
-  SANGGAR_SENI: "Sanggar seni",
-  UMKM_KULINER: "Makan & minum",
-  UMKM_KRIYA: "Oleh-oleh dan kriya",
-};
-
-const iconFor = (s: CulturalSpot): IconName =>
-  s.spotType === "PRIMARY_DEST"
-    ? "heritage"
-    : s.spotType === "SANGGAR_SENI"
-    ? "sanggar"
-    : s.spotType === "UMKM_KULINER"
-    ? "food"
-    : "umkm";
-
-// Jarak garis lurus (Haversine) antr dua titik, dlm meter
-function meters(a: CulturalSpot["coordinates"], b: CulturalSpot["coordinates"]): number {
-  const R = 6371000;
-  const rad = (d: number) => (d * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat);
-  const dLng = rad(b.lng - a.lng);
-  const x = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(x));
-}
-
-const fmtDistance = (m: number) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`);
-const rupiah = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
-
 // "Butuh apa?": wisatwan mencari makan, minum, oleh-oleh, atw fasilitas
-export default function NeedsSearchSheet({ isOpen, onClose, spots, onShowOnMap }: NeedsSearchSheetProps) {
+export default function NeedsSearchSheet({ isOpen, onClose, spots, userPosition, onShowOnMap }: NeedsSearchSheetProps) {
   const [query, setQuery] = useState("");
   const [needId, setNeedId] = useState<string | null>(null);
 
-  const reference = regionOrigin(spots);
+  const originSpot = regionOrigin(spots);
+  const referenceCoords = userPosition ?? originSpot?.coordinates ?? null;
+  const referenceLabel = userPosition ? "posisimu" : originSpot?.name.split("&")[0].trim() ?? "";
 
   const availableNeeds = useMemo(
     () => NEEDS.map((n) => ({ ...n, count: spots.filter(n.match).length })).filter((n) => n.count > 0),
@@ -94,9 +71,9 @@ export default function NeedsSearchSheet({ isOpen, onClose, spots, onShowOnMap }
         const hay = `${s.name} ${s.address} ${s.facilities.join(" ")} ${TYPE_WORDS[s.spotType]}`.toLowerCase();
         return terms.every((t) => hay.includes(t));
       })
-      .map((s) => ({ spot: s, dist: reference ? meters(reference.coordinates, s.coordinates) : 0 }))
+      .map((s) => ({ spot: s, dist: referenceCoords ? distanceMeters(referenceCoords, s.coordinates) : 0 }))
       .sort((a, b) => a.dist - b.dist);
-  }, [spots, query, needId, reference]);
+  }, [spots, query, needId, referenceCoords]);
 
   const header = (
     <div className="space-y-3">
@@ -159,10 +136,8 @@ export default function NeedsSearchSheet({ isOpen, onClose, spots, onShowOnMap }
   return (
     <Sheet isOpen={isOpen} onClose={onClose} titleId="needs-sheet-title" header={header}>
       {results.length === 0 ? (
-        <div className="py-10 text-center space-y-3">
-          <div className="mx-auto w-16 h-16 rounded-3xl bg-slateElev flex items-center justify-center text-vibePrimary">
-            <Icon name="search" size={34} />
-          </div>
+        <div className="py-8 text-center space-y-3">
+          <LokaScene scene="empty-search" size={104} />
           <p className="text-base font-extrabold text-alabaster">
             {query ? `Tidak ada yang cocok dengan "${query}"` : "Belum ada tempat untuk kebutuhan ini"}
           </p>
@@ -194,17 +169,16 @@ export default function NeedsSearchSheet({ isOpen, onClose, spots, onShowOnMap }
               >
                 <div className="flex items-start gap-3">
                   <span className="w-11 h-11 rounded-2xl bg-slateElev flex items-center justify-center text-vibePrimary shrink-0">
-                    <Icon name={iconFor(spot)} size={26} />
+                    <Icon name={spotTypeIcon(spot.spotType)} size={26} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-extrabold text-alabaster leading-snug">{spot.name}</p>
                     <p className="text-[11px] text-pebble mt-0.5">
-                      {TYPE_LABEL[spot.spotType]}
-                      {reference && spot.id !== reference.id && (
+                      {spotTypeLabel(spot.spotType)}
+                      {referenceCoords && (userPosition || spot.id !== originSpot?.id) && (
                         <>
                           {" · "}
-                          <span className="font-num font-bold">{fmtDistance(dist)}</span> dari{" "}
-                          {reference.name.split("&")[0].trim()}
+                          <span className="font-num font-bold">{formatDistance(dist)}</span> dari {referenceLabel}
                         </>
                       )}
                     </p>
@@ -226,7 +200,7 @@ export default function NeedsSearchSheet({ isOpen, onClose, spots, onShowOnMap }
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   {partner ? (
                     <span className="text-[11px] font-bold text-quotaSafe font-num">
-                      Voucer {rupiah(spot.quest.voucherReward.discountAmount)}
+                      Voucer {formatRupiah(spot.quest.voucherReward.discountAmount)}
                     </span>
                   ) : (
                     <span className="text-[11px] text-pebble">

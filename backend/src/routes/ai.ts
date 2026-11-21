@@ -168,6 +168,9 @@ export default async function aiRoutes(app: FastifyInstance) {
   // pindai objek: foto wajib (JPEG/PNG/WebP asli), titik buka, dekat (kalo geofence nyala). Hadiah cuma akun, sekali/titik/hari WIB
   app.post("/api/ai/lens-verify", async (request) => {
     if (!request.isMultipart()) bad("Kirim foto objek sebagai multipart/form-data (field image).");
+    const user = currentUser(request);
+    // Batasi rate lebih dulu sebelum buffer berkas hingga 5 MB dibaca
+    await rateLimit(pool, `scan:${user?.id ?? sha(request.ip)}`, 20, 600, "Terlalu banyak pemindaian. Tunggu beberapa menit lalu coba lagi.");
     const fields: Record<string, string> = {};
     let image: { type: string; data: Buffer } | null = null;
     try {
@@ -184,14 +187,11 @@ export default async function aiRoutes(app: FastifyInstance) {
     if (!IMAGE_TYPES.has(image.type)) fail(415, "Format foto harus JPEG, PNG, atau WebP.", "IMAGE_TYPE_UNSUPPORTED");
     if (!imageSignatureMatches(image.type, image.data)) fail(415, "Isi foto tidak sesuai dengan format berkasnya.", "IMAGE_TYPE_UNSUPPORTED");
 
-    const user = currentUser(request);
     const row = await findVisibleSpot(pool, user, fields.spotId);
     if (!row) fail(404, "Titik lokasi tidak ditemukan.", "NOT_FOUND");
     const spot = row.payload;
     geofence({ lat: fields.lat, lng: fields.lng, accuracyMeters: fields.accuracyMeters }, spot, "memindai objek");
     assertOpen(spot);
-    // tiap pindai = panggilan AI berbayar: dibatasi per akun / per IP
-    await rateLimit(pool, `scan:${user?.id ?? sha(request.ip)}`, 20, 600, "Terlalu banyak pemindaian. Tunggu beberapa menit lalu coba lagi.");
 
     const base = { opkReference: spot.opkCategory as OpkCategory, verifiedSource: spot.quest.verifiedLoreSource };
     if (image.data.length < 8 * 1024) {
