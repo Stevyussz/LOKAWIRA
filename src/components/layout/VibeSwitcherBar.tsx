@@ -128,12 +128,20 @@ export default function VibeSwitcherBar({
             onClick={() => setRegionMenuOpen((prev) => !prev)}
             aria-haspopup="true"
             aria-expanded={regionMenuOpen}
-            className="andesite-glass w-full h-[56px] pl-4 pr-3 rounded-full flex items-center gap-2.5 hover:bg-slateElev transition-colors"
+            className="andesite-glass w-full h-[56px] pl-2 pr-3 rounded-full flex items-center gap-2.5 hover:bg-slateElev transition-colors"
           >
             <span
-              className="w-3 h-3 rounded-full shrink-0"
-              style={{ backgroundColor: VIBE_HEX[currentVibe.theme].primary }}
-            />
+              className="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 bg-obsidian"
+              style={{ borderColor: VIBE_HEX[currentVibe.theme].primary }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={REGION_COVER_IMAGE[currentVibe.theme]}
+                alt=""
+                aria-hidden="true"
+                className="w-full h-full object-cover"
+              />
+            </span>
             <span className="min-w-0 flex-1 text-left leading-tight">
               <span className="sr-only">Pilih kawasan: </span>
               <span className="block text-sm font-extrabold text-alabaster truncate">
@@ -180,7 +188,7 @@ export default function VibeSwitcherBar({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span
-                        className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border-2 relative bg-obsidian"
+                        className="w-16 h-11 rounded-xl overflow-hidden shrink-0 border-2 relative bg-obsidian"
                         style={{ borderColor: VIBE_HEX[v.theme].primary }}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -4,10 +4,10 @@ import React from "react";
 import Sheet from "@/components/ui/Sheet";
 import Icon from "@/components/ui/Icon";
 import LokaScene from "@/components/brand/LokaScene";
-import { NusantaraPatternStrip } from "@/components/brand/NusantaraOrnaments";
+import { RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { distanceMeters, formatDistance } from "@/lib/geo";
 import type { TravelMode, WalkingRoute } from "@/lib/route";
-import { spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
+import { FEATURE_COVER_IMAGE, spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
 import type { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 
 interface CulturalTrailSheetProps {
@@ -60,16 +60,15 @@ export default function CulturalTrailSheet({
   const nextStop = orderedSpots.find((s) => !checkedInSpotIds.includes(s.id)) ?? orderedSpots[0] ?? null;
 
   const header = (
-    <div className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id="trail-sheet-title" className="font-display text-xl min-[380px]:text-2xl font-extrabold text-alabaster leading-tight">
-            Rute Jelajah Kawasan
-          </h2>
-          <p className="text-xs text-pebble mt-1">
-            Urutan kunjung terpendek di {regionName || "kawasan ini"} untuk jelajah berurutan.
-          </p>
-        </div>
+    <RegionCoverBanner
+      vibe={vibe}
+      imageSrc={FEATURE_COVER_IMAGE.jelajah}
+      compact
+      as="h2"
+      titleId="trail-sheet-title"
+      title="Rute Jelajah Kawasan"
+      subtitle={`Urutan kunjung terpendek di ${regionName || "kawasan ini"} untuk jelajah berurutan.`}
+      rightSlot={
         <button
           type="button"
           onClick={onClose}
@@ -78,9 +77,8 @@ export default function CulturalTrailSheet({
         >
           <Icon name="close" size={18} weight="bold" />
         </button>
-      </div>
-      <NusantaraPatternStrip vibe={vibe} height={8} />
-    </div>
+      }
+    />
   );
 
   return (

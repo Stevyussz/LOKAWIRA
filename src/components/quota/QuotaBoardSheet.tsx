@@ -6,15 +6,17 @@ import { DEMO_MODE } from "@/lib/api";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
 import LokaScene from "@/components/brand/LokaScene";
-import { CulturalSpot } from "@/types/lokawira";
+import { RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 import { anchorSpot } from "@/lib/geo";
 import { needsBooking } from "@/lib/spotRules";
 import { formatRupiah } from "@/lib/format";
-import { spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
+import { FEATURE_COVER_IMAGE, spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
 
 interface QuotaBoardSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  vibe?: CulturalVibe;
   // titik di kawasan aktif
   spots: CulturalSpot[];
   // pesan jadwal masuk utk satu titik (membuka SmartQuotaModal)
@@ -34,7 +36,7 @@ const LEVEL_META: Record<Level, { label: string; icon: IconName; text: string; b
 const levelOf = (ratio: number): Level => (ratio >= 0.85 ? "FULL" : ratio >= 0.6 ? "WARN" : "SAFE");
 
 // papan Antrean: gambaran seluruh titik di kawasan, diurutkan dr yg paing padat
-export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShowOnMap }: QuotaBoardSheetProps) {
+export default function QuotaBoardSheet({ isOpen, onClose, vibe = "majapahit", spots, onBook, onShowOnMap }: QuotaBoardSheetProps) {
   const rows = useMemo(
     () =>
       spots
@@ -49,31 +51,32 @@ export default function QuotaBoardSheet({ isOpen, onClose, spots, onBook, onShow
   const bestReward = partners.reduce((m, s) => Math.max(m, s.quest.voucherReward.discountAmount), 0);
 
   const header = (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <h2 id="quota-board-title" className="font-display text-xl min-[380px]:text-2xl font-extrabold text-alabaster leading-tight">
-          Papan Antrean
-        </h2>
-        <p className="text-xs text-pebble mt-1">
-          Pilih tujuan yang lengang. {DEMO_MODE ? <span className="font-bold">Angka kuota adalah data demo.</span> : <span>Angka kuota diperbarui pengelola kawasan.</span>}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Tutup Papan Antrean"
-        className="btn-tactile-secondary min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
-      >
-        <Icon name="close" size={18} weight="bold" />
-      </button>
-    </div>
+    <RegionCoverBanner
+      vibe={vibe}
+      imageSrc={FEATURE_COVER_IMAGE.jelajah}
+      compact
+      as="h2"
+      titleId="quota-board-title"
+      title="Papan Antrean"
+      subtitle={`Pilih tujuan yang lengang. ${DEMO_MODE ? "Angka kuota adalah data demo." : "Angka kuota diperbarui pengelola kawasan."}`}
+      rightSlot={
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Tutup Papan Antrean"
+          className="btn-tactile-secondary min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+        >
+          <Icon name="close" size={18} weight="bold" />
+        </button>
+      }
+    />
   );
 
   return (
     <Sheet isOpen={isOpen} onClose={onClose} titleId="quota-board-title" header={header}>
       {rows.length === 0 ? (
         <div className="py-8 text-center space-y-3">
-          <LokaScene scene="empty-map" size={104} />
+          <LokaScene scene="empty-map" vibe={vibe} size={104} />
           <p className="text-base font-extrabold text-alabaster">Belum ada titik di kawasan ini</p>
           <p className="text-sm text-pebble">Pindah kawasan dari pemilih di atas peta.</p>
         </div>

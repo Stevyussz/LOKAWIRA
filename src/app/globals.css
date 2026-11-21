@@ -381,6 +381,30 @@ body {
   background-color: var(--vibe-primary);
 }
 
+/* Pita batik Kawung/Tumpal berulang untuk tajuk Sheet & navigasi bawah */
+.batik-ribbon {
+  height: 10px;
+  background-color: var(--vibe-surface-tint);
+  background-image:
+    radial-gradient(circle 4.5px at 9px 5px, transparent 2.8px, var(--vibe-primary) 3px, var(--vibe-primary) 4.2px, transparent 4.5px),
+    radial-gradient(circle 2px at 9px 5px, var(--vibe-accent) 1.6px, transparent 2px),
+    radial-gradient(circle 2.5px at 0px 5px, var(--vibe-primary) 2px, transparent 2.3px),
+    radial-gradient(circle 2.5px at 18px 5px, var(--vibe-primary) 2px, transparent 2.3px);
+  background-size: 18px 10px;
+  background-repeat: repeat-x;
+}
+
+/* Tekstur batik Kawung halus pada stub voucer berwarna */
+.batik-stub-bg {
+  background-image:
+    radial-gradient(circle at 12px 12px, rgba(255, 248, 236, 0.16) 4px, transparent 4.5px),
+    radial-gradient(circle at 0px 0px, rgba(255, 248, 236, 0.12) 3px, transparent 3.5px),
+    radial-gradient(circle at 24px 0px, rgba(255, 248, 236, 0.12) 3px, transparent 3.5px),
+    radial-gradient(circle at 0px 24px, rgba(255, 248, 236, 0.12) 3px, transparent 3.5px),
+    radial-gradient(circle at 24px 24px, rgba(255, 248, 236, 0.12) 3px, transparent 3.5px);
+  background-size: 24px 24px;
+}
+
 /* batang suara pas Loka berbicara (transform aja, ringan) */
 @keyframes audioBar { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
 .audio-bar { transform-origin: bottom; animation: audioBar 0.9s ease-in-out infinite; }

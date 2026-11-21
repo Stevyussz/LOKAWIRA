@@ -1,5 +1,5 @@
 import type { IconName } from "@/components/ui/Icon";
-import type { CulturalVibe, SpotType } from "@/types/lokawira";
+import type { CulturalSpot, CulturalVibe, SpotType } from "@/types/lokawira";
 
 // Metadata tampilan titik & palet peta per kawasan (sinkron dengan [data-vibe] di globals.css)
 export const SPOT_TYPE_LABEL: Record<SpotType, string> = {
@@ -31,6 +31,28 @@ export const REGION_COVER_IMAGE: Record<CulturalVibe, string> = {
   tridatu: "/images/cover-tridatu.webp",
   ukiran: "/images/cover-ukiran.webp",
 };
+
+export const FEATURE_COVER_IMAGE = {
+  kuliner: "/images/cover-kuliner.webp",
+  kriya: "/images/cover-kriya.webp",
+  sanggar: "/images/cover-sanggar.webp",
+  tas: "/images/cover-tas.webp",
+  kisah: "/images/cover-kisah.webp",
+  jelajah: "/images/cover-jelajah.webp",
+} as const;
+
+export function spotCoverImage(spot: Pick<CulturalSpot, "spotType" | "vibe">): string {
+  switch (spot.spotType) {
+    case "SANGGAR_SENI":
+      return FEATURE_COVER_IMAGE.sanggar;
+    case "UMKM_KULINER":
+      return FEATURE_COVER_IMAGE.kuliner;
+    case "UMKM_KRIYA":
+      return FEATURE_COVER_IMAGE.kriya;
+    default:
+      return REGION_COVER_IMAGE[spot.vibe] ?? REGION_COVER_IMAGE.majapahit;
+  }
+}
 
 export interface VibeMapPalette {
   land: string;

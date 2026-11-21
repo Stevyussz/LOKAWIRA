@@ -7,9 +7,11 @@ import { api, DEMO_MODE, describeError } from "@/lib/api";
 import { useAuth } from "@/components/layout/AuthProvider";
 import { motion } from "motion/react";
 import Sheet from "@/components/ui/Sheet";
+import { NusantaraPatternStrip, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { CulturalSpot, IssuedVoucher, ReservationPass } from "@/types/lokawira";
 import { availableSlotsFor, entryOf, isCrowded as crowdedNow } from "@/lib/spotRules";
 import { formatRupiah } from "@/lib/format";
+import { spotCoverImage } from "@/lib/spotMeta";
 import type { RedirectNote } from "@/types/api";
 
 interface SmartQuotaModalProps {
@@ -104,28 +106,27 @@ export default function SmartQuotaModal({
   };
 
   const header = (
-    <div className="flex items-center justify-between gap-3">
-      <div>
-            <span className="text-xs font-bold text-vibePrimary">
-              Tiket masuk terjadwal
-            </span>
-            <h2
-              id="smart-quota-title"
-              className="text-lg sm:text-xl font-extrabold text-alabaster"
-            >
-              Pesan jadwal masuk
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Tutup Modal Reservasi (Escape)"
-            className="btn-tactile-secondary min-h-[44px] px-3.5 py-1.5 text-xs flex items-center gap-1.5"
-          >
-            <Icon name="close" size={16} weight="bold" />
-            <span>Tutup</span>
-          </button>
-        </div>
+    <RegionCoverBanner
+      vibe={spot.vibe}
+      imageSrc={spotCoverImage(spot)}
+      compact
+      as="h2"
+      titleId="smart-quota-title"
+      eyebrow="Tiket masuk terjadwal"
+      title="Pesan jadwal masuk"
+      subtitle={spot.name}
+      rightSlot={
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Tutup Modal Reservasi (Escape)"
+          className="btn-tactile-secondary min-h-[44px] px-3.5 py-1.5 text-xs flex items-center gap-1.5"
+        >
+          <Icon name="close" size={16} weight="bold" />
+          <span>Tutup</span>
+        </button>
+      }
+    />
   );
 
   return (
@@ -325,7 +326,7 @@ export default function SmartQuotaModal({
             className="ticket-shadow"
           >
             <div className="ticket-cut-h rounded-2xl overflow-hidden border border-stoneSubtle">
-              <div className="h-2 bg-vibePrimary" aria-hidden="true" />
+              <NusantaraPatternStrip vibe={spot.vibe} height={12} />
               <div className="tumpal-edge" aria-hidden="true" />
               <div className="p-5 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">

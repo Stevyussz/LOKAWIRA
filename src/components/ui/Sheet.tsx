@@ -101,8 +101,9 @@ export default function Sheet({
               animate={{ y: 0 }}
               exit={{ y: "100%", transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
               transition={{ type: "spring", stiffness: 420, damping: 42, mass: 0.9 }}
-              className={`relative w-full ${maxWidthClass} max-h-[92dvh] flex flex-col bg-basalt rounded-t-[28px] sm:rounded-[28px] border border-stoneSubtle shadow-[0_-18px_40px_-18px_rgba(74,52,28,0.5)] outline-none`}
+              className={`relative w-full ${maxWidthClass} max-h-[92dvh] flex flex-col overflow-hidden bg-basalt rounded-t-[28px] sm:rounded-[28px] border border-stoneSubtle shadow-[0_-18px_40px_-18px_rgba(74,52,28,0.5)] outline-none`}
             >
+              <div aria-hidden="true" className="batik-ribbon shrink-0" />
               <div
                 onPointerDown={(e) => controls.start(e)}
                 className="touch-none cursor-grab active:cursor-grabbing pt-3 pb-2 flex justify-center shrink-0"

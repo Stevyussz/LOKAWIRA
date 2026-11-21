@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import Icon, { IconName } from "@/components/ui/Icon";
+import { RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { describeError } from "@/lib/api";
+import { FEATURE_COVER_IMAGE } from "@/lib/spotMeta";
 import { useAuth } from "@/components/layout/AuthProvider";
 import ApprovalQueue from "@/components/admin/ApprovalQueue";
 import AdminSpotsPanel from "@/components/admin/AdminSpotsPanel";
@@ -55,21 +57,28 @@ function AdminContent() {
   return (
     <div className="min-h-screen flex flex-col pb-16">
       <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-6 py-6 space-y-5">
-        <header className="gamiz-card px-4 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="font-display text-lg sm:text-xl font-extrabold text-alabaster leading-tight">Dasbor Pengelola</h1>
-            <p className="text-xs text-pebble truncate">{user?.name}</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href="/" className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
-              <Icon name="back" size={16} weight="bold" />
-              <span>Peta</span>
-            </Link>
-            <button type="button" onClick={() => logout()} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
-              <Icon name="signOut" size={16} />
-              <span>Keluar</span>
-            </button>
-          </div>
+        <header>
+          <RegionCoverBanner
+            vibe={activeVibe}
+            imageSrc={FEATURE_COVER_IMAGE.jelajah}
+            compact
+            as="h1"
+            eyebrow="PANEL KURASI & KAWASAN"
+            title="Dasbor Pengelola"
+            subtitle={user?.name}
+            rightSlot={
+              <div className="flex items-center gap-2 shrink-0">
+                <Link href="/" className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
+                  <Icon name="back" size={16} weight="bold" />
+                  <span>Peta</span>
+                </Link>
+                <button type="button" onClick={() => logout()} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
+                  <Icon name="signOut" size={16} />
+                  <span>Keluar</span>
+                </button>
+              </div>
+            }
+          />
         </header>
 
         {adminToast && (

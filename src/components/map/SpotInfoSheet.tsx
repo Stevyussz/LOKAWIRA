@@ -3,10 +3,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
+import { NusantaraPatternStrip, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { API_BASE } from "@/lib/api";
 import { ENTRY_LABEL, entryOf, hoursText, needsBooking, openState, tzOf } from "@/lib/spotRules";
 import { formatEventLongDateTime, formatRupiah } from "@/lib/format";
-import { SPOT_TYPE_LABEL } from "@/lib/spotMeta";
+import { spotCoverImage, SPOT_TYPE_LABEL } from "@/lib/spotMeta";
 import type { CulturalSpot, EventOccurrence } from "@/types/lokawira";
 
 interface Props {
@@ -150,7 +151,22 @@ export default function SpotInfoSheet({ spot, isOpen, onClose, nextEvent, onGuid
   return (
     <Sheet isOpen={isOpen} onClose={onClose} titleId="spot-info-title" header={header} maxWidthClass="sm:max-w-xl">
       <div className="space-y-5 pt-1 pb-2">
-        <Gallery spot={spot} />
+        {(spot.gallery?.length ?? 0) > 0 ? (
+          <div className="space-y-2.5">
+            <Gallery spot={spot} />
+            <NusantaraPatternStrip vibe={spot.vibe} height={10} className="rounded-xl overflow-hidden" />
+          </div>
+        ) : (
+          <RegionCoverBanner
+            vibe={spot.vibe}
+            imageSrc={spotCoverImage(spot)}
+            compact
+            as="p"
+            eyebrow={SPOT_TYPE_LABEL[spot.spotType]}
+            title={spot.name}
+            subtitle={spot.regionName}
+          />
+        )}
 
         {about && <p className="text-sm text-alabaster leading-relaxed">{about}</p>}
 

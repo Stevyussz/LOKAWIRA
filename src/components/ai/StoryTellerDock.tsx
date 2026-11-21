@@ -1,10 +1,11 @@
 "use client";
 
-import Loka from "@/components/brand/Loka";
+import { BatikWatermark, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
 import { api, describeError } from "@/lib/api";
+import { FEATURE_COVER_IMAGE } from "@/lib/spotMeta";
 import { CulturalSpot } from "@/types/lokawira";
 import type { LokaMode } from "@/types/api";
 import { suggestQuestions } from "@/lib/loka";
@@ -154,85 +155,71 @@ export default function StoryTellerDock({
       style={{ transformOrigin: "top left" }}
       className="fixed top-[132px] left-3 sm:left-5 z-20 w-[calc(100vw-1.5rem)] sm:w-[380px] max-h-[calc(100dvh-240px)] overflow-y-auto pointer-events-auto"
     >
-      <div
-        className="gamiz-card p-4"
-      >
-        {/* Compact Companion Header (Always Visible) */}
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* avatar Loka */}
-            <div className="w-11 h-11 rounded-2xl bg-slateElev flex items-center justify-center shrink-0">
-              <Loka variant="mark" size={34} mood={isLoadingAi ? "think" : "happy"} />
+      <div className="gamiz-card overflow-hidden">
+        <RegionCoverBanner
+          vibe={selectedSpot.vibe}
+          imageSrc={FEATURE_COVER_IMAGE.kisah}
+          compact
+          as="h2"
+          eyebrow={`Loka · ${selectedSpot.opkCategory}`}
+          title={selectedSpot.name}
+          className="rounded-none border-0 border-b border-stoneSubtle"
+          rightSlot={
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleToggleTts}
+                aria-label={isSpeaking ? "Hentikan Suara" : "Putar Suara Kisah"}
+                className={`min-h-[44px] min-w-[44px] rounded-2xl flex items-center justify-center transition-colors shadow-sm ${
+                  isSpeaking
+                    ? "bg-vibePrimary text-[var(--vibe-on-primary)]"
+                    : "bg-basalt text-alabaster hover:bg-slateElev"
+                }`}
+              >
+                {isSpeaking ? (
+                  <span aria-hidden="true" className="flex items-end gap-[3px] h-5">
+                    {[0, 1, 2, 3].map((i) => (
+                      <span key={i} className="audio-bar w-[3px] h-full rounded-full bg-current" style={{ animationDelay: `${i * 120}ms` }} />
+                    ))}
+                  </span>
+                ) : (
+                  <Icon name="speaker" size={20} motion="pop" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                aria-expanded={isExpanded}
+                aria-label={isExpanded ? "Sembunyikan Cerita" : "Buka Cerita"}
+                className="min-h-[44px] min-w-[44px] rounded-2xl bg-basalt hover:bg-slateElev text-alabaster flex items-center justify-center transition-colors shadow-sm"
+              >
+                {isExpanded ? (
+                  <Icon name="up" size={16} weight="bold" />
+                ) : (
+                  <Icon name="down" size={16} weight="bold" />
+                )}
+              </button>
             </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-extrabold text-vibePrimary">
-                  Loka
-                </span>
-                <span className="text-[11px] text-pebble truncate">
-                  • {selectedSpot.opkCategory}
-                </span>
-              </div>
-              <h2 className="text-sm font-extrabold text-alabaster truncate">
-                {selectedSpot.name}
-              </h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={handleToggleTts}
-              aria-label={isSpeaking ? "Hentikan Suara" : "Putar Suara Kisah"}
-              className={`min-h-[44px] min-w-[44px] rounded-2xl flex items-center justify-center transition-colors ${
-                isSpeaking
-                  ? "bg-vibePrimary text-[var(--vibe-on-primary)]"
-                  : "bg-slateElev text-alabaster hover:bg-pumice"
-              }`}
-            >
-              {isSpeaking ? (
-                <span aria-hidden="true" className="flex items-end gap-[3px] h-5">
-                  {[0, 1, 2, 3].map((i) => (
-                    <span key={i} className="audio-bar w-[3px] h-full rounded-full bg-current" style={{ animationDelay: `${i * 120}ms` }} />
-                  ))}
-                </span>
-              ) : (
-                <Icon name="speaker" size={20} motion="pop" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? "Sembunyikan Cerita" : "Buka Cerita"}
-              className="min-h-[44px] min-w-[44px] rounded-2xl bg-slateElev hover:bg-pumice text-alabaster flex items-center justify-center transition-colors"
-            >
-              {isExpanded ? (
-                <Icon name="up" size={16} weight="bold" />
-              ) : (
-                <Icon name="down" size={16} weight="bold" />
-              )}
-            </button>
-          </div>
-        </div>
+          }
+        />
 
         {/* Expanded Story & Riddle Content */}
         {isExpanded && (
-          <div className="mt-3.5 space-y-3">
-            <div className="bg-obsidian/80 rounded-2xl p-3.5">
+          <div className="p-4 pt-3 space-y-3">
+            <div className="relative overflow-hidden bg-obsidian/80 rounded-2xl p-3.5 border border-stoneSubtle">
+              <BatikWatermark vibe={selectedSpot.vibe} />
               <motion.p
                 key={narrative}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.25 }}
-                className="font-serif text-xs sm:text-sm text-alabaster leading-relaxed"
+                className="relative z-10 font-serif text-xs sm:text-sm text-alabaster leading-relaxed"
               >
                 &ldquo;{displayedText}&rdquo;
               </motion.p>
 
-              <p className="mt-2 pt-2 border-t border-stoneSubtle text-[11px] text-pebble flex items-center gap-1.5">
+              <p className="relative z-10 mt-2 pt-2 border-t border-stoneSubtle text-[11px] text-pebble flex items-center gap-1.5">
                 <Icon name="story" size={16} className="text-vibePrimary" motion="pop" />
                 <span className="truncate">{selectedSpot.quest.verifiedLoreSource}</span>
               </p>

@@ -4,8 +4,10 @@ import React from "react";
 import Link from "next/link";
 import Icon from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
+import { BatikWatermark, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { ROLE_LABEL, useAuth } from "@/components/layout/AuthProvider";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
+import { FEATURE_COVER_IMAGE } from "@/lib/spotMeta";
 import AccountSecurity from "@/components/layout/AccountSecurity";
 import { useLocation } from "@/components/layout/LocationProvider";
 import { levelProgress } from "@/lib/progress";
@@ -20,7 +22,7 @@ interface AccountSheetProps {
 // Akun: pengunjung boleh tnpa akun; mitra & pengelola masuk utk membuka dasbor masing-masing
 export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
   const { user, status, logout } = useAuth();
-  const { lokaPoints, loreCards, checkedInSpotIds, vouchers } = useLokawira();
+  const { activeVibe, lokaPoints, loreCards, checkedInSpotIds, vouchers } = useLokawira();
   const { consent: locConsent, revokeConsent } = useLocation();
   const lv = levelProgress(lokaPoints);
   const stats = [
@@ -30,38 +32,44 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
   ];
 
   const journey = (
-    <section aria-labelledby="journey-title" className="rounded-2xl bg-slateElev p-4 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h3 id="journey-title" className="text-sm font-extrabold text-alabaster">Perjalananku</h3>
-        <p className="text-sm font-extrabold text-alabaster">
-          Level <span className="font-num">{lv.level}</span>
-        </p>
+    <section aria-labelledby="journey-title" className="relative overflow-hidden rounded-2xl bg-slateElev border border-stoneSubtle">
+      <BatikWatermark vibe={activeVibe} />
+      <RegionCoverBanner
+        vibe={activeVibe}
+        imageSrc={FEATURE_COVER_IMAGE.tas}
+        compact
+        as="h3"
+        titleId="journey-title"
+        eyebrow={`Level ${lv.level}`}
+        title="Perjalananku"
+        subtitle={`${lokaPoints} XP · ${lv.needed} XP lagi ke level ${lv.level + 1}`}
+        rightSlot={<PrasastiSeal size={40} />}
+        className="rounded-none border-0"
+      />
+      <div className="relative z-10 p-4 pt-3 space-y-3">
+        <div
+          role="progressbar"
+          aria-label="Progres menuju level berikutnya"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={lv.percent}
+          className="h-2.5 rounded-full bg-pumice overflow-hidden"
+        >
+          <div className="h-full rounded-full bg-vibePrimary transition-[width] duration-500" style={{ width: `${lv.percent}%` }} />
+        </div>
+        <ul className="grid grid-cols-3 gap-2">
+          {stats.map((st) => (
+            <li key={st.label} className="rounded-xl bg-basalt px-2 py-2.5 text-center border border-stoneSubtle">
+              <Icon name={st.icon} size={18} className="mx-auto text-vibePrimary" />
+              <p className="mt-1 font-num text-base font-extrabold text-alabaster">{st.value}</p>
+              <p className="text-[11px] leading-tight text-pebble">{st.label}</p>
+            </li>
+          ))}
+        </ul>
+        {!(status === "authed" && user) && (
+          <p className="text-[11px] text-pebble leading-snug">Belum tersimpan. Progres tamu hilang kalau halaman ditutup. Masuk supaya XP, kisah, dan voucermu aman.</p>
+        )}
       </div>
-      <div
-        role="progressbar"
-        aria-label="Progres menuju level berikutnya"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={lv.percent}
-        className="h-2.5 rounded-full bg-pumice overflow-hidden"
-      >
-        <div className="h-full rounded-full bg-vibePrimary transition-[width] duration-500" style={{ width: `${lv.percent}%` }} />
-      </div>
-      <p className="text-xs text-pebble">
-        <span className="font-num font-bold text-alabaster">{lokaPoints}</span> XP · <span className="font-num">{lv.needed}</span> XP lagi ke level {lv.level + 1}
-      </p>
-      <ul className="grid grid-cols-3 gap-2">
-        {stats.map((st) => (
-          <li key={st.label} className="rounded-xl bg-basalt px-2 py-2.5 text-center">
-            <Icon name={st.icon} size={18} className="mx-auto text-vibePrimary" />
-            <p className="mt-1 font-num text-base font-extrabold text-alabaster">{st.value}</p>
-            <p className="text-[11px] leading-tight text-pebble">{st.label}</p>
-          </li>
-        ))}
-      </ul>
-      {!(status === "authed" && user) && (
-        <p className="text-[11px] text-pebble leading-snug">Belum tersimpan. Progres tamu hilang kalau halaman ditutup. Masuk supaya XP, kisah, dan voucermu aman.</p>
-      )}
     </section>
   );
 

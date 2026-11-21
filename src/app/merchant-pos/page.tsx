@@ -15,9 +15,10 @@ import GettingStarted, { MerchantMenu } from "@/components/merchant/GettingStart
 import RegisterSpotForm from "@/components/merchant/RegisterSpotForm";
 import ScanPromoPanel, { DEFAULT_TARGET } from "@/components/merchant/ScanPromoPanel";
 import Icon, { IconName } from "@/components/ui/Icon";
+import { RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { formatCoord } from "@/lib/geo";
 import { formatRupiah } from "@/lib/format";
-import { SPOT_TYPE_ICON, SPOT_TYPE_LABEL } from "@/lib/spotMeta";
+import { FEATURE_COVER_IMAGE, SPOT_TYPE_ICON, SPOT_TYPE_LABEL } from "@/lib/spotMeta";
 
 function MerchantPosContent() {
   const searchParams = useSearchParams();
@@ -62,25 +63,28 @@ function MerchantPosContent() {
   return (
     <div className="min-h-screen flex flex-col pb-16">
       <main className="flex-1 max-w-[1160px] w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
-        {/* Header ringkas */}
-        <header className="gamiz-card px-4 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="font-display text-lg sm:text-xl font-extrabold text-alabaster leading-tight">Dasbor Mitra</h1>
-            <p className="text-xs text-pebble truncate">
-              {user?.name}
-              {isAdmin ? " · tampilan pengelola (semua lapak)" : ""}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href="/" className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
-              <Icon name="back" size={16} weight="bold" />
-              <span>Peta</span>
-            </Link>
-            <button type="button" onClick={() => logout()} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
-              <Icon name="signOut" size={16} />
-              <span>Keluar</span>
-            </button>
-          </div>
+        <header>
+          <RegionCoverBanner
+            vibe={activeVibe}
+            imageSrc={FEATURE_COVER_IMAGE.kriya}
+            compact
+            as="h1"
+            eyebrow="PORTAL MITRA UMKM & SANGGAR"
+            title="Dasbor Mitra"
+            subtitle={`${user?.name ?? ""}${isAdmin ? " · tampilan pengelola (semua lapak)" : ""}`}
+            rightSlot={
+              <div className="flex items-center gap-2 shrink-0">
+                <Link href="/" className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
+                  <Icon name="back" size={16} weight="bold" />
+                  <span>Peta</span>
+                </Link>
+                <button type="button" onClick={() => logout()} className="btn-tactile-secondary min-h-[44px] px-3.5 text-xs inline-flex items-center gap-1.5">
+                  <Icon name="signOut" size={16} />
+                  <span>Keluar</span>
+                </button>
+              </div>
+            }
+          />
         </header>
 
         {accountBlocked && (

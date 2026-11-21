@@ -1,5 +1,5 @@
 // Service worker LOKAWIRA. Ganti VERSION tiap ubah strategi cache biar cache lama dibuang
-const VERSION = "lkw-v2";
+const VERSION = "lkw-v3";
 const STATIC = `${VERSION}-static`;
 const PAGES = `${VERSION}-pages`;
 const PRECACHE = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/manifest.webmanifest", "/images/auth-nusantara.webp"];

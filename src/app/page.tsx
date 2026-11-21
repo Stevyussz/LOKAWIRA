@@ -657,6 +657,7 @@ export default function LokawiraExplorerPage() {
       <VoucherWalletSheet
         isOpen={isWalletOpen}
         onClose={() => setIsWalletOpen(false)}
+        activeVibe={activeVibe}
         lokaPoints={lokaPoints}
         vouchers={vouchers}
         reservations={reservations}
@@ -670,6 +671,7 @@ export default function LokawiraExplorerPage() {
       <NeedsSearchSheet
         isOpen={isNeedsOpen}
         onClose={() => setIsNeedsOpen(false)}
+        vibe={activeVibe}
         spots={regionalSpots}
         userPosition={userPosition}
         onShowOnMap={(spot) => {
@@ -687,6 +689,7 @@ export default function LokawiraExplorerPage() {
       <AgendaSheet
         isOpen={isAgendaOpen}
         onClose={() => setIsAgendaOpen(false)}
+        vibe={activeVibe}
         regionName={activeRegion ? `${activeRegion.name}, ${activeRegion.label}` : "kawasan ini"}
         occurrences={agenda}
         error={agendaError}
@@ -703,6 +706,7 @@ export default function LokawiraExplorerPage() {
       <QuotaBoardSheet
         isOpen={isBoardOpen}
         onClose={() => setIsBoardOpen(false)}
+        vibe={activeVibe}
         spots={regionalSpots}
         onBook={(spot) => {
           setSelectedSpot(spot);

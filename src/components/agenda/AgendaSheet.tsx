@@ -4,15 +4,18 @@ import React, { useMemo } from "react";
 import Sheet from "@/components/ui/Sheet";
 import Icon from "@/components/ui/Icon";
 import LokaScene from "@/components/brand/LokaScene";
+import { BatikWatermark, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import { FEATURE_COVER_IMAGE } from "@/lib/spotMeta";
 import { downloadIcs } from "@/lib/ics";
 import { trackOnce } from "@/lib/track";
 import { entryOf, ENTRY_LABEL, tzOf, TZ_LABEL } from "@/lib/spotRules";
 import { repeatText } from "@/lib/eventRules";
-import type { CulturalSpot, EventOccurrence } from "@/types/lokawira";
+import type { CulturalSpot, CulturalVibe, EventOccurrence } from "@/types/lokawira";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  vibe?: CulturalVibe;
   regionName: string;
   occurrences: EventOccurrence[] | null; // null = masih dimuat
   error: string | null;
@@ -22,7 +25,7 @@ interface Props {
 }
 
 // agenda budaya: acara 30 hari ke depan di kawasan, dikelompokkan per hari
-export default function AgendaSheet({ isOpen, onClose, regionName, occurrences, error, onRetry, spots, onShowOnMap }: Props) {
+export default function AgendaSheet({ isOpen, onClose, vibe = "majapahit", regionName, occurrences, error, onRetry, spots, onShowOnMap }: Props) {
   const byId = useMemo(() => new Map(spots.map((s) => [s.id, s])), [spots]);
 
   const groups = useMemo(() => {
@@ -45,15 +48,20 @@ export default function AgendaSheet({ isOpen, onClose, regionName, occurrences, 
   }, [occurrences, byId]);
 
   const header = (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <h2 id="agenda-title" className="font-display text-xl min-[380px]:text-2xl font-extrabold text-alabaster leading-tight">Agenda budaya</h2>
-        <p className="text-xs text-pebble mt-1">Acara 30 hari ke depan di {regionName}. Tekan Ingatkan aku supaya tidak terlewat.</p>
-      </div>
-      <button type="button" onClick={onClose} aria-label="Tutup agenda" className="btn-tactile-secondary min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0">
-        <Icon name="close" size={18} weight="bold" />
-      </button>
-    </div>
+    <RegionCoverBanner
+      vibe={vibe}
+      imageSrc={FEATURE_COVER_IMAGE.sanggar}
+      compact
+      as="h2"
+      titleId="agenda-title"
+      title="Agenda budaya"
+      subtitle={`Acara 30 hari ke depan di ${regionName}. Tekan Ingatkan aku supaya tidak terlewat.`}
+      rightSlot={
+        <button type="button" onClick={onClose} aria-label="Tutup agenda" className="btn-tactile-secondary min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0">
+          <Icon name="close" size={18} weight="bold" />
+        </button>
+      }
+    />
   );
 
   return (
@@ -67,7 +75,7 @@ export default function AgendaSheet({ isOpen, onClose, regionName, occurrences, 
         <p role="status" className="py-8 text-center text-sm text-pebble">Memuat agenda</p>
       ) : groups.length === 0 ? (
         <div className="py-8 text-center space-y-3">
-          <LokaScene scene="empty-agenda" size={104} />
+          <LokaScene scene="empty-agenda" vibe={vibe} size={104} />
           <p className="text-base font-extrabold text-alabaster">Belum ada acara terjadwal</p>
           <p className="text-sm text-pebble">Sanggar dan lapak di kawasan ini belum mengisi jadwal. Coba kawasan lain, atau jelajahi titiknya di peta.</p>
         </div>
@@ -83,8 +91,9 @@ export default function AgendaSheet({ isOpen, onClose, regionName, occurrences, 
                   const t = (iso: string) => new Intl.DateTimeFormat("id-ID", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
                   const en = s ? entryOf(s) : null;
                   return (
-                    <li key={`${o.eventId}-${o.startsAt}`} className="list-none rounded-2xl bg-slateElev p-4 space-y-2">
-                      <div className="flex items-start gap-3">
+                    <li key={`${o.eventId}-${o.startsAt}`} className="relative overflow-hidden list-none rounded-2xl bg-slateElev border border-stoneSubtle border-l-4 border-l-vibePrimary p-4 space-y-2">
+                      <BatikWatermark vibe={vibe} />
+                      <div className="relative z-10 flex items-start gap-3">
                         <span className="font-num text-sm font-extrabold text-alabaster shrink-0 w-[92px]">
                           {t(o.startsAt)}–{t(o.endsAt)}
                           <span className="block text-[11px] font-bold text-pebble">{TZ_LABEL[tz]}</span>

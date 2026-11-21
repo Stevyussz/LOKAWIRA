@@ -4,10 +4,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
+import { BatikWatermark, NusantaraCornerFrame, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { API_BASE, ApiError, api, DEMO_MODE, describeError } from "@/lib/api";
 import { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import { fileToJpeg, shrinkToJpeg, ACCEPTED_IMAGE_TYPES } from "@/lib/image";
 import { formatRupiah } from "@/lib/format";
+import { FEATURE_COVER_IMAGE } from "@/lib/spotMeta";
 import {
   CulturalSpot,
   IssuedVoucher,
@@ -16,7 +18,6 @@ import {
 } from "@/types/lokawira";
 import { CULTURAL_OBJECT_SAMPLES } from "@/lib/seedCulturalData";
 import Link from "next/link";
-import Loka from "@/components/brand/Loka";
 import { LocationError, useLocation } from "@/components/layout/LocationProvider";
 import { formatDistance } from "@/lib/geo";
 import { motionReduced } from "@/lib/motionPref";
@@ -301,6 +302,7 @@ export default function ObjectLensScanner({
 
         {/* bidik AR: lensa gelap biar retikel & laser terabca jelas (kontras tinggi) */}
         <div className="relative w-full h-64 rounded-3xl bg-alabaster overflow-hidden text-[var(--vibe-on-primary)]">
+          <NusantaraCornerFrame size={22} className="z-10" />
           {!cameraActive && previewUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={previewUrl} alt="Foto yang akan dipindai" className="absolute inset-0 w-full h-full object-cover opacity-90" />
@@ -515,40 +517,34 @@ export default function ObjectLensScanner({
             initial={{ opacity: 0, y: 28, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="rounded-3xl bg-slateElev"
+            className="rounded-3xl bg-slateElev overflow-hidden border border-stoneSubtle"
           >
-            <div className="p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 12, delay: 0.25 }}
-                    className="inline-flex"
-                  >
-                    <Loka variant="mark" size={40} mood="cheer" motion="hop" />
-                  </motion.span>
-                  <div>
-                    <span className="text-xs font-bold text-quotaSafe block">
-                      Kartu Koleksi Terbuka ({Math.round(scanResult.confidenceScore * 100)}% Akurat)
+            <RegionCoverBanner
+              vibe={activeSpot?.vibe ?? "majapahit"}
+              imageSrc={FEATURE_COVER_IMAGE.kisah}
+              compact
+              as="h3"
+              eyebrow={`Kartu Koleksi Terbuka (${Math.round(scanResult.confidenceScore * 100)}% Akurat)`}
+              title={scanResult.detectedObjectName}
+              className="rounded-none border-0 border-b border-stoneSubtle"
+              rightSlot={
+                <div className="flex items-center gap-2">
+                  {scanResult.awardedPoints > 0 && (
+                    <span className="font-num text-xs font-extrabold px-3 py-1.5 rounded-full bg-basalt text-vibeSecondary shadow-sm">
+                      +{scanResult.awardedPoints} XP
                     </span>
-                    <h3 className="text-base font-extrabold text-alabaster">
-                      {scanResult.detectedObjectName}
-                    </h3>
-                  </div>
+                  )}
+                  <PrasastiSeal size={38} accuracyPct={Math.round(scanResult.confidenceScore * 100)} />
                 </div>
-                {scanResult.awardedPoints > 0 && (
-                  <span className="font-num text-xs font-extrabold px-3 py-1.5 rounded-full bg-obsidian text-vibeSecondary">
-                    +{scanResult.awardedPoints} XP
-                  </span>
-                )}
-              </div>
-
-              <div className="bg-obsidian rounded-2xl p-4">
-                <p className="font-serif text-sm text-alabaster leading-relaxed">
+              }
+            />
+            <div className="p-5 space-y-4">
+              <div className="relative overflow-hidden bg-obsidian rounded-2xl p-4 border border-stoneSubtle">
+                <BatikWatermark vibe={activeSpot?.vibe ?? "majapahit"} />
+                <p className="relative z-10 font-serif text-sm text-alabaster leading-relaxed">
                   {scanResult.culturalStory}
                 </p>
-                <p className="text-[11px] text-pebble mt-2">
+                <p className="relative z-10 text-[11px] text-pebble mt-2">
                   Sumber: {scanResult.verifiedSource}
                 </p>
               </div>
