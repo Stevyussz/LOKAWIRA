@@ -2,10 +2,10 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { VIBE_HEX } from "@/lib/vibeColors";
-import { REGION_COVER_IMAGE } from "@/lib/spotMeta";
+import { VIBE_MAP_PALETTE } from "@/lib/spotMeta";
 import { SPOT_FILTER_OPTIONS, SpotFilter } from "@/lib/spotFilter";
 import { useReducedMotionConfig } from "@/lib/motionPref";
+import { NusantaraEmblem } from "@/components/brand/NusantaraOrnaments";
 import Icon from "@/components/ui/Icon";
 import { Region } from "@/types/lokawira";
 
@@ -130,18 +130,12 @@ export default function VibeSwitcherBar({
             aria-expanded={regionMenuOpen}
             className="andesite-glass w-full h-[56px] pl-2 pr-3 rounded-full flex items-center gap-2.5 hover:bg-slateElev transition-colors"
           >
-            <span
-              className="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 bg-obsidian"
-              style={{ borderColor: VIBE_HEX[currentVibe.theme].primary }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={REGION_COVER_IMAGE[currentVibe.theme]}
-                alt=""
-                aria-hidden="true"
-                className="w-full h-full object-cover"
-              />
-            </span>
+            <NusantaraEmblem
+              vibe={currentVibe.theme}
+              size={40}
+              color={VIBE_MAP_PALETTE[currentVibe.theme].primary}
+              accent={VIBE_MAP_PALETTE[currentVibe.theme].accent}
+            />
             <span className="min-w-0 flex-1 text-left leading-tight">
               <span className="sr-only">Pilih kawasan: </span>
               <span className="block text-sm font-extrabold text-alabaster truncate">
@@ -187,18 +181,12 @@ export default function VibeSwitcherBar({
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span
-                        className="w-16 h-11 rounded-xl overflow-hidden shrink-0 border-2 relative bg-obsidian"
-                        style={{ borderColor: VIBE_HEX[v.theme].primary }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={REGION_COVER_IMAGE[v.theme]}
-                          alt=""
-                          aria-hidden="true"
-                          className="w-full h-full object-cover"
-                        />
-                      </span>
+                      <NusantaraEmblem
+                        vibe={v.theme}
+                        size={38}
+                        color={VIBE_MAP_PALETTE[v.theme].primary}
+                        accent={VIBE_MAP_PALETTE[v.theme].accent}
+                      />
                       <div className="min-w-0">
                         <span className="text-sm font-extrabold block truncate">{v.shortName}</span>
                         <span className="text-xs text-pebble block truncate">{v.regionLabel}</span>

@@ -67,7 +67,6 @@ function MerchantPosContent() {
           <RegionCoverBanner
             vibe={activeVibe}
             imageSrc={FEATURE_COVER_IMAGE.kriya}
-            compact
             as="h1"
             eyebrow="PORTAL MITRA UMKM & SANGGAR"
             title="Dasbor Mitra"

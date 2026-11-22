@@ -36,7 +36,7 @@ export default function BottomNavConsole({
       <nav
         aria-label="Navigasi petualang"
         style={{ bottom: "calc(12px + env(safe-area-inset-bottom))" }}
-        className="fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-[420px] andesite-glass rounded-[22px] p-1.5 overflow-hidden"
+        className="fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-[420px] andesite-glass rounded-[22px] p-1.5"
       >
         <div className="grid grid-cols-4 gap-1">
           {ITEMS.map((item) => {
@@ -92,7 +92,6 @@ export default function BottomNavConsole({
             );
           })}
         </div>
-        <div aria-hidden="true" className="batik-ribbon h-[5px] -mx-1.5 -mb-1.5 mt-1 opacity-90" />
       </nav>
     </MotionConfig>
   );

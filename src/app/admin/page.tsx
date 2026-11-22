@@ -61,7 +61,6 @@ function AdminContent() {
           <RegionCoverBanner
             vibe={activeVibe}
             imageSrc={FEATURE_COVER_IMAGE.jelajah}
-            compact
             as="h1"
             eyebrow="PANEL KURASI & KAWASAN"
             title="Dasbor Pengelola"

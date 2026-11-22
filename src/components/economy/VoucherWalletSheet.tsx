@@ -75,11 +75,13 @@ function EmptyState({
 function VoucherTicket({
   voucher,
   index,
+  vibe = "majapahit",
   copied,
   onCopy,
 }: {
   voucher: IssuedVoucher;
   index: number;
+  vibe?: CulturalVibe;
   copied: boolean;
   onCopy: () => void;
 }) {
@@ -90,15 +92,16 @@ function VoucherTicket({
     <motion.li {...itemMotion(index)} className="ticket-shadow list-none">
       {/* voucer nonaktif dibedain lewat warna stub & label, bkn opacity (opacity bikin teks gagal kontras 4,5:1) */}
       <div className="ticket-cut-v relative flex rounded-2xl overflow-hidden border border-stoneSubtle">
-        {/* Stub: nilai potongan, sisi yg dilhiat pertama */}
+        {/* Stub: nilai potongan, sisi yg dilhiat pertama, dengan motif batik SVG autentik */}
         <div
-          className={`w-[96px] shrink-0 batik-stub-bg flex flex-col items-center justify-center text-center px-1.5 py-3 ${
+          className={`relative overflow-hidden w-[96px] shrink-0 flex flex-col items-center justify-center text-center px-1.5 py-3 ${
             active ? "bg-vibePrimary text-[var(--vibe-on-primary)]" : "bg-pumice text-alabaster"
           }`}
         >
-          <span className="text-[10px] font-extrabold tracking-wide">POTONGAN</span>
-          <span className="font-num text-[11px] font-extrabold mt-1">Rp</span>
-          <span className="font-display font-extrabold text-[26px] leading-none tracking-tight whitespace-nowrap">
+          <BatikWatermark vibe={vibe} tone={active ? "light" : "vibe"} />
+          <span className="relative z-10 text-[10px] font-extrabold tracking-wide">POTONGAN</span>
+          <span className="relative z-10 font-num text-[11px] font-extrabold mt-1">Rp</span>
+          <span className="relative z-10 font-display font-extrabold text-[26px] leading-none tracking-tight whitespace-nowrap">
             {voucher.discountAmount.toLocaleString("id-ID")}
           </span>
         </div>
@@ -405,7 +408,7 @@ export default function VoucherWalletSheet({
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="wallet-sheet-title" header={header}>
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="wallet-sheet-title" header={header} vibe={activeVibe}>
       <div id="wallet-panel" role="tabpanel" aria-labelledby={`wallet-tab-${activeTab}`}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -432,6 +435,7 @@ export default function VoucherWalletSheet({
                       key={v.code}
                       voucher={v}
                       index={i}
+                      vibe={activeVibe}
                       copied={copiedCode === v.code}
                       onCopy={() => handleCopyCode(v.code)}
                     />

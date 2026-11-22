@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Icon, { type IconName } from "@/components/ui/Icon";
 import Loka from "@/components/brand/Loka";
-import { NusantaraCornerFrame, NusantaraPatternStrip, PrasastiSeal } from "@/components/brand/NusantaraOrnaments";
+import { NusantaraCornerFrame, NusantaraDivider, NusantaraPatternStrip, PrasastiSeal } from "@/components/brand/NusantaraOrnaments";
 import RequireRole from "@/components/layout/RequireRole";
 import { useAuth } from "@/components/layout/AuthProvider";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
@@ -130,12 +130,12 @@ function ImpactReportContent() {
         data-vibe={activeRegionObj?.theme ?? activeVibe}
         className="relative rounded-3xl bg-basalt border border-stoneSubtle overflow-hidden shadow-md print:shadow-none print:rounded-none print:border-stoneStrong"
       >
-        <NusantaraPatternStrip vibe={activeRegionObj?.theme ?? activeVibe} height={10} />
+        <NusantaraPatternStrip vibe={activeRegionObj?.theme ?? activeVibe} height={16} />
 
         <div className="relative p-6 sm:p-8 space-y-6">
-          <NusantaraCornerFrame size={26} />
+          <NusantaraCornerFrame size={30} />
 
-          <header className="relative z-10 flex flex-wrap items-start justify-between gap-4 border-b border-stoneSubtle pb-5">
+          <header className="relative z-10 flex flex-wrap items-start justify-between gap-4 pb-2">
             <div className="space-y-1.5">
               <div className="flex items-center gap-2.5">
                 <Loka variant="mark" size={34} />
@@ -150,8 +150,9 @@ function ImpactReportContent() {
                 Cakupan: <strong className="text-alabaster">{scopeLabel}</strong> · Dicetak {generatedLabel}
               </p>
             </div>
-            <PrasastiSeal size={52} />
+            <PrasastiSeal size={54} />
           </header>
+          <NusantaraDivider className="relative z-10" />
 
           {err ? (
             <div role="alert" className="relative z-10 rounded-2xl bg-obsidian p-5 space-y-3">
@@ -282,7 +283,7 @@ function ImpactReportContent() {
           </footer>
         </div>
 
-        <NusantaraPatternStrip vibe={activeRegionObj?.theme ?? activeVibe} height={10} />
+        <NusantaraPatternStrip vibe={activeRegionObj?.theme ?? activeVibe} height={14} />
       </article>
     </main>
   );

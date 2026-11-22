@@ -82,7 +82,7 @@ export default function CulturalTrailSheet({
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="trail-sheet-title" header={header}>
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="trail-sheet-title" header={header} vibe={vibe}>
       {orderedSpots.length < 2 ? (
         <div className="py-8 text-center space-y-3">
           <LokaScene scene="empty-map" vibe={vibe} size={104} />

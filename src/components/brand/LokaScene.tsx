@@ -80,7 +80,7 @@ export default function LokaScene({
         <Loka variant="full" size={size * 0.72} mood={cfg.mood} motion={cfg.motion} />
       </div>
       <div className="w-full -mx-5 mt-1">
-        <NusantaraPatternStrip vibe={vibe} height={6} />
+        <NusantaraPatternStrip vibe={vibe} height={10} />
       </div>
     </div>
   );

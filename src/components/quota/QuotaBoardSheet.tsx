@@ -6,12 +6,12 @@ import { DEMO_MODE } from "@/lib/api";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
 import LokaScene from "@/components/brand/LokaScene";
-import { RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import { NusantaraEmblem } from "@/components/brand/NusantaraOrnaments";
 import { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 import { anchorSpot } from "@/lib/geo";
 import { needsBooking } from "@/lib/spotRules";
 import { formatRupiah } from "@/lib/format";
-import { FEATURE_COVER_IMAGE, spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
+import { spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
 
 interface QuotaBoardSheetProps {
   isOpen: boolean;
@@ -51,29 +51,31 @@ export default function QuotaBoardSheet({ isOpen, onClose, vibe = "majapahit", s
   const bestReward = partners.reduce((m, s) => Math.max(m, s.quest.voucherReward.discountAmount), 0);
 
   const header = (
-    <RegionCoverBanner
-      vibe={vibe}
-      imageSrc={FEATURE_COVER_IMAGE.jelajah}
-      compact
-      as="h2"
-      titleId="quota-board-title"
-      title="Papan Antrean"
-      subtitle={`Pilih tujuan yang lengang. ${DEMO_MODE ? "Angka kuota adalah data demo." : "Angka kuota diperbarui pengelola kawasan."}`}
-      rightSlot={
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Tutup Papan Antrean"
-          className="btn-tactile-secondary min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
-        >
-          <Icon name="close" size={18} weight="bold" />
-        </button>
-      }
-    />
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <NusantaraEmblem vibe={vibe} size={40} />
+        <div className="min-w-0">
+          <h2 id="quota-board-title" className="font-display text-xl font-extrabold text-alabaster leading-tight">
+            Papan Antrean
+          </h2>
+          <p className="text-xs text-pebble mt-0.5">
+            Pilih tujuan yang lengang. {DEMO_MODE ? "Angka kuota adalah data demo." : "Angka kuota diperbarui pengelola kawasan."}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Tutup Papan Antrean"
+        className="btn-tactile-secondary min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+      >
+        <Icon name="close" size={18} weight="bold" />
+      </button>
+    </div>
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="quota-board-title" header={header}>
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="quota-board-title" header={header} vibe={vibe}>
       {rows.length === 0 ? (
         <div className="py-8 text-center space-y-3">
           <LokaScene scene="empty-map" vibe={vibe} size={104} />

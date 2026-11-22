@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import Sheet from "@/components/ui/Sheet";
 import Icon from "@/components/ui/Icon";
 import LokaScene from "@/components/brand/LokaScene";
-import { BatikWatermark, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import { RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { FEATURE_COVER_IMAGE } from "@/lib/spotMeta";
 import { downloadIcs } from "@/lib/ics";
 import { trackOnce } from "@/lib/track";
@@ -65,7 +65,7 @@ export default function AgendaSheet({ isOpen, onClose, vibe = "majapahit", regio
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="agenda-title" header={header}>
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="agenda-title" header={header} vibe={vibe}>
       {error ? (
         <div role="alert" className="py-8 text-center space-y-3">
           <p className="text-sm font-bold text-quotaFull">{error}</p>
@@ -91,9 +91,8 @@ export default function AgendaSheet({ isOpen, onClose, vibe = "majapahit", regio
                   const t = (iso: string) => new Intl.DateTimeFormat("id-ID", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
                   const en = s ? entryOf(s) : null;
                   return (
-                    <li key={`${o.eventId}-${o.startsAt}`} className="relative overflow-hidden list-none rounded-2xl bg-slateElev border border-stoneSubtle border-l-4 border-l-vibePrimary p-4 space-y-2">
-                      <BatikWatermark vibe={vibe} />
-                      <div className="relative z-10 flex items-start gap-3">
+                    <li key={`${o.eventId}-${o.startsAt}`} className="list-none rounded-2xl bg-slateElev border border-stoneSubtle border-l-4 border-l-vibePrimary p-4 space-y-2">
+                      <div className="flex items-start gap-3">
                         <span className="font-num text-sm font-extrabold text-alabaster shrink-0 w-[92px]">
                           {t(o.startsAt)}–{t(o.endsAt)}
                           <span className="block text-[11px] font-bold text-pebble">{TZ_LABEL[tz]}</span>

@@ -3,6 +3,8 @@
 import React, { useEffect, useRef } from "react";
 import { AnimatePresence, MotionConfig, motion, useDragControls } from "motion/react";
 import { useReducedMotionConfig } from "@/lib/motionPref";
+import { NusantaraPatternStrip } from "@/components/brand/NusantaraOrnaments";
+import type { CulturalVibe } from "@/types/lokawira";
 
 interface SheetProps {
   isOpen: boolean;
@@ -14,6 +16,8 @@ interface SheetProps {
   children: React.ReactNode;
   // kelas lebar maksimmum panel di layar lebar
   maxWidthClass?: string;
+  // motif batik tepi atas mengikuti kawasan aktif
+  vibe?: CulturalVibe;
 }
 
 const FOCUSABLE =
@@ -27,6 +31,7 @@ export default function Sheet({
   header,
   children,
   maxWidthClass = "sm:max-w-2xl",
+  vibe = "majapahit",
 }: SheetProps) {
   const reducedMotion = useReducedMotionConfig();
   const controls = useDragControls();
@@ -103,10 +108,12 @@ export default function Sheet({
               transition={{ type: "spring", stiffness: 420, damping: 42, mass: 0.9 }}
               className={`relative w-full ${maxWidthClass} max-h-[92dvh] flex flex-col overflow-hidden bg-basalt rounded-t-[28px] sm:rounded-[28px] border border-stoneSubtle shadow-[0_-18px_40px_-18px_rgba(74,52,28,0.5)] outline-none`}
             >
-              <div aria-hidden="true" className="batik-ribbon shrink-0" />
+              <div aria-hidden="true" className="shrink-0 border-b border-stoneSubtle">
+                <NusantaraPatternStrip vibe={vibe} height={14} />
+              </div>
               <div
                 onPointerDown={(e) => controls.start(e)}
-                className="touch-none cursor-grab active:cursor-grabbing pt-3 pb-2 flex justify-center shrink-0"
+                className="touch-none cursor-grab active:cursor-grabbing pt-2.5 pb-1.5 flex justify-center shrink-0"
                 aria-hidden="true"
               >
                 <span className="w-11 h-1.5 rounded-full bg-[var(--map-road-edge)]" />

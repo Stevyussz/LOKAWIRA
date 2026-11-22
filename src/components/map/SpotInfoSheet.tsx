@@ -149,18 +149,17 @@ export default function SpotInfoSheet({ spot, isOpen, onClose, nextEvent, onGuid
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="spot-info-title" header={header} maxWidthClass="sm:max-w-xl">
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="spot-info-title" header={header} maxWidthClass="sm:max-w-xl" vibe={spot.vibe}>
       <div className="space-y-5 pt-1 pb-2">
         {(spot.gallery?.length ?? 0) > 0 ? (
           <div className="space-y-2.5">
             <Gallery spot={spot} />
-            <NusantaraPatternStrip vibe={spot.vibe} height={10} className="rounded-xl overflow-hidden" />
+            <NusantaraPatternStrip vibe={spot.vibe} height={14} className="rounded-xl overflow-hidden" />
           </div>
         ) : (
           <RegionCoverBanner
             vibe={spot.vibe}
             imageSrc={spotCoverImage(spot)}
-            compact
             as="p"
             eyebrow={SPOT_TYPE_LABEL[spot.spotType]}
             title={spot.name}

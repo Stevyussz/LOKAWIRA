@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Icon from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
-import { BatikWatermark, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import { NusantaraEmblem, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { ROLE_LABEL, useAuth } from "@/components/layout/AuthProvider";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 import { FEATURE_COVER_IMAGE } from "@/lib/spotMeta";
@@ -32,8 +32,7 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
   ];
 
   const journey = (
-    <section aria-labelledby="journey-title" className="relative overflow-hidden rounded-2xl bg-slateElev border border-stoneSubtle">
-      <BatikWatermark vibe={activeVibe} />
+    <section aria-labelledby="journey-title" className="overflow-hidden rounded-2xl bg-slateElev border border-stoneSubtle">
       <RegionCoverBanner
         vibe={activeVibe}
         imageSrc={FEATURE_COVER_IMAGE.tas}
@@ -43,10 +42,10 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
         eyebrow={`Level ${lv.level}`}
         title="Perjalananku"
         subtitle={`${lokaPoints} XP · ${lv.needed} XP lagi ke level ${lv.level + 1}`}
-        rightSlot={<PrasastiSeal size={40} />}
+        rightSlot={<PrasastiSeal size={42} />}
         className="rounded-none border-0"
       />
-      <div className="relative z-10 p-4 pt-3 space-y-3">
+      <div className="p-4 pt-3 space-y-3">
         <div
           role="progressbar"
           aria-label="Progres menuju level berikutnya"
@@ -81,10 +80,13 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
   ) : null;
 
   const header = (
-    <div className="flex items-start justify-between gap-3">
-      <h2 id="account-sheet-title" className="font-display text-xl min-[380px]:text-2xl font-extrabold text-alabaster leading-tight">
-        Akun
-      </h2>
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <NusantaraEmblem vibe={activeVibe} size={36} />
+        <h2 id="account-sheet-title" className="font-display text-xl min-[380px]:text-2xl font-extrabold text-alabaster leading-tight">
+          Akun
+        </h2>
+      </div>
       <button
         type="button"
         onClick={onClose}
@@ -97,7 +99,7 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="account-sheet-title" header={header} maxWidthClass="sm:max-w-md">
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="account-sheet-title" header={header} maxWidthClass="sm:max-w-md" vibe={activeVibe}>
       {status === "authed" && user ? (
         <div className="space-y-4 pt-1">
           <div className="flex items-center gap-3">

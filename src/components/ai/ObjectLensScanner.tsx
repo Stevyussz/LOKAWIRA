@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import Icon from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
-import { BatikWatermark, NusantaraCornerFrame, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import { BatikWatermark, NusantaraCornerFrame, NusantaraEmblem, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import { API_BASE, ApiError, api, DEMO_MODE, describeError } from "@/lib/api";
 import { DEFAULT_TARGET } from "@/components/merchant/ScanObjectEditor";
 import { fileToJpeg, shrinkToJpeg, ACCEPTED_IMAGE_TYPES } from "@/lib/image";
@@ -275,20 +275,23 @@ export default function ObjectLensScanner({
 
   const header = (
     <div className="flex items-center justify-between gap-3">
-      <div>
-        <span className="text-xs font-bold text-vibePrimary">
-          {activeSpot ? activeSpot.name.split("&")[0].trim() : "Pemindai objek"}
-        </span>
-        <h2 id="lens-scanner-title" className="text-lg sm:text-xl font-extrabold text-alabaster">
-          Pindai objek, dapat hadiah
-        </h2>
+      <div className="flex items-center gap-3 min-w-0">
+        <NusantaraEmblem vibe={activeSpot?.vibe ?? "majapahit"} size={40} />
+        <div className="min-w-0">
+          <span className="text-xs font-bold text-vibePrimary">
+            {activeSpot ? activeSpot.name.split("&")[0].trim() : "Pemindai objek"}
+          </span>
+          <h2 id="lens-scanner-title" className="font-display text-lg sm:text-xl font-extrabold text-alabaster leading-tight">
+            Pindai objek, dapat hadiah
+          </h2>
+        </div>
       </div>
 
       <button
         type="button"
         onClick={onClose}
         aria-label="Tutup Pemindai Kamera (Escape)"
-        className="btn-tactile-secondary min-h-[44px] px-3.5 py-1.5 text-xs flex items-center gap-1.5"
+        className="btn-tactile-secondary min-h-[44px] px-3.5 py-1.5 text-xs flex items-center gap-1.5 shrink-0"
       >
         <Icon name="close" size={16} weight="bold" />
         <span>Tutup</span>
@@ -297,7 +300,7 @@ export default function ObjectLensScanner({
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="lens-scanner-title" header={header} maxWidthClass="sm:max-w-2xl">
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="lens-scanner-title" header={header} maxWidthClass="sm:max-w-2xl" vibe={activeSpot?.vibe ?? "majapahit"}>
       <div className="space-y-5 pt-1">
 
         {/* bidik AR: lensa gelap biar retikel & laser terabca jelas (kontras tinggi) */}

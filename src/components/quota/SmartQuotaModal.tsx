@@ -130,7 +130,7 @@ export default function SmartQuotaModal({
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="smart-quota-title" header={header}>
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="smart-quota-title" header={header} vibe={spot.vibe}>
       <div className="space-y-5 pt-1">
         {/* Capacity Status Bar */}
         <div className="bg-obsidian p-4 rounded-2xl space-y-2.5">

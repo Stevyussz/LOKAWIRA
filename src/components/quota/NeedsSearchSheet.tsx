@@ -5,11 +5,11 @@ import { motion } from "motion/react";
 import Icon, { IconName } from "@/components/ui/Icon";
 import Sheet from "@/components/ui/Sheet";
 import LokaScene from "@/components/brand/LokaScene";
-import { RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import { NusantaraEmblem } from "@/components/brand/NusantaraOrnaments";
 import { CulturalSpot, CulturalVibe } from "@/types/lokawira";
 import { distanceMeters, formatDistance, LatLng, regionOrigin } from "@/lib/geo";
 import { formatRupiah } from "@/lib/format";
-import { FEATURE_COVER_IMAGE, spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
+import { spotTypeIcon, spotTypeLabel } from "@/lib/spotMeta";
 
 interface NeedsSearchSheetProps {
   isOpen: boolean;
@@ -79,25 +79,27 @@ export default function NeedsSearchSheet({ isOpen, onClose, vibe = "majapahit", 
 
   const header = (
     <div className="space-y-3">
-      <RegionCoverBanner
-        vibe={vibe}
-        imageSrc={FEATURE_COVER_IMAGE.kuliner}
-        compact
-        as="h2"
-        titleId="needs-sheet-title"
-        title="Butuh apa?"
-        subtitle="Cari makan, minum, oleh-oleh, atau fasilitas di sekitar."
-        rightSlot={
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Tutup pencarian"
-            className="btn-tactile-secondary min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
-          >
-            <Icon name="close" size={18} weight="bold" />
-          </button>
-        }
-      />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <NusantaraEmblem vibe={vibe} size={40} />
+          <div className="min-w-0">
+            <h2 id="needs-sheet-title" className="font-display text-xl font-extrabold text-alabaster leading-tight">
+              Butuh apa?
+            </h2>
+            <p className="text-xs text-pebble mt-0.5">
+              Cari makan, minum, oleh-oleh, atau fasilitas di sekitar.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Tutup pencarian"
+          className="btn-tactile-secondary min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+        >
+          <Icon name="close" size={18} weight="bold" />
+        </button>
+      </div>
 
       <label className="relative block">
         <span className="sr-only">Cari nama tempat atau fasilitas</span>
@@ -139,10 +141,10 @@ export default function NeedsSearchSheet({ isOpen, onClose, vibe = "majapahit", 
   );
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} titleId="needs-sheet-title" header={header}>
+    <Sheet isOpen={isOpen} onClose={onClose} titleId="needs-sheet-title" header={header} vibe={vibe}>
       {results.length === 0 ? (
         <div className="py-8 text-center space-y-3">
-          <LokaScene scene="empty-search" size={104} />
+          <LokaScene scene="empty-search" vibe={vibe} size={104} />
           <p className="text-base font-extrabold text-alabaster">
             {query ? `Tidak ada yang cocok dengan "${query}"` : "Belum ada tempat untuk kebutuhan ini"}
           </p>

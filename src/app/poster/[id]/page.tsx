@@ -4,7 +4,7 @@ import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import Loka from "@/components/brand/Loka";
-import { NusantaraCornerFrame, NusantaraPatternStrip, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
+import { NusantaraCornerFrame, NusantaraDivider, NusantaraPatternStrip, PrasastiSeal, RegionCoverBanner } from "@/components/brand/NusantaraOrnaments";
 import Icon from "@/components/ui/Icon";
 import { useLokawira } from "@/components/layout/LokawiraProvider";
 
@@ -54,9 +54,9 @@ export default function PosterPage({ params }: { params: Promise<{ id: string }>
         data-vibe={spot.vibe}
         className="relative w-full max-w-[148mm] rounded-3xl bg-basalt border-4 border-vibePrimary overflow-hidden print:border-[3mm] print:rounded-none print:max-w-none print:h-[200mm] flex flex-col justify-between"
       >
-        <NusantaraPatternStrip vibe={spot.vibe} height={10} />
+        <NusantaraPatternStrip vibe={spot.vibe} height={16} />
         <div className="relative flex-1 p-5 sm:p-7 flex flex-col items-center text-center gap-3.5 justify-center">
-          <NusantaraCornerFrame size={26} />
+          <NusantaraCornerFrame size={30} />
           <div className="relative z-10 w-full">
             <RegionCoverBanner
               vibe={spot.vibe}
@@ -69,8 +69,9 @@ export default function PosterPage({ params }: { params: Promise<{ id: string }>
           <div className="relative z-10 flex items-center justify-center gap-3 pt-1">
             <Loka variant="mark" size={38} />
             <span className="font-display text-lg font-extrabold text-vibePrimary tracking-wide">LOKAWIRA</span>
-            <PrasastiSeal size={36} />
+            <PrasastiSeal size={40} />
           </div>
+          <NusantaraDivider className="relative z-10 w-full max-w-xs" />
           <p className="relative z-10 text-sm text-pebble max-w-sm">
             Pindai QR ini dengan kamera HP untuk membuka kisah budaya, jadwal acara, dan voucer kunjungan.
           </p>
@@ -89,7 +90,7 @@ export default function PosterPage({ params }: { params: Promise<{ id: string }>
             <p className="text-xs font-bold text-alabaster">{spot.regionName}</p>
           </div>
         </div>
-        <NusantaraPatternStrip vibe={spot.vibe} height={10} />
+        <NusantaraPatternStrip vibe={spot.vibe} height={16} />
       </article>
     </main>
   );
