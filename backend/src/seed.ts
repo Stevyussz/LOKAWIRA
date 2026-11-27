@@ -5,9 +5,13 @@ import type { CulturalSpot } from "../../src/types/lokawira";
 import { pool, tx } from "./db.js";
 import { hashPassword } from "./core.js";
 
-// Data contoh (5 kawasan demo, 10 titik, acara, voucer, & rujukan Loka kawasan itu) cuma diisi kalo SEED_SAMPLE_DATA=true
-// (QA otomatis / lokal). Produksi fokus ke Jember: yg diisi cuma kawasan Jember + rujukannya, dan data contoh lama dihapus
-export const SAMPLE_DATA = process.env.SEED_SAMPLE_DATA === "true";
+// Data contoh (5 kawasan demo, 10 titik, acara, voucer, & rujukan Loka kawasan itu) diisi kalo SEED_SAMPLE_DATA=true,
+// atau otomatis menyala saat DEMO_ACCOUNTS=true bila SEED_SAMPLE_DATA tidak diset (agar akun uji juri selalu punya titik & voucer).
+// Bila SEED_SAMPLE_DATA=false secara eksplisit (uji lapangan produksi Jember): yg diisi cuma kawasan Jember + rujukannya.
+export const SAMPLE_DATA =
+  process.env.SEED_SAMPLE_DATA !== undefined
+    ? process.env.SEED_SAMPLE_DATA === "true"
+    : process.env.DEMO_ACCOUNTS === "true";
 
 const SAMPLE_REGION_IDS = INITIAL_REGIONS.filter((r) => r.id !== FOCUS_REGION_ID).map((r) => r.id);
 const SAMPLE_SPOT_IDS = [...INITIAL_CULTURAL_SPOTS.map((s) => s.id), "spot-demo-pending"];
@@ -62,6 +66,16 @@ async function upsertUser(id: string, name: string, email: string, role: string,
 export async function seed() {
   if (!SAMPLE_DATA) await purgeSampleData();
   await tx(async (c) => {
+    if (SAMPLE_DATA) {
+      // Kalo kembali ke mode data contoh (penjurian) & kawasan Jember masih 0 titik, kembalikan ke DRAFT sesuai proposal
+      await c.query(
+        `UPDATE entities SET payload = payload || '{"label":"Jember (rencana survei)","status":"DRAFT"}'::jsonb
+         WHERE kind='region' AND id=$1
+           AND payload->>'label' = $2
+           AND NOT EXISTS (SELECT 1 FROM entities s WHERE s.kind='spot' AND s.payload->>'regionId'=$1)`,
+        [FOCUS_REGION_ID, FOCUS_REGION.label]
+      );
+    }
     const now = new Date().toISOString();
     // waktu buat data awal sengaja dibikin berurutan & lebih tua dr data baru: urutan peta tetap sama tiap start
     // (dulu semua sama persis jadi urutannya acak). Titik: yg pertama di seed = paling baru di antara data awal
